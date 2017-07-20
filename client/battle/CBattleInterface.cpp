@@ -1697,7 +1697,7 @@ void CBattleInterface::enterCreatureCastingMode()
 	{
 		const ISpellCaster *caster = activeStack;
 		const CSpell *spell = SpellID(creatureSpellToCast).toSpell();
-		const bool isCastingPossible = (spell->canBeCastAt(curInt->cb.get(), ECastingMode::CREATURE_ACTIVE_CASTING, caster, BattleHex::INVALID) == ESpellCastProblem::OK);
+		const bool isCastingPossible = spell->canBeCastAt(curInt->cb.get(), ECastingMode::CREATURE_ACTIVE_CASTING, caster, BattleHex::INVALID);
 
 		if (isCastingPossible)
 		{
@@ -2540,7 +2540,7 @@ bool CBattleInterface::isCastingPossibleHere(const CStack *sactive, const CStack
 		else
 		{
 			const ECastingMode::ECastingMode mode = creatureCasting ? ECastingMode::CREATURE_ACTIVE_CASTING : ECastingMode::HERO_CASTING;
-			isCastingPossible = (sp->canBeCastAt(curInt->cb.get(), mode, caster, myNumber) == ESpellCastProblem::OK);
+			isCastingPossible = sp->canBeCastAt(curInt->cb.get(), mode, caster, myNumber);
 		}
 	}
 	else
@@ -3153,11 +3153,8 @@ void CBattleInterface::showHighlightedHexes(SDL_Surface *to)
 
 				if(caster && spell) //when casting spell
 				{
-					//calculating spell school level
-					ui8 schoolLevel = caster->getSpellSchoolLevel(spell);
-
 					// printing shaded hex(es)
-					auto shaded = spell->rangeInHexes(currentlyHoveredHex, schoolLevel, curInt->cb->battleGetMySide());
+					auto shaded = spell->rangeInHexes(curInt->cb.get(), caster, currentlyHoveredHex);
 					for(BattleHex shadedHex : shaded)
 					{
 						if((shadedHex.getX() != 0) && (shadedHex.getX() != GameConstants::BFIELD_WIDTH - 1))

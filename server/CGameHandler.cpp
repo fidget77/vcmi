@@ -3911,7 +3911,7 @@ bool CGameHandler::makeBattleAction(BattleAction &ba)
 				break;
 			}
 
-			if (destinationStack && stack && stack->ID == destinationStack->ID) //we should just move, it will be handled by following check
+			if (destinationStack && stack->ID == destinationStack->ID) //we should just move, it will be handled by following check
 			{
 				destinationStack = nullptr;
 			}
@@ -3937,13 +3937,11 @@ bool CGameHandler::makeBattleAction(BattleAction &ba)
 
 			for (int i = 0; i < totalAttacks; ++i)
 			{
-				if (stack &&
-					stack->alive() && //move can cause death, eg. by walking into the moat
-					destinationStack->alive())
+				//move can cause death, eg. by walking into the moat
+				if (stack->alive() && destinationStack->alive())
 				{
 					BattleAttack bat;
 					prepareAttack(bat, stack, destinationStack, (i ? 0 : distance),  ba.additionalInfo); //no distance travelled on second attack
-					//prepareAttack(bat, stack, stackAtEnd, 0, ba.additionalInfo);
 					handleAttackBeforeCasting(&bat); //only before first attack
 					sendAndApply(&bat);
 					handleAfterAttackCasting(bat);
@@ -4641,7 +4639,7 @@ bool CGameHandler::handleDamageFromObstacle(const CStack * curStack, bool stackI
 			effect = 82;
 			const CSpell * sp = SpellID(SpellID::LAND_MINE).toSpell();
 
-			if(sp->isImmuneByStack(hero, curStack))
+			if(sp->isImmuneByStack(gs->curB, hero, curStack))
 				continue;
 
 			damage = sp->calculateDamage(hero, curStack, spellObstacle->spellLevel, spellObstacle->casterSpellPower);
@@ -4654,7 +4652,7 @@ bool CGameHandler::handleDamageFromObstacle(const CStack * curStack, bool stackI
 				COMPLAIN_RET("Invalid obstacle instance");
 			const CSpell * sp = SpellID(SpellID::FIRE_WALL).toSpell();
 
-			if(sp->isImmuneByStack(hero, curStack))
+			if(sp->isImmuneByStack(gs->curB, hero, curStack))
 				continue;
 
 			damage = sp->calculateDamage(hero, curStack,
@@ -5261,7 +5259,7 @@ void CGameHandler::attackCasting(const BattleAttack & bat, Bonus::BonusType atta
 			vstd::amin(chance, 100);
 
 			const CSpell * spell = SpellID(spellID).toSpell();
-			if(spell->canBeCastAt(gs->curB, ECastingMode::AFTER_ATTACK_CASTING, attacker, oneOfAttacked->position) != ESpellCastProblem::OK)
+			if(!spell->canBeCastAt(gs->curB, ECastingMode::AFTER_ATTACK_CASTING, attacker, oneOfAttacked->position))
 				continue;
 
 			//check if spell should be cast (probability handling)

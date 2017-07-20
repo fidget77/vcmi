@@ -10,6 +10,7 @@
 
 #pragma once
 #include "Magic.h"
+#include "../JsonNode.h"
 #include "../IHandlerBase.h"
 #include "../ConstTransitivePtr.h"
 #include "../int3.h"
@@ -20,6 +21,7 @@
 class CGObjectInstance;
 class CSpell;
 class ISpellMechanics;
+class ISpellMechanicsFactory;
 class IAdventureSpellMechanics;
 class CLegacyConfigParser;
 class CGHeroInstance;
@@ -31,8 +33,8 @@ struct BattleSpellCast;
 class CGameInfoCallback;
 class CRandomGenerator;
 class CMap;
-struct AdventureSpellCastParameters;
-struct BattleSpellCastParameters;
+class AdventureSpellCastParameters;
+class BattleSpellCastParameters;
 class SpellCastEnvironment;
 
 struct SpellSchoolInfo
@@ -139,10 +141,12 @@ public:
 		std::vector<std::shared_ptr<Bonus>> effects;
 		std::vector<std::shared_ptr<Bonus>> cumulativeEffects;
 
+		JsonNode specialEffects;
+
 		LevelInfo();
 		~LevelInfo();
 
-		template <typename Handler> void serialize(Handler &h, const int version)
+		template <typename Handler> void serialize(Handler & h, const int version)
 		{
 			h & description;
 			h & cost;
@@ -173,6 +177,9 @@ public:
 
 			h & clearTarget;
 			h & clearAffected;
+
+			if(version >= 780)
+				h & specialEffects;
 		}
 	};
 
@@ -182,10 +189,22 @@ public:
 	 * \return Spell level info structure
 	 *
 	 */
-	const CSpell::LevelInfo& getLevelInfo(const int level) const;
+	const CSpell::LevelInfo & getLevelInfo(const int level) const;
 public:
-	enum ETargetType {NO_TARGET, CREATURE, OBSTACLE, LOCATION};
-	enum ESpellPositiveness {NEGATIVE = -1, NEUTRAL = 0, POSITIVE = 1};
+	enum ETargetType
+	{
+		NO_TARGET,
+		CREATURE,
+		OBSTACLE,
+		LOCATION
+	};
+
+	enum ESpellPositiveness
+	{
+		NEGATIVE = -1,
+		NEUTRAL = 0,
+		POSITIVE = 1
+	};
 
 	struct DLL_LINKAGE TargetInfo
 	{
@@ -227,7 +246,8 @@ public:
 	CSpell();
 	~CSpell();
 
-	std::vector<BattleHex> rangeInHexes(BattleHex centralHex, ui8 schoolLvl, ui8 side, bool * outDroppedHexes = nullptr ) const; //convert range to specific hexes; last optional out parameter is set to true, if spell would cover unavailable hexes (that are not included in ret)
+	std::vector<BattleHex> rangeInHexes(const CBattleInfoCallback * cb, const ISpellCaster * caster, BattleHex centralHex) const;
+
 	ETargetType getTargetType() const; //deprecated
 
 	bool isCombatSpell() const;
@@ -249,6 +269,7 @@ public:
 	bool hasEffects() const;
 	void getEffects(std::vector<Bonus> & lst, const int level, const bool cumulative, const si32 duration, boost::optional<si32 *> maxDuration = boost::none) const;
 
+	bool hasSpecialEffects() const;
 	///calculate spell damage on stack taking caster`s secondary skills and affectedCreature`s bonuses into account
 	ui32 calculateDamage(const ISpellCaster * caster, const CStack * affectedCreature, int spellSchoolLevel, int usedSpellPower) const;
 
@@ -278,7 +299,7 @@ public:
 
 	const std::string& getCastSound() const;
 
-	template <typename Handler> void serialize(Handler &h, const int version)
+	template <typename Handler> void serialize(Handler & h, const int version)
 	{
 		h & identifier;
 		h & id;
@@ -313,7 +334,7 @@ public:
 
 		if(!h.saving)
 		{
-			setup();
+			setupMechanics();
 		}
 		//backward compatibility
 		//can not be added to level structure as level structure does not know spell id
@@ -333,10 +354,10 @@ public:
 	ESpellCastProblem::ESpellCastProblem canBeCast(const CBattleInfoCallback * cb, ECastingMode::ECastingMode mode, const ISpellCaster * caster) const;
 
 	///checks for creature immunity / anything that prevent casting *at given hex*
-	ESpellCastProblem::ESpellCastProblem canBeCastAt(const CBattleInfoCallback * cb,  ECastingMode::ECastingMode mode, const ISpellCaster * caster, BattleHex destination) const;
+	bool canBeCastAt(const CBattleInfoCallback * cb,  ECastingMode::ECastingMode mode, const ISpellCaster * caster, BattleHex destination) const;
 
 	///checks for creature immunity / anything that prevent casting *at given target* - doesn't take into account general problems such as not having spellbook or mana points etc.
-	ESpellCastProblem::ESpellCastProblem isImmuneByStack(const ISpellCaster * caster, const CStack * obj) const;
+	ESpellCastProblem::ESpellCastProblem isImmuneByStack(const CBattleInfoCallback * cb, const ISpellCaster * caster, const CStack * obj) const;
 public:
 	///Server logic. Has write access to GameState via packets.
 	///May be executed on client side by (future) non-cheat-proof scripts.
@@ -344,17 +365,13 @@ public:
 	bool adventureCast(const SpellCastEnvironment * env, const AdventureSpellCastParameters & parameters) const;
 	void battleCast(const SpellCastEnvironment * env, const BattleSpellCastParameters & parameters) const;
 
-public:
-	///Client-server logic. Has direct write access to GameState.
-	///Shall be called (only) when applying packets on BOTH SIDES
-
-	///implementation of BattleSpellCast applying
-	void applyBattle(BattleInfo * battle, const BattleSpellCast * packet) const;
 public://internal, for use only by Mechanics classes
 	///applies caster`s secondary skills and affectedCreature`s to raw damage
 	int adjustRawDamage(const ISpellCaster * caster, const CStack * affectedCreature, int rawDamage) const;
+
 	///returns raw damage or healed HP
-	int calculateRawEffectValue(int effectLevel, int effectPower) const;
+	int calculateRawEffectValue(int effectLevel, int basePowerMultiplier, int levelPowerMultiplier) const;
+
 	///generic immunity calculation
 	ESpellCastProblem::ESpellCastProblem internalIsImmune(const ISpellCaster * caster, const CStack *obj) const;
 
@@ -363,8 +380,9 @@ private:
 	void setIsRising(const bool val);
 
 	//call this after load or deserialization. cant be done in constructor.
-	void setup();
 	void setupMechanics();
+
+	std::unique_ptr<ISpellMechanics> battleMechanics(const CBattleInfoCallback * cb) const;
 private:
 	si32 defaultProbability;
 
@@ -394,7 +412,7 @@ private:
 
 	std::vector<LevelInfo> levels;
 
-	std::unique_ptr<ISpellMechanics> mechanics;//(!) do not serialize
+	std::unique_ptr<ISpellMechanicsFactory> mechanics;//(!) do not serialize
 	std::unique_ptr<IAdventureSpellMechanics> adventureMechanics;//(!) do not serialize
 };
 
@@ -419,12 +437,6 @@ public:
 	std::vector<bool> getDefaultAllowed() const override;
 
 	const std::string getTypeName() const override;
-
-	///json serialization helper
-	static si32 decodeSpell(const std::string & identifier);
-
-	///json serialization helper
-	static std::string encodeSpell(const si32 index);
 
 	template <typename Handler> void serialize(Handler &h, const int version)
 	{

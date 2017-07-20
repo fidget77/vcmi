@@ -16,9 +16,36 @@
 
 
 class CSpell;
+class ISpellCaster;
 class CStack;
 class PlayerColor;
 struct MetaString;
+
+namespace spells
+{
+
+using Spell = ::CSpell;
+using Caster = ::ISpellCaster;
+
+class DLL_LINKAGE Problem
+{
+public:
+	typedef int Severity;
+
+	enum ESeverity
+	{
+		LOWEST = std::numeric_limits<Severity>::min(),
+		NORMAL = 0,
+		CRITICAL = std::numeric_limits<Severity>::max()
+	};
+
+	virtual ~Problem() = default;
+
+	virtual void add(MetaString && description, Severity severity = CRITICAL) = 0;
+
+	virtual void getAll(std::vector<std::string> & target) const = 0;
+};
+} // namespace spells
 
 class DLL_LINKAGE ISpellCaster
 {
@@ -53,3 +80,4 @@ public:
 	///full default text
 	virtual void getCastDescription(const CSpell * spell, const std::vector<const CStack *> & attacked, MetaString & text) const = 0;
 };
+

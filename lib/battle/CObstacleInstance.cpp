@@ -12,7 +12,6 @@
 #include "../CHeroHandler.h"
 #include "../CTownHandler.h"
 #include "../VCMI_Lib.h"
-#include "../spells/CSpellHandler.h"
 
 CObstacleInstance::CObstacleInstance()
 {
@@ -96,43 +95,21 @@ SpellCreatedObstacle::SpellCreatedObstacle()
 	spellLevel = -1;
 	casterSpellPower = -1;
 	turnsRemaining = -1;
-	visibleForAnotherSide = -1;
+	visibleForAnotherSide = true;
 }
 
 bool SpellCreatedObstacle::visibleForSide(ui8 side, bool hasNativeStack) const
 {
-	switch(obstacleType)
-	{
-	case FIRE_WALL:
-	case FORCE_FIELD:
-		//these are always visible
-		return true;
-	case QUICKSAND:
-	case LAND_MINE:
-		//we hide mines and not discovered quicksands
-		//quicksands are visible to the caster or if owned unit stepped into that particular patch
-		//additionally if side has a native unit, mines/quicksands will be visible
-		return casterSide == side || visibleForAnotherSide || hasNativeStack;
-	default:
-		assert(0);
-		return false;
-	}
+	//we hide mines and not discovered quicksands
+	//quicksands are visible to the caster or if owned unit stepped into that particular patch
+	//additionally if side has a native unit, mines/quicksands will be visible
+
+	return casterSide == side || visibleForAnotherSide || hasNativeStack;
 }
 
 std::vector<BattleHex> SpellCreatedObstacle::getAffectedTiles() const
 {
-	switch(obstacleType)
-	{
-	case QUICKSAND:
-	case LAND_MINE:
-	case FIRE_WALL:
-		return std::vector<BattleHex>(1, pos);
-	case FORCE_FIELD:
-		return SpellID(SpellID::FORCE_FIELD).toSpell()->rangeInHexes(pos, spellLevel, casterSide);
-	default:
-		assert(0);
-		return std::vector<BattleHex>();
-	}
+	return customSize;
 }
 
 void SpellCreatedObstacle::battleTurnPassed()

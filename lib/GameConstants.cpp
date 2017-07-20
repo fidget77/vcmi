@@ -24,6 +24,7 @@
 #include "CSkillHandler.h"
 #include "StringConstants.h"
 #include "CGeneralTextHandler.h"
+#include "CModHandler.h"
 
 const SlotID SlotID::COMMANDER_SLOT_PLACEHOLDER = SlotID(-2);
 const SlotID SlotID::SUMMONED_SLOT_PLACEHOLDER = SlotID(-3);
@@ -51,9 +52,37 @@ const CArtifact * ArtifactID::toArtifact() const
 	return VLC->arth->artifacts.at(*this);
 }
 
+si32 ArtifactID::decode(const std::string & identifier)
+{
+	auto rawId = VLC->modh->identifiers.getIdentifier("core", "artifact", identifier);
+	if(rawId)
+		return rawId.get();
+	else
+		return -1;
+}
+
+std::string ArtifactID::encode(const si32 index)
+{
+	return VLC->arth->artifacts.at(index)->identifier;
+}
+
 const CCreature * CreatureID::toCreature() const
 {
 	return VLC->creh->creatures.at(*this);
+}
+
+si32 CreatureID::decode(const std::string & identifier)
+{
+	auto rawId = VLC->modh->identifiers.getIdentifier("core", "creature", identifier);
+	if(rawId)
+		return rawId.get();
+	else
+		return -1;
+}
+
+std::string CreatureID::encode(const si32 index)
+{
+	return VLC->creh->creatures.at(index)->identifier;
 }
 
 const CSpell * SpellID::toSpell() const
@@ -64,6 +93,20 @@ const CSpell * SpellID::toSpell() const
 		return nullptr;
 	}
 	return VLC->spellh->objects[*this];
+}
+
+si32 SpellID::decode(const std::string & identifier)
+{
+	auto rawId = VLC->modh->identifiers.getIdentifier("core", "spell", identifier);
+	if(rawId)
+		return rawId.get();
+	else
+		return -1;
+}
+
+std::string SpellID::encode(const si32 index)
+{
+	return VLC->spellh->objects.at(index)->identifier;
 }
 
 const CSkill * SecondarySkill::toSkill() const

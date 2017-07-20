@@ -307,6 +307,7 @@ void CBattleAI::attemptCastingSpell()
 
 std::vector<BattleHex> CBattleAI::getTargetsToConsider(const CSpell * spell, const ISpellCaster * caster) const
 {
+	//todo: move to CSpell
 	const CSpell::TargetInfo targetInfo(spell, caster->getSpellSchoolLevel(spell));
 	std::vector<BattleHex> ret;
 	if(targetInfo.massive || targetInfo.type == CSpell::NO_TARGET)
@@ -321,7 +322,7 @@ std::vector<BattleHex> CBattleAI::getTargetsToConsider(const CSpell * spell, con
 		{
 			for(const CStack * stack : getCbc()->battleAliveStacks())
 			{
-				bool immune = ESpellCastProblem::OK != spell->isImmuneByStack(caster, stack);
+				bool immune = ESpellCastProblem::OK != spell->isImmuneByStack(getCbc().get(), caster, stack);
 				bool casterStack = stack->owner == caster->getOwner();
 
 				if(!immune)

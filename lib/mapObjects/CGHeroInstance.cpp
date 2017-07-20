@@ -1574,12 +1574,12 @@ void CGHeroInstance::serializeCommonOptions(JsonSerializeFormat & handler)
 	{
 		auto primarySkills = handler.enterStruct("primarySkills");
 
-		if(primarySkills.get().getType() == JsonNode::JsonType::DATA_STRUCT)
+		if(handler.getCurrent().getType() == JsonNode::JsonType::DATA_STRUCT)
 		{
 			for(int i = 0; i < GameConstants::PRIMARY_SKILLS; ++i)
 			{
 				int value = 0;
-				primarySkills->serializeInt(PrimarySkill::names[i], value, 0);
+				handler.serializeInt(PrimarySkill::names[i], value, 0);
 				pushPrimSkill(static_cast<PrimarySkill::PrimarySkill>(i), value);
 			}
 		}
@@ -1655,7 +1655,7 @@ void CGHeroInstance::serializeCommonOptions(JsonSerializeFormat & handler)
 		}
 	}
 
-	handler.serializeIdArray("spellBook", spells, &CSpellHandler::decodeSpell, &CSpellHandler::encodeSpell);
+	handler.serializeIdArray("spellBook", spells, &SpellID::decode, &SpellID::encode);
 
 	if(handler.saving)
 		CArtifactSet::serializeJsonArtifacts(handler, "artifacts", nullptr);

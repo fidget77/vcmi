@@ -14,16 +14,23 @@
 #include "../battle/BattleHex.h"
 
 struct Query;
+class ISpellMechanics;
+
+class DLL_LINKAGE PacketSender
+{
+public:
+	virtual ~PacketSender(){};
+	virtual void sendAndApply(CPackForClient * info) const = 0;
+	virtual void complain(const std::string & problem) const = 0;
+};
 
 ///callback to be provided by server
-class DLL_LINKAGE SpellCastEnvironment
+class DLL_LINKAGE SpellCastEnvironment : public PacketSender
 {
 public:
 	virtual ~SpellCastEnvironment(){};
-	virtual void sendAndApply(CPackForClient * info) const = 0;
 
 	virtual CRandomGenerator & getRandomGenerator() const = 0;
-	virtual void complain(const std::string & problem) const = 0;
 
 	virtual const CMap * getMap() const = 0;
 	virtual const CGameInfoCallback * getCb() const = 0;
@@ -34,7 +41,7 @@ public:
 };
 
 ///all parameters of particular cast event
-struct DLL_LINKAGE BattleSpellCastParameters
+class DLL_LINKAGE BattleSpellCastParameters
 {
 public:
 	///Single spell destination.
@@ -93,34 +100,47 @@ private:
 	int effectValue;
 };
 
+class DLL_LINKAGE ISpellMechanicsFactory
+{
+public:
+	ISpellMechanicsFactory(const CSpell * s);
+	virtual ~ISpellMechanicsFactory();
+
+	virtual std::unique_ptr<ISpellMechanics> create(const CBattleInfoCallback * cb) const = 0;
+
+	static std::unique_ptr<ISpellMechanicsFactory> get(const CSpell * s);
+
+protected:
+	const CSpell * spell;
+};
+
 class DLL_LINKAGE ISpellMechanics
 {
 public:
-	ISpellMechanics(const CSpell * s);
+	ISpellMechanics(const CSpell * s, const CBattleInfoCallback * Cb);
 	virtual ~ISpellMechanics(){};
 
 	virtual std::vector<BattleHex> rangeInHexes(BattleHex centralHex, ui8 schoolLvl, ui8 side, bool * outDroppedHexes = nullptr) const = 0;
-	virtual std::vector<const CStack *> getAffectedStacks(const CBattleInfoCallback * cb, const ECastingMode::ECastingMode mode, const ISpellCaster * caster, int spellLvl, BattleHex destination) const = 0;
+	virtual std::vector<const CStack *> getAffectedStacks(const ECastingMode::ECastingMode mode, const ISpellCaster * caster, int spellLvl, BattleHex destination) const = 0;
 
-	virtual ESpellCastProblem::ESpellCastProblem canBeCast(const CBattleInfoCallback * cb, const ECastingMode::ECastingMode mode, const ISpellCaster * caster) const = 0;
+	virtual ESpellCastProblem::ESpellCastProblem canBeCast(const ECastingMode::ECastingMode mode, const ISpellCaster * caster) const = 0;
 
-	virtual ESpellCastProblem::ESpellCastProblem canBeCastAt(const CBattleInfoCallback * cb, const ECastingMode::ECastingMode mode, const ISpellCaster * caster, BattleHex destination) const = 0;
+	virtual bool canBeCastAt(const ECastingMode::ECastingMode mode, const ISpellCaster * caster, BattleHex destination) const = 0;
 
 	virtual ESpellCastProblem::ESpellCastProblem isImmuneByStack(const ISpellCaster * caster, const CStack * obj) const = 0;
 
-	virtual void applyBattle(BattleInfo * battle, const BattleSpellCast * packet) const = 0;
 	virtual void battleCast(const SpellCastEnvironment * env, const BattleSpellCastParameters & parameters) const = 0;
 
 	//if true use generic algorithm for target existence check, see CSpell::canBeCast
 	virtual bool requiresCreatureTarget() const = 0;
 
-	static std::unique_ptr<ISpellMechanics> createMechanics(const CSpell * s);
-protected:
 	const CSpell * owner;
+	const CBattleInfoCallback * cb;
 };
 
-struct DLL_LINKAGE AdventureSpellCastParameters
+class DLL_LINKAGE AdventureSpellCastParameters
 {
+public:
 	const CGHeroInstance * caster;
 	int3 pos;
 };

@@ -27,37 +27,6 @@ const CStack * BattleInfo::getNextStack() const
 		return nullptr;
 }
 
-int BattleInfo::getAvaliableHex(CreatureID creID, ui8 side, int initialPos) const
-{
-	bool twoHex = VLC->creh->creatures[creID]->isDoubleWide();
-	//bool flying = VLC->creh->creatures[creID]->isFlying();
-
-	int pos;
-	if (initialPos > -1)
-		pos = initialPos;
-	else //summon elementals depending on player side
-	{
- 		if(side == BattleSide::ATTACKER)
-	 		pos = 0; //top left
- 		else
- 			pos = GameConstants::BFIELD_WIDTH - 1; //top right
- 	}
-
-	auto accessibility = getAccesibility();
-
-	std::set<BattleHex> occupyable;
-	for(int i = 0; i < accessibility.size(); i++)
-		if(accessibility.accessible(i, twoHex, side))
-			occupyable.insert(i);
-
-	if (occupyable.empty())
-	{
-		return BattleHex::INVALID; //all tiles are covered
-	}
-
-	return BattleHex::getClosestTile(side, pos, occupyable);
-}
-
 std::pair< std::vector<BattleHex>, int > BattleInfo::getPath(BattleHex start, BattleHex dest, const CStack * stack)
 {
 	auto reachability = getReachability(stack);

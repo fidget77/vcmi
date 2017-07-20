@@ -1082,6 +1082,38 @@ std::pair<const CStack *, BattleHex> CBattleInfoCallback::getNearestStack(const 
 		return std::make_pair<const CStack * , BattleHex>(nullptr, BattleHex::INVALID);
 }
 
+BattleHex CBattleInfoCallback::getAvaliableHex(CreatureID creID, ui8 side, int initialPos) const
+{
+	bool twoHex = VLC->creh->creatures[creID]->isDoubleWide();
+	//bool flying = VLC->creh->creatures[creID]->isFlying();
+
+	int pos;
+	if (initialPos > -1)
+		pos = initialPos;
+	else //summon elementals depending on player side
+	{
+ 		if(side == BattleSide::ATTACKER)
+	 		pos = 0; //top left
+ 		else
+ 			pos = GameConstants::BFIELD_WIDTH - 1; //top right
+ 	}
+
+	auto accessibility = getAccesibility();
+
+	std::set<BattleHex> occupyable;
+	for(int i = 0; i < accessibility.size(); i++)
+		if(accessibility.accessible(i, twoHex, side))
+			occupyable.insert(i);
+
+	if(occupyable.empty())
+	{
+		return BattleHex::INVALID; //all tiles are covered
+	}
+
+	return BattleHex::getClosestTile(side, pos, occupyable);
+}
+
+
 si8 CBattleInfoCallback::battleGetTacticDist() const
 {
 	RETURN_IF_NOT_BATTLE(0);

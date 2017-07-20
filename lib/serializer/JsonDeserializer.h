@@ -9,19 +9,19 @@
  */
 #pragma once
 
-#include  "JsonSerializeFormat.h"
+#include  "JsonTreeSerializer.h"
 
-class JsonNode;
-
-class JsonDeserializer: public JsonSerializeFormat
+class JsonDeserializer: public JsonTreeSerializer<const JsonNode *>
 {
 public:
-	JsonDeserializer(const IInstanceResolver * instanceResolver_, JsonNode & root_);
+	JsonDeserializer(const IInstanceResolver * instanceResolver_, const JsonNode & root_);
 
 	void serializeLIC(const std::string & fieldName, const TDecoder & decoder, const TEncoder & encoder, const std::vector<bool> & standard, std::vector<bool> & value) override;
 	void serializeLIC(const std::string & fieldName, LIC & value) override;
 	void serializeLIC(const std::string & fieldName, LICSet & value) override;
 	void serializeString(const std::string & fieldName, std::string & value) override;
+
+	void serializeRaw(const std::string & fieldName, JsonNode & value, const boost::optional<const JsonNode &> defaultValue) override;
 
 protected:
 	void serializeInternal(const std::string & fieldName, boost::logic::tribool & value) override;

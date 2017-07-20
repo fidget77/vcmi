@@ -97,6 +97,12 @@
 						"$ref" : "vcmi:bonus"
 					}
 				},
+				"specialEffects":{
+					"type": "object",
+					"additionalProperties" : {
+						"type": "object"
+					}
+				},
 				"targetModifier":{
 					"type": "object",
 					"additionalProperties": false,

@@ -17,8 +17,8 @@
 #include "../battle/BattleInfo.h"
 
 ///AcidBreathDamageMechanics
-AcidBreathDamageMechanics::AcidBreathDamageMechanics(const CSpell * s):
-	DefaultSpellMechanics(s)
+AcidBreathDamageMechanics::AcidBreathDamageMechanics(const CSpell * s, const CBattleInfoCallback * Cb):
+	DefaultSpellMechanics(s, Cb)
 {
 }
 
@@ -61,8 +61,8 @@ ESpellCastProblem::ESpellCastProblem AcidBreathDamageMechanics::isImmuneByStack(
 }
 
 ///DeathStareMechanics
-DeathStareMechanics::DeathStareMechanics(const CSpell * s):
-	DefaultSpellMechanics(s)
+DeathStareMechanics::DeathStareMechanics(const CSpell * s, const CBattleInfoCallback * Cb)
+	: DefaultSpellMechanics(s, Cb)
 {
 }
 
@@ -90,16 +90,15 @@ void DeathStareMechanics::applyBattleEffects(const SpellCastEnvironment * env, c
 }
 
 ///DispellHelpfulMechanics
-DispellHelpfulMechanics::DispellHelpfulMechanics(const CSpell * s):
-	DefaultSpellMechanics(s)
+DispellHelpfulMechanics::DispellHelpfulMechanics(const CSpell * s, const CBattleInfoCallback * Cb)
+	: DefaultSpellMechanics(s, Cb)
 {
 }
 
-void DispellHelpfulMechanics::applyBattle(BattleInfo * battle, const BattleSpellCast * packet) const
+void DispellHelpfulMechanics::applyBattleEffects(const SpellCastEnvironment * env, const BattleSpellCastParameters & parameters, SpellCastContext & ctx) const
 {
-	DefaultSpellMechanics::applyBattle(battle, packet);
-
-	doDispell(battle, packet, positiveSpellEffects);
+	DefaultSpellMechanics::applyBattleEffects(env, parameters, ctx);
+	doDispell(env, ctx, positiveSpellEffects);
 }
 
 ESpellCastProblem::ESpellCastProblem DispellHelpfulMechanics::isImmuneByStack(const ISpellCaster * caster,  const CStack * obj) const
@@ -111,7 +110,7 @@ ESpellCastProblem::ESpellCastProblem DispellHelpfulMechanics::isImmuneByStack(co
 	return DefaultSpellMechanics::isImmuneByStack(caster,obj);
 }
 
-bool DispellHelpfulMechanics::positiveSpellEffects(const Bonus *b)
+bool DispellHelpfulMechanics::positiveSpellEffects(const Bonus * b)
 {
 	if(b->source == Bonus::SPELL_EFFECT)
 	{

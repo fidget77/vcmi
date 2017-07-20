@@ -29,24 +29,12 @@ public:
 	JsonSerializeHelper(JsonSerializeHelper && other);
 	virtual ~JsonSerializeHelper();
 
-	JsonNode & get();
-
 	JsonSerializeFormat * operator->();
 
-	JsonStructSerializer enterStruct(const std::string & fieldName);
-	JsonArraySerializer enterArray(const std::string & fieldName);
-
 protected:
-	JsonSerializeHelper(JsonSerializeFormat & owner_, JsonNode * thisNode_);
-	JsonSerializeHelper(JsonSerializeHelper & parent, const std::string & fieldName);
+	JsonSerializeHelper(JsonSerializeFormat * owner_);
 
-	JsonSerializeFormat & owner;
-
-	JsonNode * thisNode;
-	JsonNode * parentNode;
-
-	friend class JsonStructSerializer;
-
+	JsonSerializeFormat * owner;
 private:
 	bool restoreState;
 };
@@ -54,23 +42,19 @@ private:
 class JsonStructSerializer: public JsonSerializeHelper
 {
 public:
-	bool optional;
 	JsonStructSerializer(JsonStructSerializer && other);
 	~JsonStructSerializer();
 protected:
-	JsonStructSerializer(JsonSerializeFormat & owner_, JsonNode * thisNode_);
-	JsonStructSerializer(JsonSerializeFormat & owner_, const std::string & fieldName);
-	JsonStructSerializer(JsonSerializeHelper & parent, const std::string & fieldName);
+	JsonStructSerializer(JsonSerializeFormat * owner_);
 
 	friend class JsonSerializeFormat;
-	friend class JsonSerializeHelper;
 	friend class JsonArraySerializer;
 };
 
 class JsonArraySerializer: public JsonSerializeHelper
 {
 public:
-	JsonArraySerializer(JsonStructSerializer && other);
+	JsonArraySerializer(JsonArraySerializer && other);
 
 	JsonStructSerializer enterStruct(const size_t index);
 
@@ -86,7 +70,7 @@ public:
 		for(size_t idx = 0; idx < size(); idx++)
 		{
 			auto s = enterStruct(idx);
-			value[idx].serializeJson(owner);
+			value[idx].serializeJson(*owner);
 		}
 	}
 
@@ -94,11 +78,11 @@ public:
 	void resize(const size_t newSize, JsonNode::JsonType type);
 	size_t size() const;
 protected:
-	JsonArraySerializer(JsonSerializeFormat & owner_, const std::string & fieldName);
-	JsonArraySerializer(JsonSerializeHelper & parent, const std::string & fieldName);
+	JsonArraySerializer(JsonSerializeFormat * owner_);
 
 	friend class JsonSerializeFormat;
-	friend class JsonSerializeHelper;
+private:
+	const JsonNode * thisNode;
 };
 
 class JsonSerializeFormat: public boost::noncopyable
@@ -139,15 +123,7 @@ public:
 	JsonSerializeFormat() = delete;
 	virtual ~JsonSerializeFormat() = default;
 
-	JsonNode & getRoot()
-	{
-		return * root;
-	};
-
-	JsonNode & getCurrent()
-	{
-		return * current;
-	};
+	virtual const JsonNode & getCurrent() = 0;
 
 	JsonStructSerializer enterStruct(const std::string & fieldName);
 	JsonArraySerializer enterArray(const std::string & fieldName);
@@ -265,6 +241,13 @@ public:
 		doSerializeInternal<T, U, si32>(fieldName, value, defaultValue, decoder, encoder);
 	}
 
+	///si32-convertible identifier <-> Json string
+	template <typename T, typename U>
+	void serializeId(const std::string & fieldName, T & value, const U & defaultValue)
+	{
+		doSerializeInternal<T, U, si32>(fieldName, value, defaultValue, &T::decode, &T::encode);
+	}
+
 	///si32-convertible identifier vector <-> Json array of string
 	template <typename T>
 	void serializeIdArray(const std::string & fieldName, std::vector<T> & value, const TDecoder & decoder, const TEncoder & encoder)
@@ -368,11 +351,10 @@ public:
 		serializeId<T>(fieldName, value, defaultValue, decoder, endoder);
 	}
 
-protected:
-	JsonNode * root;
-	JsonNode * current;
+	virtual void serializeRaw(const std::string & fieldName, JsonNode & value, const boost::optional<const JsonNode &> defaultValue) = 0;
 
-	JsonSerializeFormat(const IInstanceResolver * instanceResolver_, JsonNode & root_, const bool saving_);
+protected:
+	JsonSerializeFormat(const IInstanceResolver * instanceResolver_, const bool saving_);
 
 	///bool <-> Json bool, indeterminate is default
 	virtual void serializeInternal(const std::string & fieldName, boost::logic::tribool & value) = 0;
@@ -391,6 +373,13 @@ protected:
 
 	///Enum/Numeric <-> Json string enum
 	virtual void serializeInternal(const std::string & fieldName, si32 & value, const boost::optional<si32> & defaultValue, const std::vector<std::string> & enumMap) = 0;
+
+	virtual void pop() = 0;
+	virtual void pushStruct(const std::string & fieldName) = 0;
+	virtual void pushArray(const std::string & fieldName) = 0;
+	virtual void pushArrayElement(const size_t index) = 0;
+
+	virtual void resizeCurrent(const size_t newSize, JsonNode::JsonType type){};
 
 private:
 	const IInstanceResolver * instanceResolver;
@@ -415,7 +404,7 @@ private:
 template <typename Container>
 void JsonArraySerializer::syncSize(Container & c, JsonNode::JsonType type)
 {
-	if(owner.saving)
+	if(owner->saving)
 		resize(c.size(), type);
 	else
 		c.resize(size());

@@ -447,7 +447,7 @@ void CQuest::serializeJson(JsonSerializeFormat & handler, const std::string & fi
 		break;
 	case MISSION_ART:
 		//todo: ban artifacts
-		handler.serializeIdArray("artifacts", m5arts, &CArtHandler::decodeArfifact, &CArtHandler::encodeArtifact);
+		handler.serializeIdArray("artifacts", m5arts,  &ArtifactID::decode, &ArtifactID::encode);
 		break;
 	case MISSION_ARMY:
         {

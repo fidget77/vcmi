@@ -17,8 +17,9 @@
 				<Option run_host_application_in_terminal="1" />
 				<Option createStaticLib="1" />
 				<Compiler>
-					<Add option="-g" />
 					<Add option="-Og" />
+					<Add option="-g" />
+					<Add directory="$(#zlib.include)" />
 				</Compiler>
 				<Linker>
 					<Add option="-lws2_32" />
@@ -33,6 +34,8 @@
 					<Add option="-liconv" />
 					<Add option="-ldbghelp" />
 					<Add directory="$(#boost.lib32)" />
+					<Add directory="$(#sdl2.lib)" />
+					<Add directory="$(#zlib.lib)" />
 				</Linker>
 			</Target>
 			<Target title="Release-win32">
@@ -45,6 +48,7 @@
 				<Compiler>
 					<Add option="-fomit-frame-pointer" />
 					<Add option="-O2" />
+					<Add directory="$(#zlib.include)" />
 				</Compiler>
 				<Linker>
 					<Add option="-s" />
@@ -59,6 +63,8 @@
 					<Add option="-lboost_date_time$(#boost.libsuffix)" />
 					<Add option="-liconv" />
 					<Add directory="$(#boost.lib32)" />
+					<Add directory="$(#sdl2.lib)" />
+					<Add directory="$(#zlib.lib)" />
 				</Linker>
 			</Target>
 			<Target title="Debug-win64">
@@ -87,8 +93,8 @@
 					<Add option="-lboost_date_time$(#boost.libsuffix)" />
 					<Add option="-liconv" />
 					<Add option="-ldbghelp" />
-					<Add directory="$(#sdl2.lib64)" />
 					<Add directory="$(#boost.lib64)" />
+					<Add directory="$(#sdl2.lib64)" />
 					<Add directory="$(#zlib64.lib)" />
 				</Linker>
 			</Target>
@@ -113,13 +119,10 @@
 			<Add option="-DVCMI_NO_EXTRA_VERSION" />
 			<Add directory="." />
 			<Add directory="$(#sdl2.include)" />
-			<Add directory="$(#zlib.include)" />
 			<Add directory="../include" />
 		</Compiler>
 		<Linker>
 			<Add directory="../" />
-			<Add directory="$(#sdl2.lib)" />
-			<Add directory="$(#zlib.lib)" />
 		</Linker>
 		<Unit filename="../Global.h" />
 		<Unit filename="../Version.h" />
@@ -362,6 +365,7 @@
 		<Unit filename="serializer/JsonSerializeFormat.h" />
 		<Unit filename="serializer/JsonSerializer.cpp" />
 		<Unit filename="serializer/JsonSerializer.h" />
+		<Unit filename="serializer/JsonTreeSerializer.h" />
 		<Unit filename="spells/AdventureSpellMechanics.cpp" />
 		<Unit filename="spells/AdventureSpellMechanics.h" />
 		<Unit filename="spells/BattleSpellMechanics.cpp" />
@@ -372,11 +376,30 @@
 		<Unit filename="spells/CSpellHandler.h" />
 		<Unit filename="spells/CreatureSpellMechanics.cpp" />
 		<Unit filename="spells/CreatureSpellMechanics.h" />
+		<Unit filename="spells/CustomSpellMechanics.cpp" />
+		<Unit filename="spells/CustomSpellMechanics.h" />
 		<Unit filename="spells/ISpellMechanics.cpp" />
 		<Unit filename="spells/ISpellMechanics.h" />
 		<Unit filename="spells/Magic.h" />
+		<Unit filename="spells/Problem.cpp" />
+		<Unit filename="spells/Problem.h" />
 		<Unit filename="spells/ViewSpellInt.cpp" />
 		<Unit filename="spells/ViewSpellInt.h" />
+		<Unit filename="spells/effects/Effect.cpp" />
+		<Unit filename="spells/effects/Effect.h" />
+		<Unit filename="spells/effects/Effects.cpp" />
+		<Unit filename="spells/effects/Effects.h" />
+		<Unit filename="spells/effects/EffectsFwd.h" />
+		<Unit filename="spells/effects/GlobalEffect.cpp" />
+		<Unit filename="spells/effects/GlobalEffect.h" />
+		<Unit filename="spells/effects/LocationEffect.cpp" />
+		<Unit filename="spells/effects/LocationEffect.h" />
+		<Unit filename="spells/effects/Registry.cpp" />
+		<Unit filename="spells/effects/Registry.h" />
+		<Unit filename="spells/effects/StackEffect.cpp" />
+		<Unit filename="spells/effects/StackEffect.h" />
+		<Unit filename="spells/effects/Summon.cpp" />
+		<Unit filename="spells/effects/Summon.h" />
 		<Unit filename="vcmi_endian.h" />
 		<Extensions>
 			<code_completion />

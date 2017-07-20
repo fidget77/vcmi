@@ -95,9 +95,19 @@ set(lib_SRCS
 		spells/BattleSpellMechanics.cpp
 		spells/CDefaultSpellMechanics.cpp
 		spells/CreatureSpellMechanics.cpp
+		spells/CustomSpellMechanics.cpp
 		spells/CSpellHandler.cpp
 		spells/ISpellMechanics.cpp
+		spells/Problem.cpp
 		spells/ViewSpellInt.cpp
+
+		spells/effects/Effect.cpp
+		spells/effects/Effects.cpp
+		spells/effects/GlobalEffect.cpp
+		spells/effects/LocationEffect.cpp
+		spells/effects/Registry.cpp
+		spells/effects/StackEffect.cpp
+		spells/effects/Summon.cpp
 
 		CAndroidVMHelper.cpp
 		CArtHandler.cpp
@@ -233,7 +243,17 @@ set(lib_HEADERS
 		spells/ISpellMechanics.h
 		spells/Magic.h
 		spells/SpellMechanics.h
+		spells/Problem.h
 		spells/ViewSpellInt.h
+
+		spells/effects/Effect.h
+		spells/effects/Effects.h
+		spells/effects/EffectsFwd.h
+		spells/effects/GlobalEffect.h
+		spells/effects/LocationEffect.h
+		spells/effects/Registry.h
+		spells/effects/StackEffect.h
+		spells/effects/Summon.h
 
 		AI_Base.h
 		CAndroidVMHelper.h

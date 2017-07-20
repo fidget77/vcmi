@@ -47,17 +47,15 @@ private:
 class DLL_LINKAGE DefaultSpellMechanics : public ISpellMechanics
 {
 public:
-	DefaultSpellMechanics(const CSpell * s);
+	DefaultSpellMechanics(const CSpell * s, const CBattleInfoCallback * Cb);
 
 	std::vector<BattleHex> rangeInHexes(BattleHex centralHex, ui8 schoolLvl, ui8 side, bool * outDroppedHexes = nullptr) const override;
-	std::vector<const CStack *> getAffectedStacks(const CBattleInfoCallback * cb, const ECastingMode::ECastingMode mode, const ISpellCaster * caster, int spellLvl, BattleHex destination) const override final;
+	std::vector<const CStack *> getAffectedStacks(const ECastingMode::ECastingMode mode, const ISpellCaster * caster, int spellLvl, BattleHex destination) const override final;
 
-	ESpellCastProblem::ESpellCastProblem canBeCast(const CBattleInfoCallback * cb, const ECastingMode::ECastingMode mode, const ISpellCaster * caster) const override;
-	ESpellCastProblem::ESpellCastProblem canBeCastAt(const CBattleInfoCallback * cb, const ECastingMode::ECastingMode mode, const ISpellCaster * caster, BattleHex destination) const override;
+	ESpellCastProblem::ESpellCastProblem canBeCast(const ECastingMode::ECastingMode mode, const ISpellCaster * caster) const override;
+	bool canBeCastAt(const ECastingMode::ECastingMode mode, const ISpellCaster * caster, BattleHex destination) const override;
 
 	ESpellCastProblem::ESpellCastProblem isImmuneByStack(const ISpellCaster * caster, const CStack * obj) const override;
-
-	virtual void applyBattle(BattleInfo * battle, const BattleSpellCast * packet) const override;
 
 	void battleCast(const SpellCastEnvironment * env, const BattleSpellCastParameters & parameters) const override final;
 
@@ -72,20 +70,25 @@ public:
 protected:
 	virtual void applyBattleEffects(const SpellCastEnvironment * env, const BattleSpellCastParameters & parameters, SpellCastContext & ctx) const;
 
-	virtual std::vector<const CStack *> calculateAffectedStacks(const CBattleInfoCallback * cb, const ECastingMode::ECastingMode mode, const ISpellCaster * caster, int spellLvl, BattleHex destination) const;
+	virtual std::vector<const CStack *> calculateAffectedStacks(const ECastingMode::ECastingMode mode, const ISpellCaster * caster, int spellLvl, BattleHex destination) const;
 
 protected:
-	void doDispell(BattleInfo * battle, const BattleSpellCast * packet, const CSelector & selector) const;
-	bool canDispell(const IBonusBearer * obj, const CSelector & selector, const std::string &cachingStr = "") const;
+	void doDispell(const SpellCastEnvironment * env, SpellCastContext & ctx, const CSelector & selector) const;
+
+	bool canDispell(const IBonusBearer * obj, const CSelector & selector, const std::string & cachingStr = "") const;
 
 	void defaultDamageEffect(const SpellCastEnvironment * env, const BattleSpellCastParameters & parameters, SpellCastContext & ctx) const;
 	void defaultTimedEffect(const SpellCastEnvironment * env, const BattleSpellCastParameters & parameters, SpellCastContext & ctx) const;
 private:
 	void cast(const SpellCastEnvironment * env, const BattleSpellCastParameters & parameters, std::vector <const CStack*> & reflected) const;
 
+	void doRemoveEffects(const SpellCastEnvironment * env, SpellCastContext & ctx, const CSelector & selector) const;
+
+	void handleCounteringSpells(const SpellCastEnvironment * env, SpellCastContext & ctx) const;
 	void handleMagicMirror(const SpellCastEnvironment * env, SpellCastContext & ctx, std::vector <const CStack*> & reflected) const;
 	void handleResistance(const SpellCastEnvironment * env, SpellCastContext & ctx) const;
 
+	bool counteringSelector(const Bonus * bonus) const;
 	static bool dispellSelector(const Bonus * bonus);
 
 	friend class SpellCastContext;
@@ -95,9 +98,9 @@ private:
 class DLL_LINKAGE SpecialSpellMechanics : public DefaultSpellMechanics
 {
 public:
-	SpecialSpellMechanics(const CSpell * s);
+	SpecialSpellMechanics(const CSpell * s, const CBattleInfoCallback * Cb);
+	bool canBeCastAt(const ECastingMode::ECastingMode mode, const ISpellCaster * caster, BattleHex destination) const override;
 
-	ESpellCastProblem::ESpellCastProblem canBeCastAt(const CBattleInfoCallback * cb, const ECastingMode::ECastingMode mode, const ISpellCaster * caster, BattleHex destination) const override;
 protected:
-	std::vector<const CStack *> calculateAffectedStacks(const CBattleInfoCallback * cb, const ECastingMode::ECastingMode mode, const ISpellCaster * caster, int spellLvl, BattleHex destination) const override;
+	std::vector<const CStack *> calculateAffectedStacks(const ECastingMode::ECastingMode mode, const ISpellCaster * caster, int spellLvl, BattleHex destination) const override;
 };

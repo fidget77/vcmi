@@ -1,5 +1,5 @@
 /*
- * {file}.cpp, part of VCMI engine
+ * Summon.cpp, part of VCMI engine
  *
  * Authors: listed in file AUTHORS in main folder
  *
@@ -13,7 +13,6 @@
 #include "Registry.h"
 
 #include "../ISpellMechanics.h"
-#include "../Problem.h"
 #include "../../battle/CBattleInfoCallback.h"
 #include "../../NetPacks.h"
 #include "../../serializer/JsonSerializeFormat.h"
@@ -21,7 +20,7 @@
 #include "../../CHeroHandler.h"
 #include "../../mapObjects/CGHeroInstance.h"
 
-static const std::string EFFECT_NAME = "summon";
+static const std::string EFFECT_NAME = "core:summon";
 
 namespace spells
 {
@@ -31,7 +30,10 @@ namespace effects
 VCMI_REGISTER_SPELL_EFFECT(Summon, EFFECT_NAME);
 
 Summon::Summon()
-	: GlobalEffect()
+	: GlobalEffect(),
+	creature(),
+	permanent(false),
+	exclusive(true)
 {
 
 }
@@ -41,16 +43,16 @@ Summon::~Summon()
 
 }
 
-bool Summon::applicable(Problem & problem, const Mechanics * m, const CastParameters & p) const
+bool Summon::applicable(Problem & problem, const Mechanics * m) const
 {
-	auto mode = p.mode;
-	if(mode == ECastingMode::AFTER_ATTACK_CASTING || mode == ECastingMode::SPELL_LIKE_ATTACK || mode == ECastingMode::MAGIC_MIRROR)
+	auto mode = m->mode;
+	if(mode == Mode::AFTER_ATTACK || mode == Mode::BEFORE_ATTACK || mode == Mode::SPELL_LIKE_ATTACK || mode == Mode::MAGIC_MIRROR)
 	{
 		//should not even try to do it
 		MetaString text;
 		text.addReplacement("Invalid spell cast attempt: spell %s, mode %d");
 		text.addReplacement(m->owner->name);
-		text.addReplacement2(mode);
+		text.addReplacement2(int(mode));
 		problem.add(std::move(text), Problem::CRITICAL);
 		return false;
 	}
@@ -60,9 +62,9 @@ bool Summon::applicable(Problem & problem, const Mechanics * m, const CastParame
 
 	//check if there are summoned elementals of other type
 
-	auto otherSummoned = m->cb->battleGetStacksIf([p, this](const CStack * st)
+	auto otherSummoned = m->cb->battleGetStacksIf([m, this](const CStack * st)
 	{
-		return (st->owner == p.caster->getOwner())
+		return (st->owner == m->caster->getOwner())
 			&& (vstd::contains(st->state, EBattleStackState::SUMMONED))
 			&& (!st->isClone())
 			&& (st->getCreature()->idNumber != creature);
@@ -75,7 +77,7 @@ bool Summon::applicable(Problem & problem, const Mechanics * m, const CastParame
 		MetaString text;
 		text.addTxt(MetaString::GENERAL_TXT, 538);
 
-		const CGHeroInstance * caster = p.casterHero;
+		auto caster = dynamic_cast<const CGHeroInstance *>(m->caster);
 		if(caster)
 		{
 			text.addReplacement(caster->name);
@@ -95,31 +97,49 @@ bool Summon::applicable(Problem & problem, const Mechanics * m, const CastParame
 	return true;
 }
 
-void Summon::apply(const PacketSender * server, const Mechanics * m, const CastParameters & p) const
+void Summon::apply(const PacketSender * server, RNG & rng, const Mechanics * m, const BattleCast & p, const EffectTarget & target) const
 {
-	BattleStackAdded bsa;
-	bsa.creID = creature;
-	bsa.side = p.casterSide;
-	bsa.summoned = !permanent;
-	bsa.pos = m->cb->getAvaliableHex(creature, p.casterSide);
-
-	//TODO stack casting -> probably power will be zero; set the proper number of creatures manually
-	int percentBonus = p.casterHero ? p.casterHero->valOfBonuses(Bonus::SPECIFIC_SPELL_DAMAGE, m->owner->id.toEnum()) : 0;
 	//new feature - percentage bonus
-	bsa.amount = m->owner->calculateRawEffectValue(p.spellLvl, 0, p.effectPower * (100 + percentBonus) / 100.0);
-
-	if(bsa.amount)
-		server->sendAndApply(&bsa);
-	else
+	auto amount = m->owner->calculateRawEffectValue(p.effectLevel, 0, m->caster->getSpecificSpellBonus(m->owner, p.effectPower));
+	if(amount < 1)
+	{
 		server->complain("Summoning didn't summon any!");
+		return;
+	}
+
+	for(auto & dest : target)
+	{
+		BattleStackAdded bsa;
+		bsa.creID = creature;
+		bsa.side = m->casterSide;
+		bsa.summoned = !permanent;
+		bsa.pos = dest.hexValue;
+		bsa.amount = amount;
+		server->sendAndApply(&bsa);
+	}
 }
 
-void Summon::serializeJson(JsonSerializeFormat & handler)
+void Summon::serializeJsonEffect(JsonSerializeFormat & handler)
 {
 	handler.serializeId("id", creature, CreatureID());
-	handler.serializeBool("permanent", permanent);
-	handler.serializeBool("exclusive", exclusive);
+	handler.serializeBool("permanent", permanent, false);
+	handler.serializeBool("exclusive", exclusive, true);
 }
+
+EffectTarget Summon::transformTarget(const Mechanics * m, const Target & aimPoint, const Target & spellTarget) const
+{
+	EffectTarget effectTarget;
+	BattleHex hex = m->cb->getAvaliableHex(creature, m->casterSide);
+	if(!hex.isValid())
+		logGlobal->error("No free space to summon creature!");
+	else
+		effectTarget.push_back(Destination(hex));
+
+	effectTarget.push_back(Destination(hex));
+
+	return effectTarget;
+}
+
 
 } // namespace effects
 } // namespace spells

@@ -14,18 +14,9 @@
 #include "../battle/BattleHex.h"
 
 struct Query;
-class ISpellMechanics;
-
-class DLL_LINKAGE PacketSender
-{
-public:
-	virtual ~PacketSender(){};
-	virtual void sendAndApply(CPackForClient * info) const = 0;
-	virtual void complain(const std::string & problem) const = 0;
-};
 
 ///callback to be provided by server
-class DLL_LINKAGE SpellCastEnvironment : public PacketSender
+class DLL_LINKAGE SpellCastEnvironment : public spells::PacketSender
 {
 public:
 	virtual ~SpellCastEnvironment(){};
@@ -40,34 +31,53 @@ public:
 	virtual void genericQuery(Query * request, PlayerColor color, std::function<void(const JsonNode &)> callback) const = 0;//TODO: type safety on query, use generic query packet when implemented
 };
 
-///all parameters of particular cast event
-class DLL_LINKAGE BattleSpellCastParameters
+namespace spells
+{
+
+///Single spell destination.
+class DLL_LINKAGE Destination
 {
 public:
-	///Single spell destination.
-	/// (assumes that anything but battle stack can share same hex)
-	struct DLL_LINKAGE Destination
-	{
-		explicit Destination(const CStack * destination);
-		explicit Destination(const BattleHex & destination);
+	Destination();
+	~Destination() = default;
+	explicit Destination(const CStack * destination);
+	explicit Destination(const BattleHex & destination);
 
-		const CStack * stackValue;
-		const BattleHex hexValue;
-	};
+	Destination(const Destination & other);
 
+	Destination & operator=(const Destination & other);
+
+	const CStack * stackValue;
+	BattleHex hexValue;
+};
+
+using Target = std::vector<Destination>;
+
+using EffectTarget = Target;
+
+///all parameters of particular cast event
+class DLL_LINKAGE BattleCast
+{
+public:
 	//normal constructor
-	BattleSpellCastParameters(const BattleInfo * cb, const ISpellCaster * caster, const CSpell * spell_);
+	BattleCast(const CBattleInfoCallback * cb, const Caster * caster_, const Mode mode_, const CSpell * spell_);
 
 	//magic mirror constructor
-	BattleSpellCastParameters(const BattleSpellCastParameters & orig, const ISpellCaster * caster);
+	BattleCast(const BattleCast & orig, const Caster * caster_);
 
 	void aimToHex(const BattleHex & destination);
 	void aimToStack(const CStack * destination);
 
+	///only apply effects to specified targets
+	void applyEffects(const SpellCastEnvironment * env) const;
+
+	///only apply effects to specified targets and ignore immunity
+	void applyEffectsForced(const SpellCastEnvironment * env) const;
+
+	///normal cast
 	void cast(const SpellCastEnvironment * env);
 
 	///cast with silent check for permitted cast
-	///returns true if cast was permitted
 	bool castIfPossible(const SpellCastEnvironment * env);
 
 	BattleHex getFirstDestinationHex() const;
@@ -75,16 +85,12 @@ public:
 	int getEffectValue() const;
 
 	const CSpell * spell;
-	const BattleInfo * cb;
-	const ISpellCaster * caster;
-	const PlayerColor casterColor;
-	const ui8 casterSide;
+	const CBattleInfoCallback * cb;
+	const Caster * caster;
 
-	std::vector<Destination> destinations;
+	Target target;
 
-	const CGHeroInstance * casterHero; //deprecated
-	ECastingMode::ECastingMode mode;
-	const CStack * casterStack; //deprecated
+	Mode mode;
 
 	///spell school level
 	int spellLvl;
@@ -93,7 +99,7 @@ public:
 	///actual spell-power affecting effect values
 	int effectPower;
 	///actual spell-power affecting effect duration
-	int enchantPower;
+	int effectDuration;
 
 private:
 	///for Archangel-like casting
@@ -103,40 +109,52 @@ private:
 class DLL_LINKAGE ISpellMechanicsFactory
 {
 public:
-	ISpellMechanicsFactory(const CSpell * s);
 	virtual ~ISpellMechanicsFactory();
 
-	virtual std::unique_ptr<ISpellMechanics> create(const CBattleInfoCallback * cb) const = 0;
+	virtual std::unique_ptr<Mechanics> create(const CBattleInfoCallback * cb, Mode mode, const Caster * caster) const = 0;
 
 	static std::unique_ptr<ISpellMechanicsFactory> get(const CSpell * s);
 
 protected:
 	const CSpell * spell;
+
+	ISpellMechanicsFactory(const CSpell * s);
 };
 
-class DLL_LINKAGE ISpellMechanics
+class SpellCastContext;
+
+class DLL_LINKAGE Mechanics
 {
 public:
-	ISpellMechanics(const CSpell * s, const CBattleInfoCallback * Cb);
-	virtual ~ISpellMechanics(){};
+	Mechanics(const CSpell * s, const CBattleInfoCallback * Cb, const Caster * caster_);
+	virtual ~Mechanics(){};
 
-	virtual std::vector<BattleHex> rangeInHexes(BattleHex centralHex, ui8 schoolLvl, ui8 side, bool * outDroppedHexes = nullptr) const = 0;
-	virtual std::vector<const CStack *> getAffectedStacks(const ECastingMode::ECastingMode mode, const ISpellCaster * caster, int spellLvl, BattleHex destination) const = 0;
+	bool adaptProblem(ESpellCastProblem::ESpellCastProblem source, Problem & target) const;
+	bool adaptGenericProblem(Problem & target) const;
 
-	virtual ESpellCastProblem::ESpellCastProblem canBeCast(const ECastingMode::ECastingMode mode, const ISpellCaster * caster) const = 0;
+	virtual std::vector<BattleHex> rangeInHexes(BattleHex centralHex, ui8 schoolLvl, bool * outDroppedHexes = nullptr) const = 0;
+	virtual std::vector<const CStack *> getAffectedStacks(int spellLvl, BattleHex destination) const = 0;
 
-	virtual bool canBeCastAt(const ECastingMode::ECastingMode mode, const ISpellCaster * caster, BattleHex destination) const = 0;
+	virtual bool canBeCast(Problem & problem) const = 0;
+	virtual bool canBeCastAt(BattleHex destination) const = 0;
 
-	virtual ESpellCastProblem::ESpellCastProblem isImmuneByStack(const ISpellCaster * caster, const CStack * obj) const = 0;
+	virtual void applyEffects(const SpellCastEnvironment * env, const BattleCast & parameters) const = 0;
+	virtual void applyEffectsForced(const SpellCastEnvironment * env, const BattleCast & parameters) const = 0;
 
-	virtual void battleCast(const SpellCastEnvironment * env, const BattleSpellCastParameters & parameters) const = 0;
 
-	//if true use generic algorithm for target existence check, see CSpell::canBeCast
-	virtual bool requiresCreatureTarget() const = 0;
+	virtual void cast(const SpellCastEnvironment * env, const BattleCast & parameters, SpellCastContext & ctx, std::vector <const CStack*> & reflected) const = 0;
 
+	Mode mode;
 	const CSpell * owner;
 	const CBattleInfoCallback * cb;
+	const Caster * caster;
+
+	const CStack * casterStack; //deprecated
+
+	ui8 casterSide;
 };
+
+}// namespace spells
 
 class DLL_LINKAGE AdventureSpellCastParameters
 {

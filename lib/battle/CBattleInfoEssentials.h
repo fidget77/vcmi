@@ -19,7 +19,7 @@ class IBonusBearer;
 struct InfoAboutHero;
 class CArmedInstance;
 
-typedef std::vector<const CStack*> TStacks;
+typedef std::vector<const CStack *> TStacks;
 typedef std::function<bool(const CStack *)> TStackFilter;
 
 namespace BattlePerspective
@@ -51,7 +51,7 @@ public:
 	std::vector<std::shared_ptr<const CObstacleInstance> > battleGetAllObstacles(boost::optional<BattlePerspective::BattlePerspective> perspective = boost::none) const; //returns all obstacles on the battlefield
 
 	/** @brief Main method for getting battle stacks
-	 *
+	 * returns also turrets and removed stacks
 	 * @param predicate Functor that shall return true for desired stack
 	 * @return filtered stacks
 	 *
@@ -59,7 +59,6 @@ public:
 	TStacks battleGetStacksIf(TStackFilter predicate) const;
 
 	bool battleHasNativeStack(ui8 side) const;
-	int battleGetMoatDmg() const; //what dmg unit will suffer if ending turn in the moat
 	const CGTownInstance * battleGetDefendedTown() const; //returns defended town if current battle is a siege, nullptr instead
 	const CStack *battleActiveStack() const;
 	si8 battleTacticDist() const; //returns tactic distance in current tactics phase; 0 if not in tactics phase

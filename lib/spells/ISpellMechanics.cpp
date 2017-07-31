@@ -12,11 +12,12 @@
 #include "ISpellMechanics.h"
 
 #include "../CStack.h"
-#include "../battle/BattleInfo.h"
+#include "../battle/CBattleInfoCallback.h"
 
 #include "../NetPacks.h"
 
 #include "../serializer/JsonDeserializer.h"
+#include "../serializer/JsonSerializer.h"
 
 #include "CDefaultSpellMechanics.h"
 
@@ -26,8 +27,16 @@
 #include "CustomSpellMechanics.h"
 
 #include "effects/Effects.h"
+#include "effects/Damage.h"
+#include "effects/Timed.h"
 
-template<typename Mechanics>
+
+#include "../CHeroHandler.h"//todo: remove
+
+namespace spells
+{
+
+template<typename T>
 class SpellMechanicsFactory : public ISpellMechanicsFactory
 {
 public:
@@ -35,123 +44,247 @@ public:
 		: ISpellMechanicsFactory(s)
 	{}
 
-	std::unique_ptr<ISpellMechanics> create(const CBattleInfoCallback * cb) const override
+	std::unique_ptr<Mechanics> create(const CBattleInfoCallback * cb, Mode mode, const Caster * caster) const override
 	{
-		return make_unique<Mechanics>(spell, cb);
+		std::unique_ptr<Mechanics> ret(new T(spell, cb, caster));
+		ret->mode = mode;
+		return ret;
 	}
 };
 
-template<>
-class SpellMechanicsFactory<SummonMechanics> : public ISpellMechanicsFactory
+
+class CustomMechanicsFactory : public ISpellMechanicsFactory
 {
 public:
-	SpellMechanicsFactory(const CSpell * s, CreatureID c)
-		: ISpellMechanicsFactory(s), cre(c)
-	{}
-
-	std::unique_ptr<ISpellMechanics> create(const CBattleInfoCallback * cb) const override
+	std::unique_ptr<Mechanics> create(const CBattleInfoCallback * cb, Mode mode, const Caster * caster) const override
 	{
-		return make_unique<SummonMechanics>(spell, cb, cre);
+		std::unique_ptr<Mechanics> ret(new CustomSpellMechanics(spell, cb, caster, effects));
+		ret->mode = mode;
+		return ret;
+	}
+protected:
+	std::shared_ptr<spells::effects::Effects> effects;
+
+	CustomMechanicsFactory(const CSpell * s)
+		: ISpellMechanicsFactory(s), effects(new spells::effects::Effects)
+	{
 	}
 
-private:
-	CreatureID cre;
+	void loadEffects(const JsonNode & config, const int level)
+	{
+		JsonDeserializer deser(nullptr, config);
+		effects->serializeJson(deser, level);
+	}
 };
 
-template<>
-class SpellMechanicsFactory<CustomSpellMechanics> : public ISpellMechanicsFactory
+class ConfigurableMechanicsFactory : public CustomMechanicsFactory
 {
 public:
-	SpellMechanicsFactory(const CSpell * s)
-		: ISpellMechanicsFactory(s), effects()
+	ConfigurableMechanicsFactory(const CSpell * s)
+		: CustomMechanicsFactory(s)
 	{
-		effects = std::make_shared<spells::effects::Effects>();
+		for(int level = 0; level < GameConstants::SPELL_SCHOOL_LEVELS; level++)
+			loadEffects(s->getLevelInfo(level).specialEffects, level);
+	}
+};
 
-		for(int level = 0; level < GameConstants::SPELL_LEVELS; level++)
+class SummonMechanicsFactory : public CustomMechanicsFactory
+{
+public:
+	SummonMechanicsFactory(const CSpell * s, CreatureID c)
+		: CustomMechanicsFactory(s)
+	{
+		for(int level = 0; level < GameConstants::SPELL_SCHOOL_LEVELS; level++)
 		{
-			const CSpell::LevelInfo & levelInfo = s->getLevelInfo(level);
+			std::string effectName = "core:summon";
+			JsonNode config(JsonNode::JsonType::DATA_STRUCT);
+			JsonSerializer ser(nullptr, config);
 
-			JsonDeserializer deser(nullptr, levelInfo.specialEffects);
-			effects->serializeJson(deser, level);
+			auto guard = ser.enterStruct(effectName);
+			ser.serializeString("type", effectName);
+			ser.serializeId("id", c, CreatureID());
+			loadEffects(config, level);
 		}
 	}
-
-	std::unique_ptr<ISpellMechanics> create(const CBattleInfoCallback * cb) const override
-	{
-		return make_unique<CustomSpellMechanics>(spell, cb, effects);
-	}
-private:
-	std::shared_ptr<spells::effects::Effects> effects;
 };
 
-BattleSpellCastParameters::Destination::Destination(const CStack * destination):
-	stackValue(destination),
+//to be used for spells configured with old format
+class FallbackMechanicsFactory : public CustomMechanicsFactory
+{
+public:
+	FallbackMechanicsFactory(const CSpell * s)
+		: CustomMechanicsFactory(s)
+	{
+		for(int level = 0; level < GameConstants::SPELL_SCHOOL_LEVELS; level++)
+		{
+			const CSpell::LevelInfo & levelInfo = s->getLevelInfo(level);
+			assert(levelInfo.specialEffects.isNull());
+
+			if(s->isOffensiveSpell())
+			{
+				//default constructed object should be enough
+				auto damage = std::make_shared<effects::Damage>();
+				damage->addTo(effects.get(), level);
+			}
+
+			if(!levelInfo.effects.empty())
+			{
+				auto timed = std::make_shared<effects::Timed>();
+				timed->cumulative = false;
+				timed->bonus = levelInfo.effects;
+				timed->addTo(effects.get(), level);
+			}
+
+			if(!levelInfo.cumulativeEffects.empty())
+			{
+				auto timed = std::make_shared<effects::Timed>();
+				timed->cumulative = true;
+				timed->bonus = levelInfo.cumulativeEffects;
+				timed->addTo(effects.get(), level);
+			}
+		}
+	}
+};
+
+Destination::Destination()
+	: stackValue(nullptr),
+	hexValue(BattleHex::INVALID)
+{
+
+}
+
+Destination::Destination(const CStack * destination)
+	: stackValue(destination),
 	hexValue(destination->position)
 {
 
 }
 
-BattleSpellCastParameters::Destination::Destination(const BattleHex & destination):
-	stackValue(nullptr),
+Destination::Destination(const BattleHex & destination)
+	: stackValue(nullptr),
 	hexValue(destination)
 {
 
 }
 
-BattleSpellCastParameters::BattleSpellCastParameters(const BattleInfo * cb, const ISpellCaster * caster, const CSpell * spell_)
-	: spell(spell_), cb(cb), caster(caster), casterColor(caster->getOwner()), casterSide(cb->whatSide(casterColor)),
-	casterHero(nullptr),
-	mode(ECastingMode::HERO_CASTING), casterStack(nullptr),
-	spellLvl(0),  effectLevel(0), effectPower(0), enchantPower(0), effectValue(0)
+Destination::Destination(const Destination & other)
+	: stackValue(other.stackValue),
+	hexValue(other.hexValue)
 {
-	casterStack = dynamic_cast<const CStack *>(caster);
-	casterHero = dynamic_cast<const CGHeroInstance *>(caster);
 
-	spellLvl = caster->getSpellSchoolLevel(spell);
-	effectLevel = caster->getEffectLevel(spell);
-	effectPower = caster->getEffectPower(spell);
-	effectValue = caster->getEffectValue(spell);
-	enchantPower = caster->getEnchantPower(spell);
+}
 
-	vstd::amax(spellLvl, 0);
-	vstd::amax(effectLevel, 0);
-	vstd::amax(enchantPower, 0);
-	vstd::amax(enchantPower, 0);
+Destination & Destination::operator=(const Destination & other)
+{
+	stackValue = other.stackValue;
+	hexValue = other.hexValue;
+	return *this;
+}
+
+BattleCast::BattleCast(const CBattleInfoCallback * cb, const Caster * caster_, const Mode mode_, const CSpell * spell_)
+	: spell(spell_),
+	cb(cb),
+	caster(caster_),
+	mode(mode_),
+	spellLvl(caster->getSpellSchoolLevel(mode, spell)),
+	effectLevel(caster->getEffectLevel(mode, spell)),
+	effectPower(caster->getEffectPower(mode, spell)),
+	effectDuration(caster->getEnchantPower(mode, spell)),
+	effectValue(caster->getEffectValue(mode, spell))
+{
+	vstd::abetween(spellLvl, 0, 3);
+	vstd::abetween(effectLevel, 0, 3); //??? may be we can allow higher value here
+
+	vstd::amax(effectPower, 0);
+	vstd::amax(effectDuration, 0);
 	vstd::amax(effectValue, 0);
 }
 
-BattleSpellCastParameters::BattleSpellCastParameters(const BattleSpellCastParameters & orig, const ISpellCaster * caster)
-	:spell(orig.spell), cb(orig.cb), caster(caster), casterColor(caster->getOwner()), casterSide(cb->whatSide(casterColor)),
-	casterHero(nullptr), mode(ECastingMode::MAGIC_MIRROR), casterStack(nullptr),
-	spellLvl(orig.spellLvl),  effectLevel(orig.effectLevel), effectPower(orig.effectPower), enchantPower(orig.enchantPower), effectValue(orig.effectValue)
+BattleCast::BattleCast(const BattleCast & orig, const Caster * caster_)
+	: spell(orig.spell),
+	cb(orig.cb),
+	caster(caster_),
+	mode(Mode::MAGIC_MIRROR),
+	spellLvl(orig.spellLvl),
+	effectLevel(orig.effectLevel),
+	effectPower(orig.effectPower),
+	effectDuration(orig.effectDuration),
+	effectValue(orig.effectValue)
 {
-	casterStack = dynamic_cast<const CStack *>(caster);
-	casterHero = dynamic_cast<const CGHeroInstance *>(caster);
 }
 
-void BattleSpellCastParameters::aimToHex(const BattleHex& destination)
+void BattleCast::aimToHex(const BattleHex & destination)
 {
-	destinations.push_back(Destination(destination));
+	target.push_back(Destination(destination));
 }
 
-void BattleSpellCastParameters::aimToStack(const CStack * destination)
+void BattleCast::aimToStack(const CStack * destination)
 {
 	if(nullptr == destination)
-		logGlobal->error("BattleSpellCastParameters::aimToStack invalid stack.");
+		logGlobal->error("BattleCast::aimToStack invalid stack.");
 	else
-		destinations.push_back(Destination(destination));
+		target.push_back(Destination(destination));
 }
 
-void BattleSpellCastParameters::cast(const SpellCastEnvironment * env)
+void BattleCast::applyEffects(const SpellCastEnvironment * env) const
 {
-	if(destinations.empty())
+	auto m = spell->battleMechanics(cb, mode, caster);
+	m->applyEffects(env, *this);
+}
+
+void BattleCast::applyEffectsForced(const SpellCastEnvironment * env) const
+{
+	auto m = spell->battleMechanics(cb, mode, caster);
+	m->applyEffectsForced(env, *this);
+}
+
+void BattleCast::cast(const SpellCastEnvironment * env)
+{
+	if(target.empty())
 		aimToHex(BattleHex::INVALID);
-	spell->battleCast(env, *this);
+	auto m = spell->battleMechanics(cb, mode, caster);
+
+	std::vector <const CStack*> reflected;//for magic mirror
+
+	{
+		SpellCastContext ctx(m.get(), env, *this);
+
+		ctx.beforeCast();
+
+		m->cast(env, *this, ctx, reflected);
+
+		ctx.afterCast();
+	}
+
+	//Magic Mirror effect
+	for(auto & attackedCre : reflected)
+	{
+		if(mode == Mode::MAGIC_MIRROR)
+		{
+			logGlobal->error("Magic mirror recurrence!");
+			return;
+		}
+
+		TStacks mirrorTargets = cb->battleGetStacksIf([this](const CStack * battleStack)
+		{
+			//Get all caster stacks. Magic mirror can reflect to immune creature (with no effect)
+			return battleStack->owner == caster->getOwner() && battleStack->isValidTarget(false);
+		});
+
+		if(!mirrorTargets.empty())
+		{
+			int targetHex = (*RandomGeneratorUtil::nextItem(mirrorTargets, env->getRandomGenerator()))->position;
+
+			BattleCast mirror(*this, attackedCre);
+			mirror.aimToHex(targetHex);
+			mirror.cast(env);
+		}
+	}
 }
 
-bool BattleSpellCastParameters::castIfPossible(const SpellCastEnvironment * env)
+bool BattleCast::castIfPossible(const SpellCastEnvironment * env)
 {
-	if(ESpellCastProblem::OK == spell->canBeCast(cb, mode, caster))
+	if(spell->canBeCast(cb, mode, caster))
 	{
 		cast(env);
 		return true;
@@ -159,17 +292,17 @@ bool BattleSpellCastParameters::castIfPossible(const SpellCastEnvironment * env)
 	return false;
 }
 
-BattleHex BattleSpellCastParameters::getFirstDestinationHex() const
+BattleHex BattleCast::getFirstDestinationHex() const
 {
-	if(destinations.empty())
+	if(target.empty())
 	{
-		logGlobal->error("Spell have no destinations.");
+		logGlobal->error("Spell have no target.");
         return BattleHex::INVALID;
 	}
-	return destinations.at(0).hexValue;
+	return target.at(0).hexValue;
 }
 
-int BattleSpellCastParameters::getEffectValue() const
+int BattleCast::getEffectValue() const
 {
 	return (effectValue == 0) ? spell->calculateRawEffectValue(effectLevel, effectPower, 1) : effectValue;
 }
@@ -188,10 +321,152 @@ ISpellMechanicsFactory::~ISpellMechanicsFactory()
 
 std::unique_ptr<ISpellMechanicsFactory> ISpellMechanicsFactory::get(const CSpell * s)
 {
+	//TODO: use it
+	//TODO: immunity special cases
+	static const std::map<SpellID, std::vector<std::string>> SPECIAL_EFFECTS =
+	{
+		{
+			SpellID::ANIMATE_DEAD,
+			{
+				"core:heal"//need configuration
+			}
+		},
+		{
+			SpellID::RESURRECTION,
+			{
+				"core:heal"//need configuration
+			}
+		},
+		{
+			SpellID::ANTI_MAGIC,
+			{
+				"core:timed",
+				"core:dispel"//need configuration
+			}
+		},
+		{
+			SpellID::ACID_BREATH_DAMAGE,
+			{
+				"core:acid"
+			}
+		},
+		{
+			SpellID::CHAIN_LIGHTNING,
+			{
+				"core:chainDamage"
+			}
+		},
+		{
+			SpellID::CLONE,
+			{
+				"core:clone"
+			}
+		},
+		{
+			SpellID::CURE,
+			{
+				"core:dispel",//need configuration
+				"core:heal"//need configuration
+			}
+		},
+		{
+			SpellID::DEATH_STARE,//custom immunity
+			{
+				"core:deathStare"
+			}
+		},
+		{
+			SpellID::DISPEL,//custom immunity
+			{
+				"core:dispel",//need configuration
+				"core:removeObstacle"//need configuration
+			}
+		},
+		{
+			SpellID::DISPEL_HELPFUL_SPELLS,
+			{
+				"core:dispel"//need configuration
+			}
+		},
+		{
+			SpellID::EARTHQUAKE,
+			{
+				"core:catapult"
+			}
+		},
+		{
+			SpellID::FIRE_WALL,
+			{
+				"core:obstacle",//need configuration
+				"core:damage"
+			}
+		},
+		{
+			SpellID::FORCE_FIELD,
+			{
+				"core:obstacle"//need configuration
+			}
+		},
+		{
+			SpellID::HYPNOTIZE,//custom immunity
+			{
+				"core:timed"
+			}
+		},
+		{
+			SpellID::LAND_MINE,
+			{
+				"core:obstacle",//need configuration
+				"core:damage"
+			}
+		},
+		{
+			SpellID::QUICKSAND,
+			{
+				"core:obstacle"//need configuration
+			}
+		},
+		{
+			SpellID::REMOVE_OBSTACLE,
+			{
+				"core:removeObstacle"
+			}
+		},
+		{
+			SpellID::SACRIFICE,
+			{
+				"core:heal",//need configuration
+				"core:removeStack"
+			}
+		},
+		{
+			SpellID::TELEPORT,
+			{
+				"core:teleport"
+			}
+		}
+	};
+
 	//ignore spell id if there are special effects
 	if(s->hasSpecialEffects())
-		return make_unique<SpellMechanicsFactory<CustomSpellMechanics>>(s);
+		return make_unique<ConfigurableMechanicsFactory>(s);
 
+	//spells converted to configurable mechanics
+	switch(s->id)
+	{
+	case SpellID::SUMMON_FIRE_ELEMENTAL:
+		return make_unique<SummonMechanicsFactory>(s, CreatureID::FIRE_ELEMENTAL);
+	case SpellID::SUMMON_EARTH_ELEMENTAL:
+		return make_unique<SummonMechanicsFactory>(s, CreatureID::EARTH_ELEMENTAL);
+	case SpellID::SUMMON_WATER_ELEMENTAL:
+		return make_unique<SummonMechanicsFactory>(s, CreatureID::WATER_ELEMENTAL);
+	case SpellID::SUMMON_AIR_ELEMENTAL:
+		return make_unique<SummonMechanicsFactory>(s, CreatureID::AIR_ELEMENTAL);
+	default:
+		break;
+	}
+
+	//to be converted
 	switch(s->id)
 	{
 	case SpellID::ANIMATE_DEAD:
@@ -229,27 +504,105 @@ std::unique_ptr<ISpellMechanicsFactory> ISpellMechanicsFactory::get(const CSpell
 		return make_unique<SpellMechanicsFactory<RemoveObstacleMechanics>>(s);
 	case SpellID::SACRIFICE:
 		return make_unique<SpellMechanicsFactory<SacrificeMechanics>>(s);
-	case SpellID::SUMMON_FIRE_ELEMENTAL:
-		return make_unique<SpellMechanicsFactory<SummonMechanics>>(s, CreatureID::FIRE_ELEMENTAL);
-	case SpellID::SUMMON_EARTH_ELEMENTAL:
-		return make_unique<SpellMechanicsFactory<SummonMechanics>>(s, CreatureID::EARTH_ELEMENTAL);
-	case SpellID::SUMMON_WATER_ELEMENTAL:
-		return make_unique<SpellMechanicsFactory<SummonMechanics>>(s, CreatureID::WATER_ELEMENTAL);
-	case SpellID::SUMMON_AIR_ELEMENTAL:
-		return make_unique<SpellMechanicsFactory<SummonMechanics>>(s, CreatureID::AIR_ELEMENTAL);
 	case SpellID::TELEPORT:
 		return make_unique<SpellMechanicsFactory<TeleportMechanics>>(s);
+	case SpellID::STONE_GAZE:
+	case SpellID::POISON:
+	case SpellID::BIND:
+	case SpellID::DISEASE:
+	case SpellID::PARALYZE:
+	case SpellID::THUNDERBOLT:
+	case SpellID::ACID_BREATH_DEFENSE:
+	case SpellID::AGE:
+		//do not touch original creature abilities for now
+		//TODO: configurable log messages
+		return make_unique<SpellMechanicsFactory<RegularSpellMechanics>>(s);
 	default:
-		return make_unique<SpellMechanicsFactory<DefaultSpellMechanics>>(s);
+		return make_unique<FallbackMechanicsFactory>(s);
 	}
 }
 
-
-///ISpellMechanics
-ISpellMechanics::ISpellMechanics(const CSpell * s, const CBattleInfoCallback * Cb)
-	: owner(s), cb(Cb)
+///Mechanics
+Mechanics::Mechanics(const CSpell * s, const CBattleInfoCallback * Cb, const Caster * caster_)
+	: owner(s), cb(Cb), caster(caster_)
 {
+	casterStack = dynamic_cast<const CStack *>(caster);
+
+	//FIXME: ensure caster and check for valid player and side
+	casterSide = 0;
+	if(caster)
+		casterSide = cb->playerToSide(caster->getOwner()).get();
 }
+
+bool Mechanics::adaptGenericProblem(Problem & target) const
+{
+	MetaString text;
+	// %s recites the incantations but they seem to have no effect.
+	text.addTxt(MetaString::GENERAL_TXT, 541);
+	caster->getCasterName(text);
+
+	target.add(std::move(text), spells::Problem::NORMAL);
+	return false;
+}
+
+bool Mechanics::adaptProblem(ESpellCastProblem::ESpellCastProblem source, Problem & target) const
+{
+	if(source == ESpellCastProblem::OK)
+		return true;
+
+	switch(source)
+	{
+	case ESpellCastProblem::SPELL_LEVEL_LIMIT_EXCEEDED:
+		{
+			MetaString text;
+			auto hero = dynamic_cast<const CGHeroInstance *>(caster);
+
+			//Recanter's Cloak or similar effect. Try to retrieve bonus
+			const auto b = hero->getBonusLocalFirst(Selector::type(Bonus::BLOCK_MAGIC_ABOVE));
+			//TODO what about other values and non-artifact sources?
+			if(b && b->val == 2 && b->source == Bonus::ARTIFACT)
+			{
+				//The %s prevents %s from casting 3rd level or higher spells.
+				text.addTxt(MetaString::GENERAL_TXT, 536);
+				text.addReplacement(MetaString::ART_NAMES, b->sid);
+				caster->getCasterName(text);
+				target.add(std::move(text), spells::Problem::NORMAL);
+			}
+			else if(b && b->source == Bonus::TERRAIN_OVERLAY && b->sid == BFieldType::CURSED_GROUND)
+			{
+				text.addTxt(MetaString::GENERAL_TXT, 537);
+				target.add(std::move(text), spells::Problem::NORMAL);
+			}
+			else
+			{
+				return adaptGenericProblem(target);
+			}
+		}
+		break;
+	case ESpellCastProblem::WRONG_SPELL_TARGET:
+	case ESpellCastProblem::STACK_IMMUNE_TO_SPELL:
+	case ESpellCastProblem::NO_APPROPRIATE_TARGET:
+		{
+			MetaString text;
+			text.addTxt(MetaString::GENERAL_TXT, 185);
+			target.add(std::move(text), spells::Problem::NORMAL);
+		}
+		break;
+	case ESpellCastProblem::INVALID:
+		{
+			MetaString text;
+			text.addReplacement("Internal error during check of spell cast.");
+			target.add(std::move(text), spells::Problem::CRITICAL);
+		}
+		break;
+	default:
+		return adaptGenericProblem(target);
+	}
+
+	return false;
+}
+
+} //namespace spells
 
 ///IAdventureSpellMechanics
 IAdventureSpellMechanics::IAdventureSpellMechanics(const CSpell * s)

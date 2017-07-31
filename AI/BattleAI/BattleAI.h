@@ -49,7 +49,7 @@ struct PossibleSpellcast
 {
 	const CSpell *spell;
 	BattleHex dest;
-	si32 value;
+	float value;
 };
 
 class CBattleAI : public CBattleGameInterface
@@ -72,7 +72,7 @@ public:
 
 	boost::optional<BattleAction> considerFleeingOrSurrendering();
 
-	std::vector<BattleHex> getTargetsToConsider(const CSpell *spell, const ISpellCaster * caster) const;
+	std::vector<BattleHex> getTargetsToConsider(const CSpell *spell, const spells::Caster * caster) const;
 	static int distToNearestNeighbour(BattleHex hex, const ReachabilityInfo::TDistances& dists, BattleHex *chosenHex = nullptr);
 	static bool isCloser(const EnemyInfo & ei1, const EnemyInfo & ei2, const ReachabilityInfo::TDistances & dists);
 
@@ -82,7 +82,7 @@ public:
 	//void actionFinished(const BattleAction &action) override;//occurs AFTER every action taken by any stack or by the hero
 	//void actionStarted(const BattleAction &action) override;//occurs BEFORE every action taken by any stack or by the hero
 	//void battleAttack(const BattleAttack *ba) override; //called when stack is performing attack
-	//void battleStacksAttacked(const std::vector<BattleStackAttacked> & bsa) override; //called when stack receives damage (after battleAttack())
+	//void battleStacksAttacked(const std::vector<BattleStackAttacked> & bsa, const std::vector<MetaString> & battleLog) override; //called when stack receives damage (after battleAttack())
 	//void battleEnd(const BattleResult *br) override;
 	//void battleResultsApplied() override; //called when all effects of last battle are applied
 	//void battleNewRoundFirst(int round) override; //called at the beginning of each turn before changes are applied;

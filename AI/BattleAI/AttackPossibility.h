@@ -17,6 +17,7 @@ struct HypotheticChangesToBattleState
 {
 	std::map<const CStack *, const IBonusBearer *> bonusesOfStacks;
 	std::map<const CStack *, int> counterAttacksLeft;
+	std::map<const CStack *, CHealth> amounts;
 };
 
 class Priorities

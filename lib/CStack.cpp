@@ -777,7 +777,7 @@ bool CStack::alive() const //determines if stack is alive
 	return vstd::contains(state, EBattleStackState::ALIVE);
 }
 
-ui8 CStack::getSpellSchoolLevel(const CSpell * spell, int * outSelectedSchool) const
+ui8 CStack::getSpellSchoolLevel(const spells::Mode mode, const CSpell * spell, int * outSelectedSchool) const
 {
 	int skill = valOfBonuses(Selector::typeSubtype(Bonus::SPELLCASTER, spell->id));
 	vstd::abetween(skill, 0, 3);
@@ -790,17 +790,22 @@ ui32 CStack::getSpellBonus(const CSpell * spell, ui32 base, const CStack * affec
 	return base;
 }
 
-int CStack::getEffectLevel(const CSpell * spell) const
+ui32 CStack::getSpecificSpellBonus(const CSpell * spell, ui32 base) const
 {
-	return getSpellSchoolLevel(spell);
+	return base;
 }
 
-int CStack::getEffectPower(const CSpell * spell) const
+int CStack::getEffectLevel(const spells::Mode mode, const CSpell * spell) const
+{
+	return getSpellSchoolLevel(mode, spell);
+}
+
+int CStack::getEffectPower(const spells::Mode mode, const CSpell * spell) const
 {
 	return valOfBonuses(Bonus::CREATURE_SPELL_POWER) * health.getCount() / 100;
 }
 
-int CStack::getEnchantPower(const CSpell * spell) const
+int CStack::getEnchantPower(const spells::Mode mode, const CSpell * spell) const
 {
 	int res = valOfBonuses(Bonus::CREATURE_ENCHANT_POWER);
 	if(res <= 0)
@@ -808,7 +813,7 @@ int CStack::getEnchantPower(const CSpell * spell) const
 	return res;
 }
 
-int CStack::getEffectValue(const CSpell * spell) const
+int CStack::getEffectValue(const spells::Mode mode, const CSpell * spell) const
 {
 	return valOfBonuses(Bonus::SPECIFIC_SPELL_POWER, spell->id.toEnum()) * health.getCount();
 }
@@ -824,12 +829,50 @@ void CStack::getCasterName(MetaString & text) const
 	addNameReplacement(text, true);
 }
 
-void CStack::getCastDescription(const CSpell * spell, const std::vector<const CStack *> & attacked, MetaString & text) const
+void CStack::getCastDescription(const CSpell * spell, MetaString & text) const
 {
 	text.addTxt(MetaString::GENERAL_TXT, 565);//The %s casts %s
 	//todo: use text 566 for single creature
 	getCasterName(text);
 	text.addReplacement(MetaString::SPELL_NAME, spell->id.toEnum());
+}
+
+void CStack::getCastDescription(const CSpell * spell, const std::vector<const CStack *> & attacked, MetaString & text) const
+{
+	getCastDescription(spell, text);
+}
+
+void CStack::spendMana(const spells::Mode mode, const CSpell * spell, const spells::PacketSender * server, const int spellCost) const
+{
+	if(mode == spells::Mode::CREATURE_ACTIVE || mode == spells::Mode::ENCHANTER)
+	{
+		if(spellCost != 1)
+			logGlobal->warn("Unexpected spell cost for creature %d", spellCost);
+
+		BattleSetStackProperty ssp;
+		ssp.stackID = ID;
+		ssp.which = BattleSetStackProperty::CASTS;
+		ssp.val = -spellCost;
+		ssp.absolute = false;
+		server->sendAndApply(&ssp);
+
+		if(mode == spells::Mode::ENCHANTER)
+		{
+			auto bl = getBonuses(Selector::typeSubtype(Bonus::ENCHANTER, spell->id.toEnum()));
+
+			int cooldown = 1;
+			for(auto b : *(bl))
+				if(b->additionalInfo > cooldown)
+					cooldown = b->additionalInfo;
+
+			BattleSetStackProperty ssp;
+			ssp.which = BattleSetStackProperty::ENCHANTER_COUNTER;
+			ssp.absolute = false;
+			ssp.val = cooldown;
+			ssp.stackID = ID;
+			server->sendAndApply(&ssp);
+		}
+	}
 }
 
 int32_t CStack::unitMaxHealth() const

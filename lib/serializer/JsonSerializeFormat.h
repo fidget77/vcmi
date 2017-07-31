@@ -153,6 +153,7 @@ public:
 
 	///bool <-> Json bool
 	void serializeBool(const std::string & fieldName, bool & value);
+	void serializeBool(const std::string & fieldName, bool & value, const bool defaultValue);
 
 	///tribool <-> Json bool
 	void serializeBool(const std::string & fieldName, boost::logic::tribool & value)

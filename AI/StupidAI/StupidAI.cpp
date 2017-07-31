@@ -197,7 +197,7 @@ void CStupidAI::battleAttack(const BattleAttack *ba)
 	print("battleAttack called");
 }
 
-void CStupidAI::battleStacksAttacked(const std::vector<BattleStackAttacked> & bsa)
+void CStupidAI::battleStacksAttacked(const std::vector<BattleStackAttacked> & bsa, const std::vector<MetaString> & battleLog)
 {
 	print("battleStacksAttacked called");
 }

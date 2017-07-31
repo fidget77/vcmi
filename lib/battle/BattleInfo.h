@@ -66,8 +66,6 @@ struct DLL_LINKAGE BattleInfo : public CBonusSystemNode, public CBattleInfoCallb
 	const CStack * getNextStack() const; //which stack will have turn after current one
 
 	std::pair< std::vector<BattleHex>, int > getPath(BattleHex start, BattleHex dest, const CStack * stack); //returned value: pair<path, length>; length may be different than number of elements in path since flying vreatures jump between distant hexes
-	std::shared_ptr<CObstacleInstance> getObstacleOnTile(BattleHex tile) const;
-	std::set<BattleHex> getStoppers(bool whichSidePerspective) const;
 
 	ui32 calculateDmg(const CStack * attacker, const CStack * defender, bool shooting, ui8 charge, bool lucky, bool unlucky, bool deathBlow, bool ballistaDoubleDmg, CRandomGenerator & rand); //charge - number of hexes travelled before attack (for champion's jousting)
 	void calculateCasualties(std::map<ui32,si32> * casualties) const; //casualties are array of maps size 2 (attacker, defeneder), maps are (crid => amount)

@@ -77,13 +77,11 @@ public:
 	//*** MAGIC
 	si8 battleMaxSpellLevel(ui8 side) const; //calculates minimum spell level possible to be cast on battlefield - takes into account artifacts of both heroes; if no effects are set, 0 is returned
 	ui32 battleGetSpellCost(const CSpell * sp, const CGHeroInstance * caster) const; //returns cost of given spell
-	ESpellCastProblem::ESpellCastProblem battleCanCastSpell(const ISpellCaster * caster, ECastingMode::ECastingMode mode) const; //returns true if there are no general issues preventing from casting a spell
+	ESpellCastProblem::ESpellCastProblem battleCanCastSpell(const spells::Caster * caster, spells::Mode mode) const; //returns true if there are no general issues preventing from casting a spell
 
 	SpellID battleGetRandomStackSpell(CRandomGenerator & rand, const CStack * stack, ERandomSpell mode) const;
 	SpellID getRandomBeneficialSpell(CRandomGenerator & rand, const CStack * subject) const;
 	SpellID getRandomCastedSpell(CRandomGenerator & rand, const CStack * caster) const; //called at the beginning of turn for Faerie Dragon
-
-	const CStack * getStackIf(std::function<bool(const CStack*)> pred) const;
 
 	si8 battleHasShootingPenalty(const CStack * stack, BattleHex destHex);
 	si8 battleCanTeleportTo(const CStack * stack, BattleHex destHex, int telportLevel) const; //checks if teleportation of given stack to given position can take place

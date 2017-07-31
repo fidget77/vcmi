@@ -1,5 +1,5 @@
 /*
- * Summon.h, part of VCMI engine
+ * Timed.h, part of VCMI engine
  *
  * Authors: listed in file AUTHORS in main folder
  *
@@ -10,34 +10,30 @@
 
 #pragma once
 
-#include "GlobalEffect.h"
-#include "../../GameConstants.h"
+#include "StackEffect.h"
+
+struct Bonus;
 
 namespace spells
 {
 namespace effects
 {
 
-class DLL_LINKAGE Summon : public GlobalEffect
+class Timed : public StackEffect
 {
 public:
-	CreatureID creature;
-
-	Summon();
-	virtual ~Summon();
-
-	bool applicable(Problem & problem, const Mechanics * m) const override;
+	Timed();
+	virtual ~Timed() = default;
 
 	void apply(const PacketSender * server, RNG & rng, const Mechanics * m, const BattleCast & p, const EffectTarget & target) const override;
 
-	EffectTarget transformTarget(const Mechanics * m, const Target & aimPoint, const Target & spellTarget) const override;
+	bool cumulative;
+	std::vector<std::shared_ptr<Bonus>> bonus;
 
 protected:
 	void serializeJsonEffect(JsonSerializeFormat & handler) override final;
 
 private:
-	bool permanent;
-	bool exclusive;
 };
 
 } // namespace effects

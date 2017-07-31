@@ -820,7 +820,7 @@ TExpType CGHeroInstance::calculateXp(TExpType exp) const
 	return exp * (100 + valOfBonuses(Bonus::SECONDARY_SKILL_PREMY, SecondarySkill::LEARNING))/100.0;
 }
 
-ui8 CGHeroInstance::getSpellSchoolLevel(const CSpell * spell, int *outSelectedSchool) const
+ui8 CGHeroInstance::getSpellSchoolLevel(const spells::Mode mode, const CSpell * spell, int *outSelectedSchool) const
 {
 	si16 skill = -1; //skill level
 
@@ -864,25 +864,31 @@ ui32 CGHeroInstance::getSpellBonus(const CSpell * spell, ui32 base, const CStack
 	return base;
 }
 
-int CGHeroInstance::getEffectLevel(const CSpell * spell) const
+ui32 CGHeroInstance::getSpecificSpellBonus(const CSpell * spell, ui32 base) const
+{
+	base *= (100.0 + valOfBonuses(Bonus::SPECIFIC_SPELL_DAMAGE, spell->id.toEnum())) / 100.0;
+	return base;
+}
+
+int CGHeroInstance::getEffectLevel(const spells::Mode mode, const CSpell * spell) const
 {
 	if(hasBonusOfType(Bonus::MAXED_SPELL, spell->id))
 		return 3;//todo: recheck specialty from where this bonus is. possible bug
 	else
-		return getSpellSchoolLevel(spell);
+		return getSpellSchoolLevel(mode, spell);
 }
 
-int CGHeroInstance::getEffectPower(const CSpell * spell) const
+int CGHeroInstance::getEffectPower(const spells::Mode mode, const CSpell * spell) const
 {
 	return getPrimSkillLevel(PrimarySkill::SPELL_POWER);
 }
 
-int CGHeroInstance::getEnchantPower(const CSpell * spell) const
+int CGHeroInstance::getEnchantPower(const spells::Mode mode, const CSpell * spell) const
 {
 	return getPrimSkillLevel(PrimarySkill::SPELL_POWER) + valOfBonuses(Bonus::SPELL_DURATION);
 }
 
-int CGHeroInstance::getEffectValue(const CSpell * spell) const
+int CGHeroInstance::getEffectValue(const spells::Mode mode, const CSpell * spell) const
 {
 	return 0;
 }
@@ -895,11 +901,17 @@ const PlayerColor CGHeroInstance::getOwner() const
 void CGHeroInstance::getCasterName(MetaString & text) const
 {
 	//FIXME: use local name, MetaString need access to gamestate as hero name is part of map object
-
-    text.addReplacement(name);
+	text.addReplacement(name);
 }
 
-void CGHeroInstance::getCastDescription(const CSpell * spell, const std::vector<const CStack*> & attacked, MetaString & text) const
+void CGHeroInstance::getCastDescription(const CSpell * spell, MetaString & text) const
+{
+	text.addTxt(MetaString::GENERAL_TXT, 196);
+	getCasterName(text);
+	text.addReplacement(MetaString::SPELL_NAME, spell->id.toEnum());
+}
+
+void CGHeroInstance::getCastDescription(const CSpell * spell, const std::vector<const CStack *> & attacked, MetaString & text) const
 {
 	const bool singleTarget = attacked.size() == 1;
 	const int textIndex = singleTarget ? 195 : 196;
@@ -908,7 +920,17 @@ void CGHeroInstance::getCastDescription(const CSpell * spell, const std::vector<
 	getCasterName(text);
 	text.addReplacement(MetaString::SPELL_NAME, spell->id.toEnum());
 	if(singleTarget)
-		text.addReplacement(MetaString::CRE_PL_NAMES, attacked.at(0)->getCreature()->idNumber.num);
+		attacked.at(0)->addNameReplacement(text, true);
+}
+
+void CGHeroInstance::spendMana(const spells::Mode mode, const CSpell * spell, const spells::PacketSender * server, const int spellCost) const
+{
+	SetMana sm;
+	sm.absolute = false;
+	sm.hid = id;
+	sm.val = -spellCost;
+
+	server->sendAndApply(&sm);
 }
 
 bool CGHeroInstance::canCastThisSpell(const CSpell * spell) const
@@ -1134,9 +1156,9 @@ void CGHeroInstance::getOutOffsets(std::vector<int3> &offsets) const
 	};
 }
 
-int CGHeroInstance::getSpellCost(const CSpell *sp) const
+int CGHeroInstance::getSpellCost(const CSpell * sp) const
 {
-	return sp->getCost(getSpellSchoolLevel(sp));
+	return sp->getCost(getSpellSchoolLevel(spells::Mode::HERO, sp));
 }
 
 void CGHeroInstance::pushPrimSkill( PrimarySkill::PrimarySkill which, int val )

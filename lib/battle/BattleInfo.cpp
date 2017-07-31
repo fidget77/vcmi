@@ -658,15 +658,6 @@ int BattleInfo::getIdForNewStack() const
 	return 0;
 }
 
-std::shared_ptr<CObstacleInstance> BattleInfo::getObstacleOnTile(BattleHex tile) const
-{
-	for(auto &obs : obstacles)
-		if(vstd::contains(obs->getAffectedTiles(), tile))
-			return obs;
-
-	return std::shared_ptr<CObstacleInstance>();
-}
-
 BattlefieldBI::BattlefieldBI BattleInfo::battlefieldTypeToBI(BFieldType bfieldType)
 {
 	static const std::map<BFieldType, BattlefieldBI::BattlefieldBI> theMap =

@@ -92,6 +92,7 @@ public:
 class DLL_LINKAGE CHealth
 {
 public:
+	CHealth() = default;
 	CHealth(const IUnitHealthInfo * Owner);
 	CHealth(const CHealth & other);
 
@@ -131,7 +132,7 @@ private:
 	int32_t resurrected;
 };
 
-class DLL_LINKAGE CStack : public CBonusSystemNode, public ISpellCaster, public IUnitHealthInfo
+class DLL_LINKAGE CStack : public CBonusSystemNode, public spells::Caster, public IUnitHealthInfo
 {
 public:
 	const CStackInstance * base; //garrison slot from which stack originates (nullptr for war machines, summoned cres, etc)
@@ -211,26 +212,29 @@ public:
 	void prepareAttacked(BattleStackAttacked & bsa, CRandomGenerator & rand) const; //requires bsa.damageAmout filled
 	void prepareAttacked(BattleStackAttacked & bsa, CRandomGenerator & rand, const CHealth & customHealth) const; //requires bsa.damageAmout filled
 
-	///ISpellCaster
+	///spells::Caster
 
-	ui8 getSpellSchoolLevel(const CSpell * spell, int * outSelectedSchool = nullptr) const override;
-	ui32 getSpellBonus(const CSpell * spell, ui32 base, const CStack * affectedStack) const override;
-
+	ui8 getSpellSchoolLevel(const spells::Mode mode, const CSpell * spell, int * outSelectedSchool = nullptr) const override;
 	///default spell school level for effect calculation
-	int getEffectLevel(const CSpell * spell) const override;
+	int getEffectLevel(const spells::Mode mode, const CSpell * spell) const override;
+
+	ui32 getSpellBonus(const CSpell * spell, ui32 base, const CStack * affectedStack) const override;
+	ui32 getSpecificSpellBonus(const CSpell * spell, ui32 base) const override;
 
 	///default spell-power for damage/heal calculation
-	int getEffectPower(const CSpell * spell) const override;
+	int getEffectPower(const spells::Mode mode, const CSpell * spell) const override;
 
 	///default spell-power for timed effects duration
-	int getEnchantPower(const CSpell * spell) const override;
+	int getEnchantPower(const spells::Mode mode, const CSpell * spell) const override;
 
 	///damage/heal override(ignores spell configuration, effect level and effect power)
-	int getEffectValue(const CSpell * spell) const override;
+	int getEffectValue(const spells::Mode mode, const CSpell * spell) const override;
 
 	const PlayerColor getOwner() const override;
 	void getCasterName(MetaString & text) const override;
+	void getCastDescription(const CSpell * spell, MetaString & text) const override;
 	void getCastDescription(const CSpell * spell, const std::vector<const CStack *> & attacked, MetaString & text) const override;
+	void spendMana(const spells::Mode mode, const CSpell * spell, const spells::PacketSender * server, const int spellCost) const override;
 
 	///IUnitHealthInfo
 

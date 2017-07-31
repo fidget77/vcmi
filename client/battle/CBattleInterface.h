@@ -264,7 +264,7 @@ private:
 	void redrawBackgroundWithHexes(const CStack *activeStack);
 	/** End of battle screen blitting methods */
 
-	PossibleActions getCasterAction(const CSpell *spell, const ISpellCaster *caster, ECastingMode::ECastingMode mode) const;
+	PossibleActions getCasterAction(const CSpell *spell, const spells::Caster *caster, spells::Mode mode) const;
 
 	void setHeroAnimation(ui8 side, int phase);
 public:
@@ -334,7 +334,7 @@ public:
 	void stackActivated(const CStack *stack); //active stack has been changed
 	void stackMoved(const CStack *stack, std::vector<BattleHex> destHex, int distance); //stack with id number moved to destHex
 	void waitForAnims();
-	void stacksAreAttacked(std::vector<StackAttackedInfo> attackedInfos); //called when a certain amount of stacks has been attacked
+	void stacksAreAttacked(std::vector<StackAttackedInfo> attackedInfos, const std::vector<MetaString> & battleLog); //called when a certain amount of stacks has been attacked
 	void stackAttacking(const CStack *attacker, BattleHex dest, const CStack *attacked, bool shooting); //called when stack with id ID is attacking something on hex dest
 	void newRoundFirst( int round );
 	void newRound(int number); //caled when round is ended; number is the number of round
@@ -345,6 +345,9 @@ public:
 	void spellCast(const BattleSpellCast *sc); //called when a hero casts a spell
 	void battleStacksEffectsSet(const SetStackEffect & sse); //called when a specific effect is set to stacks
 	void castThisSpell(SpellID spellID); //called when player has chosen a spell from spellbook
+
+	void displayBattleLog(const std::vector<MetaString> & battleLog);
+
 	void displayEffect(ui32 effect, BattleHex destTile); //displays custom effect on the battlefield
 
 	void displaySpellCast(SpellID spellID, BattleHex destinationTile); //displays spell`s cast animation

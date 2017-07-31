@@ -26,7 +26,7 @@ namespace effects
 
 class DLL_LINKAGE Registry
 {
-	using DataPtr = std::unique_ptr<IEffectFactory>;
+	using DataPtr = std::shared_ptr<IEffectFactory>;
 public:
 	Registry();
 	virtual ~Registry();

@@ -114,7 +114,7 @@ static BattleHex WallPartToHex(EWallPart::EWallPart part)
 
 using namespace SiegeStuffThatShouldBeMovedToHandlers;
 
-ESpellCastProblem::ESpellCastProblem CBattleInfoCallback::battleCanCastSpell(const ISpellCaster * caster, ECastingMode::ECastingMode mode) const
+ESpellCastProblem::ESpellCastProblem CBattleInfoCallback::battleCanCastSpell(const spells::Caster * caster, spells::Mode mode) const
 {
 	RETURN_IF_NOT_BATTLE(ESpellCastProblem::INVALID);
 	if(caster == nullptr)
@@ -135,12 +135,12 @@ ESpellCastProblem::ESpellCastProblem CBattleInfoCallback::battleCanCastSpell(con
 	if(battleTacticDist())
 		return ESpellCastProblem::ONGOING_TACTIC_PHASE;
 
-	switch (mode)
+	switch(mode)
 	{
-	case ECastingMode::HERO_CASTING:
+	case spells::Mode::HERO:
 	{
 		if(battleCastSpells(side.get()) > 0)
-			return ESpellCastProblem::ALREADY_CASTED_THIS_TURN;
+			return ESpellCastProblem::CASTS_PER_TURN_LIMIT;
 
 		auto hero = dynamic_cast<const CGHeroInstance *>(caster);
 
@@ -1438,14 +1438,6 @@ ui32 CBattleInfoCallback::battleGetSpellCost(const CSpell * sp, const CGHeroInst
 	return ret - manaReduction + manaIncrease;
 }
 
-const CStack * CBattleInfoCallback::getStackIf(std::function<bool(const CStack*)> pred) const
-{
-	RETURN_IF_NOT_BATTLE(nullptr);
-	auto stacks = battleGetAllStacks();
-	auto stackItr = range::find_if(stacks, pred);
-	return stackItr == stacks.end() ? nullptr : *stackItr;
-}
-
 si8 CBattleInfoCallback::battleHasShootingPenalty(const CStack * stack, BattleHex destHex)
 {
 	return battleHasDistancePenalty(stack, destHex) || battleHasWallPenalty(stack, destHex);
@@ -1508,12 +1500,17 @@ SpellID CBattleInfoCallback::getRandomBeneficialSpell(CRandomGenerator & rand, c
 	};
 	std::vector<SpellID> beneficialSpells;
 
-	auto getAliveEnemy = [=](const std::function<bool(const CStack *)> & pred)
+	auto getAliveEnemy = [=](const std::function<bool(const CStack *)> & pred) -> const CStack *
 	{
-		return getStackIf([=](const CStack * stack)
+		auto stacks = battleGetStacksIf([=](const CStack * stack)
 		{
-			return pred(stack) && stack->owner != subject->owner && stack->alive();
+			return pred(stack) && stack->owner != subject->owner && stack->isValidTarget(false);
 		});
+
+		if(stacks.empty())
+			return nullptr;
+		else
+			return stacks.front();
 	};
 
 	for(const SpellID spellID : allPossibleSpells)
@@ -1523,7 +1520,7 @@ SpellID CBattleInfoCallback::getRandomBeneficialSpell(CRandomGenerator & rand, c
 
 		if(subject->hasBonus(Selector::source(Bonus::SPELL_EFFECT, spellID), Selector::all, cachingStr.str())
 		 //TODO: this ability has special limitations
-		|| spellID.toSpell()->canBeCast(this, ECastingMode::CREATURE_ACTIVE_CASTING, subject) != ESpellCastProblem::OK)
+		|| !(spellID.toSpell()->canBeCast(this, spells::Mode::CREATURE_ACTIVE, subject)))
 			continue;
 
 		switch (spellID)

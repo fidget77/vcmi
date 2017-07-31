@@ -20,6 +20,7 @@
 #include "../lib/CHeroHandler.h"
 #include "../lib/spells/CSpellHandler.h"
 #include "../lib/spells/ISpellMechanics.h"
+#include "../lib/spells/Problem.h"
 #include "../lib/CGeneralTextHandler.h"
 #include "../lib/CTownHandler.h"
 #include "../lib/CCreatureHandler.h"
@@ -59,11 +60,11 @@ extern std::atomic<bool> serverShuttingDown;
 #define COMPLAIN_RET(txt) {complain(txt); return false;}
 #define COMPLAIN_RETF(txt, FORMAT) {complain(boost::str(boost::format(txt) % FORMAT)); return false;}
 
-class ServerSpellCastEnvironment: public SpellCastEnvironment
+class ServerSpellCastEnvironment : public SpellCastEnvironment
 {
 public:
 	ServerSpellCastEnvironment(CGameHandler * gh);
-	~ServerSpellCastEnvironment(){};
+	~ServerSpellCastEnvironment() = default;
 	void sendAndApply(CPackForClient * info) const override;
 	CRandomGenerator & getRandomGenerator() const override;
 	void complain(const std::string & problem) const override;
@@ -74,6 +75,100 @@ public:
 private:
 	mutable CGameHandler * gh;
 };
+
+namespace spells
+{
+
+class ObstacleCasterProxy : public Caster
+{
+public:
+	ObstacleCasterProxy(const CGameHandler * gh_, const PlayerColor owner_, const CGHeroInstance * hero_, const SpellCreatedObstacle * obs_)
+		: gh(gh_),
+		owner(owner_),
+		hero(hero_),
+		obs(obs_)
+	{
+	};
+
+	~ObstacleCasterProxy() = default;
+
+	ui8 getSpellSchoolLevel(const Mode mode, const CSpell * spell, int * outSelectedSchool = nullptr) const override
+	{
+		return obs->spellLevel;
+	}
+
+	int getEffectLevel(const Mode mode, const CSpell * spell) const override
+	{
+		return obs->spellLevel;
+	}
+
+	ui32 getSpellBonus(const CSpell * spell, ui32 base, const CStack * affectedStack) const override
+	{
+		if(hero)
+			return hero->getSpellBonus(spell, base, affectedStack);
+		else
+			return base;
+	}
+
+	ui32 getSpecificSpellBonus(const CSpell * spell, ui32 base) const override
+	{
+		if(hero)
+			return hero->getSpecificSpellBonus(spell, base);
+		else
+			return base;
+	}
+
+	int getEffectPower(const Mode mode, const CSpell * spell) const override
+	{
+		return obs->casterSpellPower;
+	}
+
+	int getEnchantPower(const Mode mode, const CSpell * spell) const override
+	{
+		return obs->casterSpellPower;
+	}
+
+	int getEffectValue(const Mode mode, const CSpell * spell) const override
+	{
+		if(hero)
+			return hero->getEffectValue(mode, spell);
+		else
+			return 0;
+	}
+
+	const PlayerColor getOwner() const override
+	{
+		return owner;
+	}
+
+	void getCasterName(MetaString & text) const override
+	{
+		logGlobal->error("Unexpected call to ObstacleCasterProxy::getCasterName");
+	}
+
+	void getCastDescription(const CSpell * spell, MetaString & text) const override
+	{
+		logGlobal->error("Unexpected call to ObstacleCasterProxy::getCastDescription");
+	}
+
+	void getCastDescription(const CSpell * spell, const std::vector<const CStack *> & attacked, MetaString & text) const override
+	{
+		logGlobal->error("Unexpected call to ObstacleCasterProxy::getCastDescription");
+	}
+
+	void spendMana(const Mode mode, const CSpell * spell, const spells::PacketSender * server, const int spellCost) const override
+	{
+		logGlobal->error("Unexpected call to ObstacleCasterProxy::spendMana");
+	}
+
+private:
+	const CGHeroInstance * hero;
+	const CGameHandler * gh;
+	const PlayerColor owner;
+	const SpellCreatedObstacle * obs;
+};
+
+}//
 
 CondSh<bool> battleMadeAction(false);
 CondSh<BattleResult *> battleResult(nullptr);
@@ -912,7 +1007,7 @@ void CGameHandler::prepareAttack(BattleAttack &bat, const CStack *att, const CSt
 
 		//TODO: should spell override creature`s projectile?
 
-		auto attackedCreatures = SpellID(bonus->subtype).toSpell()->getAffectedStacks(gs->curB, ECastingMode::SPELL_LIKE_ATTACK, att, bonus->val, targetHex);
+		auto attackedCreatures = SpellID(bonus->subtype).toSpell()->getAffectedStacks(gs->curB, spells::Mode::SPELL_LIKE_ATTACK, att, bonus->val, targetHex);
 
 		//TODO: get exact attacked hex for defender
 
@@ -934,7 +1029,6 @@ void CGameHandler::prepareAttack(BattleAttack &bat, const CStack *att, const CSt
 				bsa.spellID = SpellID(bonus->subtype);
 			}
 		}
-
 	}
 }
 void CGameHandler::applyBattleEffects(BattleAttack &bat, const CStack *att, const CStack *def, int distance, bool secondary) //helper function for prepareAttack
@@ -953,7 +1047,6 @@ void CGameHandler::applyBattleEffects(BattleAttack &bat, const CStack *att, cons
 		StacksHealedOrResurrected shi;
 		shi.lifeDrain = true;
 		shi.tentHealing = false;
-		shi.cure = false;
 		shi.drainedFrom = def->ID;
 
 		int32_t toHeal = bsa.damageAmount * att->valOfBonuses(Bonus::LIFE_DRAIN) / 100;
@@ -975,7 +1068,6 @@ void CGameHandler::applyBattleEffects(BattleAttack &bat, const CStack *att, cons
 		StacksHealedOrResurrected shi;
 		shi.lifeDrain = true;
 		shi.tentHealing = false;
-		shi.cure = false;
 		shi.drainedFrom = def->ID;
 
 		for(int i = 0; i < 2; i++) //we can have two bonuses - one with subtype 0 and another with subtype 1
@@ -4216,7 +4308,6 @@ bool CGameHandler::makeBattleAction(BattleAction &ba)
 					StacksHealedOrResurrected shr;
 					shr.lifeDrain = false;
 					shr.tentHealing = true;
-					shr.cure = false;
 					shr.drainedFrom = ba.stackNumber;
 
 					CHealthInfo hi;
@@ -4290,7 +4381,7 @@ bool CGameHandler::makeBattleAction(BattleAction &ba)
 			else
 			{
 				const CSpell * spell = SpellID(spellID).toSpell();
-				BattleSpellCastParameters parameters(gs->curB, stack, spell);
+				spells::BattleCast parameters(gs->curB, stack, spells::Mode::CREATURE_ACTIVE, spell);
 				parameters.spellLvl = 0;
 				if (spellcaster)
 					vstd::amax(parameters.spellLvl, spellcaster->val);
@@ -4298,7 +4389,6 @@ bool CGameHandler::makeBattleAction(BattleAction &ba)
 					vstd::amax(parameters.spellLvl, randSpellcaster->val);
 				vstd::amin(parameters.spellLvl, 3);
 				parameters.effectLevel = parameters.spellLvl;
-				parameters.mode = ECastingMode::CREATURE_ACTIVE_CASTING;
 				parameters.aimToHex(destination);//todo: allow multiple destinations
 				parameters.cast(spellEnv);
 			}
@@ -4399,16 +4489,20 @@ bool CGameHandler::makeCustomAction(BattleAction &ba)
 				return false;
 			}
 
-			BattleSpellCastParameters parameters(gs->curB, h, s);
+			spells::BattleCast parameters(gs->curB, h, spells::Mode::HERO, s);
 			parameters.aimToHex(ba.destinationTile);//todo: allow multiple destinations
-			parameters.mode = ECastingMode::HERO_CASTING;
+			parameters.mode = spells::Mode::HERO;
 			if (ba.selectedStack >= 0)
 				parameters.aimToStack(gs->curB->battleGetStackByID(ba.selectedStack, false));
 
-			ESpellCastProblem::ESpellCastProblem escp = s->canBeCast(gs->curB, ECastingMode::HERO_CASTING, h);//todo: should we check aimed cast?
-			if (escp != ESpellCastProblem::OK)
+			spells::detail::ProblemImpl problem;
+			if(!s->canBeCast(problem, gs->curB, spells::Mode::HERO, h))//todo: should we check aimed cast?
 			{
-				logGlobal->warn("Spell cannot be cast! Problem: %d", escp);
+				logGlobal->warn("Spell cannot be cast!");
+				std::vector<std::string> texts;
+				problem.getAll(texts);
+				for(auto s : texts)
+					logGlobal->warn(s);
 				return false;
 			}
 
@@ -4437,34 +4531,35 @@ bool CGameHandler::makeCustomAction(BattleAction &ba)
 	return false;
 }
 
-
 void CGameHandler::stackEnchantedTrigger(const CStack * st)
 {
 	auto bl = *(st->getBonuses(Selector::type(Bonus::ENCHANTED)));
 	for(auto b : bl)
 	{
-		SetStackEffect sse;
-		int val = bl.valOfBonuses(Selector::typeSubtype(b->type, b->subtype));
+		const CSpell * sp = SpellID(b->subtype).toSpell();
+		if(!sp)
+			continue;
+
+		const int val = bl.valOfBonuses(Selector::typeSubtype(b->type, b->subtype));
+		const int level = ((val > 3) ? (val - 3) : val);
+
+		spells::BattleCast battleCast(gs->curB, st, spells::Mode::PASSIVE, sp);
+		//this makes effect accumulate for at most 50 turns by default, but effect may be permanent and last till the end of battle
+		battleCast.effectDuration = 50;
+		battleCast.spellLvl = level;
+		battleCast.effectLevel = level;
+
 		if(val > 3)
 		{
 			for(auto s : gs->curB->battleGetAllStacks())
-			{
 				if(battleMatchOwner(st, s, true) && s->isValidTarget()) //all allied
-					sse.stacks.push_back (s->ID);
-			}
+					battleCast.aimToStack(s);
 		}
 		else
-			sse.stacks.push_back (st->ID);
-
-		const CSpell * sp = SpellID(b->subtype).toSpell();
-		const int level = ((val > 3) ?  (val - 3) : val);
-
-		sp->getEffects(sse.effect, level, false, 50);
-		//this makes effect accumulate for at most 50 turns by default, but effect may be permanent and last till the end of battle
-		sp->getEffects(sse.cumulativeEffects, level, true, 50);
-
-		if(!sse.effect.empty() || !sse.cumulativeEffects.empty())
-			sendAndApply(&sse);
+		{
+			battleCast.aimToStack(st);
+		}
+		battleCast.applyEffectsForced(spellEnv);
 	}
 }
 
@@ -4572,29 +4667,21 @@ void CGameHandler::stackTurnTrigger(const CStack *st)
 		if(st->canCast() && !gs->curB->sides.at(side).enchanterCounter)
 		{
 			bool cast = false;
-			while (!bl.empty() && !cast)
+			while(!bl.empty() && !cast)
 			{
 				auto bonus = *RandomGeneratorUtil::nextItem(bl, getRandomGenerator());
 				auto spellID = SpellID(bonus->subtype);
 				const CSpell * spell = SpellID(spellID).toSpell();
-				bl.remove_if([&bonus](const Bonus* b){return b==bonus.get();});
-
-				BattleSpellCastParameters parameters(gs->curB, st, spell);
+				bl.remove_if([&bonus](const Bonus * b)
+				{
+					return b==bonus.get();
+				});
+				spells::BattleCast parameters(gs->curB, st, spells::Mode::ENCHANTER, spell);
+				parameters.mode = spells::Mode::ENCHANTER;
 				parameters.spellLvl = bonus->val;
 				parameters.effectLevel = bonus->val;//todo: recheck
-				parameters.mode = ECastingMode::ENCHANTER_CASTING;
-
-				cast = parameters.castIfPossible(spellEnv);
-				if(cast)
-				{
-					//todo: move to mechanics
-					BattleSetStackProperty ssp;
-					ssp.which = BattleSetStackProperty::ENCHANTER_COUNTER;
-					ssp.absolute = false;
-					ssp.val = bonus->additionalInfo; //increase cooldown counter
-					ssp.stackID = st->ID;
-					sendAndApply(&ssp);
-				}
+				if(parameters.castIfPossible(spellEnv))
+					cast = true;
 			}
 		}
 	}
@@ -4607,77 +4694,63 @@ bool CGameHandler::handleDamageFromObstacle(const CStack * curStack, bool stackI
 	bool containDamageFromMoat = false;
 	for(auto & obstacle : getAllAffectedObstaclesByStack(curStack))
 	{
-		if(!curStack->alive() || obstacle->stopsMovement() && stackIsMoving == true)
+		if(!curStack->alive() || (obstacle->stopsMovement() && stackIsMoving))
 			return false;
-		//we want to determine following vars depending on obstacle type
-		int damage = -1;
-		int effect = -1;
-		bool oneTimeObstacle = false;
 
 		//helper info
 		const SpellCreatedObstacle * spellObstacle = dynamic_cast<const SpellCreatedObstacle *>(obstacle.get()); //not nice but we may need spell params
 
-		const ui8 side = curStack->side; //if enemy is defending (false = 0), side of enemy hero is 1 (true)
-		const CGHeroInstance * hero = gs->curB->battleGetFightingHero(side);//FIXME: there may be no hero - landmines in Tower
+		const ui8 side = curStack->side;
 
 		if(obstacle->obstacleType == CObstacleInstance::MOAT)
 		{
-			damage = battleGetMoatDmg();
+			auto town = gs->curB->town;
+			int damage = (town == nullptr) ? 0 : town->town->moatDamage;
 			if(!containDamageFromMoat)
 				containDamageFromMoat = true;
 			else
 				continue;
+
+			BattleStackAttacked bsa;
+			bsa.damageAmount = damage;
+			bsa.stackAttacked = curStack->ID;
+			bsa.attackerID = -1;
+			curStack->prepareAttacked(bsa, getRandomGenerator());
+
+			StacksInjured si;
+			si.stacks.push_back(bsa);
+			sendAndApply(&si);
 		}
-		else if(obstacle->obstacleType == CObstacleInstance::LAND_MINE)
+		else if(obstacle->obstacleType == CObstacleInstance::LAND_MINE || obstacle->obstacleType == CObstacleInstance::FIRE_WALL)
 		{
 			if(!spellObstacle)
 				COMPLAIN_RET("Invalid obstacle instance");
-			//You don't get hit by a Mine you can see.
-			if(gs->curB->battleIsObstacleVisibleForSide(*obstacle, (BattlePerspective::BattlePerspective)side))
-				continue;
-			oneTimeObstacle = true;
-			effect = 82;
-			const CSpell * sp = SpellID(SpellID::LAND_MINE).toSpell();
+			bool oneTimeObstacle = false;
 
-			if(sp->isImmuneByStack(gs->curB, hero, curStack))
-				continue;
+			const CGHeroInstance * hero = gs->curB->battleGetFightingHero(spellObstacle->casterSide);
+			spells::ObstacleCasterProxy caster(this, gs->curB->sides.at(spellObstacle->casterSide).color, hero, spellObstacle);
 
-			damage = sp->calculateDamage(hero, curStack, spellObstacle->spellLevel, spellObstacle->casterSpellPower);
-			//TODO even if obstacle wasn't created by hero (Tower "moat") it should deal dmg as if cast by hero,
-			//if it is bigger than default dmg. Or is it just irrelevant H3 implementation quirk
-		}
-		else if(obstacle->obstacleType == CObstacleInstance::FIRE_WALL)
-		{
-			if(!spellObstacle)
+			if(obstacle->obstacleType == CObstacleInstance::LAND_MINE)
+			{
+				//You don't get hit by a Mine you can see.
+				if(gs->curB->battleIsObstacleVisibleForSide(*obstacle, (BattlePerspective::BattlePerspective)side))
+					continue;
+
+				oneTimeObstacle = true;
+			}
+
+			const CSpell * sp = SpellID(spellObstacle->ID).toSpell();
+			if(!sp)
 				COMPLAIN_RET("Invalid obstacle instance");
-			const CSpell * sp = SpellID(SpellID::FIRE_WALL).toSpell();
 
-			if(sp->isImmuneByStack(gs->curB, hero, curStack))
-				continue;
+			spells::BattleCast battleCast(gs->curB, &caster, spells::Mode::HERO, sp);
+			battleCast.applyEffects(spellEnv);
 
-			damage = sp->calculateDamage(hero, curStack,
-										 spellObstacle->spellLevel, spellObstacle->casterSpellPower);
+			if(oneTimeObstacle)
+				removeObstacle(*obstacle);
 		}
 		else
 			continue;
-
-		BattleStackAttacked bsa;
-		if(effect >= 0)
-		{
-			bsa.flags |= BattleStackAttacked::EFFECT;
-			bsa.effect = effect; //makes POOF
-		}
-		bsa.damageAmount = damage;
-		bsa.stackAttacked = curStack->ID;
-		bsa.attackerID = -1;
-		curStack->prepareAttacked(bsa, getRandomGenerator());
-
-		StacksInjured si;
-		si.stacks.push_back(bsa);
-		sendAndApply(&si);
-
-		if(oneTimeObstacle)
-			removeObstacle(*obstacle);
 	}
 	if(!curStack->alive())
 		return false;
@@ -5221,6 +5294,8 @@ bool CGameHandler::dig(const CGHeroInstance *h)
 
 void CGameHandler::attackCasting(const BattleAttack & bat, Bonus::BonusType attackMode, const CStack * attacker)
 {
+	spells::Mode mode = (attackMode == Bonus::SPELL_AFTER_ATTACK) ? spells::Mode::AFTER_ATTACK : spells::Mode::BEFORE_ATTACK;
+
 	if (attacker->hasBonusOfType(attackMode))
 	{
 		std::set<SpellID> spellsToCast;
@@ -5259,7 +5334,7 @@ void CGameHandler::attackCasting(const BattleAttack & bat, Bonus::BonusType atta
 			vstd::amin(chance, 100);
 
 			const CSpell * spell = SpellID(spellID).toSpell();
-			if(!spell->canBeCastAt(gs->curB, ECastingMode::AFTER_ATTACK_CASTING, attacker, oneOfAttacked->position))
+			if(!spell->canBeCastAt(gs->curB, mode, attacker, oneOfAttacked->position))
 				continue;
 
 			//check if spell should be cast (probability handling)
@@ -5270,11 +5345,10 @@ void CGameHandler::attackCasting(const BattleAttack & bat, Bonus::BonusType atta
 			if (castMe) //stacks use 0 spell power. If needed, default = 3 or custom value is used
 			{
 				logGlobal->debug("battle spell cast");
-				BattleSpellCastParameters parameters(gs->curB, attacker, spell);
+				spells::BattleCast parameters(gs->curB, attacker, mode, spell);
 				parameters.spellLvl = spellLevel;
 				parameters.effectLevel = spellLevel;
 				parameters.aimToStack(oneOfAttacked);
-				parameters.mode = ECastingMode::AFTER_ATTACK_CASTING;
 				parameters.cast(spellEnv);
 			}
 		}
@@ -5309,12 +5383,11 @@ void CGameHandler::handleAfterAttackCasting(const BattleAttack & bat)
 	{
 		const CSpell * spell = SpellID(spellID).toSpell();
 
-		BattleSpellCastParameters parameters(gs->curB, attacker, spell);
+		spells::BattleCast parameters(gs->curB, attacker, spells::Mode::AFTER_ATTACK, spell);
 		parameters.spellLvl = 0;
 		parameters.effectLevel = 0;
 		parameters.aimToStack(defender);
 		parameters.effectPower = power;
-		parameters.mode = ECastingMode::AFTER_ATTACK_CASTING;
 		parameters.cast(spellEnv);
 	};
 
@@ -5735,11 +5808,10 @@ void CGameHandler::runBattle()
 			{
 				const CSpell * spell = SpellID(b->subtype).toSpell();
 
-				BattleSpellCastParameters parameters(gs->curB, h, spell);
+				spells::BattleCast parameters(gs->curB, h, spells::Mode::PASSIVE, spell);
 				parameters.spellLvl = 3;
 				parameters.effectLevel = 3;
-				parameters.mode = ECastingMode::PASSIVE_CASTING;
-				parameters.enchantPower = b->val;
+				parameters.effectDuration = b->val;
 				parameters.castIfPossible(spellEnv);
 			}
 		}

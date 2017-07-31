@@ -920,7 +920,7 @@ void CPlayerInterface::battleTriggerEffect (const BattleTriggerEffect & bte)
 	RETURN_IF_QUICK_COMBAT;
 	battleInt->battleTriggerEffect(bte);
 }
-void CPlayerInterface::battleStacksAttacked(const std::vector<BattleStackAttacked> & bsa)
+void CPlayerInterface::battleStacksAttacked(const std::vector<BattleStackAttacked> & bsa, const std::vector<MetaString> & battleLog)
 {
 	EVENT_HANDLER_CALLED_BY_CLIENT;
 	BATTLE_EVENT_POSSIBLE_RETURN;
@@ -950,7 +950,7 @@ void CPlayerInterface::battleStacksAttacked(const std::vector<BattleStackAttacke
 		arg.push_back(to_put);
 	}
 
-	battleInt->stacksAreAttacked(arg);
+	battleInt->stacksAreAttacked(arg, battleLog);
 }
 void CPlayerInterface::battleAttack(const BattleAttack * ba)
 {
@@ -2271,7 +2271,7 @@ void CPlayerInterface::advmapSpellCast(const CGHeroInstance * caster, int spellI
 	if(spellID == SpellID::VIEW_EARTH)
 	{
 		//TODO: implement on server side
-		int level = caster->getSpellSchoolLevel(spell);
+		int level = caster->getSpellSchoolLevel(spells::Mode::HERO, spell);
 		adventureInt->worldViewOptions.showAllTerrain = (level>2);
 	}
 

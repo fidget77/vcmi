@@ -46,8 +46,8 @@ AttackPossibility AttackPossibility::evaluate(const BattleAttackInfo &AttackInfo
 		if(remainingCounterAttacks <= i || counterAttacksBlocked)
 			ap.damageReceived = 0;
 
-		curBai.attackerHealth = attacker->healthAfterAttacked(ap.damageReceived);
-		curBai.defenderHealth = enemy->healthAfterAttacked(ap.damageDealt);
+		curBai.attackerHealth = attacker->healthAfterAttacked(ap.damageReceived, curBai.attackerHealth);
+		curBai.defenderHealth = enemy->healthAfterAttacked(ap.damageDealt, curBai.defenderHealth);
 		if(curBai.attackerHealth.getCount() <= 0)
 			break;
 		//TODO what about defender? should we break? but in pessimistic scenario defender might be alive

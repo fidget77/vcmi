@@ -10,18 +10,36 @@
 
 #pragma once
 
-#include "CDefaultSpellMechanics.h"
+#include "ISpellMechanics.h"
+#include "CDefaultSpellMechanics.h"//todo:remove
 
 #include "effects/Effects.h"
+
+namespace spells
+{
 
 class CustomSpellMechanics : public DefaultSpellMechanics
 {
 public:
-	CustomSpellMechanics(const CSpell * s, const CBattleInfoCallback * Cb, std::shared_ptr<spells::effects::Effects> e);
+	CustomSpellMechanics(const CSpell * s, const CBattleInfoCallback * Cb, const Caster * caster_, std::shared_ptr<effects::Effects> e);
 	virtual ~CustomSpellMechanics();
 
-protected:
+	void applyEffects(const SpellCastEnvironment * env, const BattleCast & parameters) const override;
+	void applyEffectsForced(const SpellCastEnvironment * env, const BattleCast & parameters) const override;
+
+	bool canBeCast(Problem & problem) const override;
+	bool canBeCastAt(BattleHex destination) const override;
+
+	bool requiresCreatureTarget() const	override;
+
+	void cast(const SpellCastEnvironment * env, const BattleCast & parameters, SpellCastContext & ctx, std::vector <const CStack*> & reflected) const override;
+
+	std::vector<const CStack *> getAffectedStacks(int spellLvl, BattleHex destination) const override final;
 
 private:
-	std::shared_ptr<spells::effects::Effects> effects;
+	std::shared_ptr<effects::Effects> effects;
+
+	Target transformSpellTarget(const Target & aimPoint, const int spellLevel) const;
 };
+
+} //namespace spells

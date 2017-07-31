@@ -203,7 +203,7 @@ void CBattleHero::clickLeft(tribool down, bool previousState)
 	if(!myHero || down || !myOwner->myTurn)
 		return;
 
-	if(myOwner->getCurrentPlayerInterface()->cb->battleCanCastSpell(myHero, ECastingMode::HERO_CASTING) == ESpellCastProblem::OK) //check conditions
+	if(myOwner->getCurrentPlayerInterface()->cb->battleCanCastSpell(myHero, spells::Mode::HERO) == ESpellCastProblem::OK) //check conditions
 	{
 		for(int it=0; it<GameConstants::BFIELD_SIZE; ++it) //do nothing when any hex is hovered - hero's animation overlaps battlefield
 		{

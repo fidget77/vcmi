@@ -186,11 +186,12 @@ SpellTypes spellType(const CSpell *spell)
 
 void CBattleAI::attemptCastingSpell()
 {
+	//FIXME: support special spell effects (at least damage and timed effects)
 	auto hero = cb->battleGetMyHero();
 	if(!hero)
 		return;
 
-	if(cb->battleCanCastSpell(hero, ECastingMode::HERO_CASTING) != ESpellCastProblem::OK)
+	if(cb->battleCanCastSpell(hero, spells::Mode::HERO) != ESpellCastProblem::OK)
 		return;
 
 	LOGL("Casting spells sounds like fun. Let's see...");
@@ -198,7 +199,7 @@ void CBattleAI::attemptCastingSpell()
 	std::vector<const CSpell*> possibleSpells;
 	vstd::copy_if(VLC->spellh->objects, std::back_inserter(possibleSpells), [this, hero] (const CSpell *s) -> bool
 	{
-		return s->canBeCast(getCbc().get(), ECastingMode::HERO_CASTING, hero) == ESpellCastProblem::OK;
+		return s->canBeCast(getCbc().get(), spells::Mode::HERO, hero);
 	});
 	LOGFL("I can cast %d spells.", possibleSpells.size());
 
@@ -227,88 +228,123 @@ void CBattleAI::attemptCastingSpell()
 		valueOfStack[stack] = pt.bestActionValue();
 	}
 
-	auto evaluateSpellcast = [&] (const PossibleSpellcast &ps) -> int
+	auto evaluateSpellcast = [&] (const PossibleSpellcast &ps) -> double
 	{
-		const int skillLevel = hero->getSpellSchoolLevel(ps.spell);
+		const int skillLevel = hero->getSpellSchoolLevel(spells::Mode::HERO, ps.spell);
 		const int spellPower = hero->getPrimSkillLevel(PrimarySkill::SPELL_POWER);
+
+		int totalGain = 0;
+		int32_t damageDiff = 0;
+
+		HypotheticChangesToBattleState state;
+
+		std::vector<std::shared_ptr<StackWithBonuses>> stateValues;
+
+		auto stacksAffected = ps.spell->getAffectedStacks(cb.get(), spells::Mode::HERO, hero, skillLevel, ps.dest);
+
+		if(stacksAffected.empty())
+			return -1;
+
 		switch(spellType(ps.spell))
 		{
 		case OFFENSIVE_SPELL:
-		{
-			int damageDealt = 0, damageReceived = 0;
-			auto stacksSuffering = ps.spell->getAffectedStacks(cb.get(), ECastingMode::HERO_CASTING, hero, skillLevel, ps.dest);
-			if(stacksSuffering.empty())
-				return -1;
-			for(auto stack : stacksSuffering)
 			{
-				const int dmg = ps.spell->calculateDamage(hero, stack, skillLevel, spellPower);
-				if(stack->owner == playerID)
-					damageReceived += dmg;
-				else
-					damageDealt += dmg;
-			}
-			const int damageDiff = damageDealt - damageReceived * 10;
-			LOGFL("Casting %s on hex %d would deal { %d %d } damage points among %d stacks.",
-				  ps.spell->name % ps.dest % damageDealt % damageReceived % stacksSuffering.size());
-			//TODO tactic effect too
-			return damageDiff;
-		}
-		case TIMED_EFFECT:
-		{
-			auto stacksAffected = ps.spell->getAffectedStacks(cb.get(), ECastingMode::HERO_CASTING, hero, skillLevel, ps.dest);
-			if(stacksAffected.empty())
-				return -1;
-			int totalGain = 0;
-			for(const CStack * sta : stacksAffected)
-			{
-				StackWithBonuses swb;
-				swb.stack = sta;
-				//todo: handle effect actualization in HypotheticChangesToBattleState
-				ps.spell->getEffects(swb.bonusesToAdd, skillLevel, false, hero->getEnchantPower(ps.spell));
-				ps.spell->getEffects(swb.bonusesToAdd, skillLevel, true, hero->getEnchantPower(ps.spell));
-				HypotheticChangesToBattleState state;
-				state.bonusesOfStacks[swb.stack] = &swb;
-				PotentialTargets pt(swb.stack, state);
-				auto newValue = pt.bestActionValue();
-				auto oldValue = valueOfStack[swb.stack];
-				auto gain = newValue - oldValue;
-				if(swb.stack->owner != playerID) //enemy
-					gain = -gain;
-				LOGFL("Casting %s on %s would improve the stack by %d points (from %d to %d)",
-					  ps.spell->name % sta->nodeName() % (gain) % (oldValue) % (newValue));
-				totalGain += gain;
-			}
+				for(auto stack : stacksAffected)
+				{
+					int32_t dmg = ps.spell->calculateDamage(hero, stack, skillLevel, spellPower);
+					if(stack->owner == playerID)
+						dmg *= 10;
 
-			LOGFL("Total gain of cast %s at hex %d is %d", ps.spell->name % (ps.dest.hex) % (totalGain));
-			return totalGain;
-		}
+					state.amounts[stack] = stack->healthAfterAttacked(dmg);
+
+					if(stack->owner == playerID)
+						damageDiff -= dmg;
+					else
+						damageDiff += dmg;
+				}
+
+				//TODO tactic effect too
+			}
+			break;
+		case TIMED_EFFECT:
+			{
+				for(const CStack * sta : stacksAffected)
+				{
+					auto swb = std::make_shared<StackWithBonuses>();
+					swb->stack = sta;
+
+					ps.spell->getEffects(swb->bonusesToUpdate, skillLevel, false, hero->getEnchantPower(spells::Mode::HERO, ps.spell));
+					ps.spell->getEffects(swb->bonusesToAdd, skillLevel, true, hero->getEnchantPower(spells::Mode::HERO, ps.spell));
+
+					state.bonusesOfStacks[swb->stack] = swb.get();
+					stateValues.push_back(swb);
+				}
+			}
+			break;
 		default:
-			assert(0);
-			return 0;
+			return -1;
+		}
+
+		for(auto sta : stacksAffected)
+		{
+			PotentialTargets pt(sta, state);
+			auto newValue = pt.bestActionValue();
+			auto oldValue = valueOfStack[sta];
+			auto gain = newValue - oldValue;
+
+			LOGFL("Casting %s on %s would change the stack by %d points (from %d to %d)",
+				  ps.spell->name % sta->nodeName() % (gain) % (oldValue) % (newValue));
+
+			if(sta->owner != playerID)
+				gain = -gain;
+
+			totalGain += gain;
+		}
+
+		LOGFL("Total gain of cast %s at hex %d is %d", ps.spell->name % (ps.dest.hex) % (totalGain));
+
+		if(damageDiff < 0)
+		{
+			//ignore gain if we receiving more damage than giving
+			return (float)-1;//a bit worse than nothing
+		}
+		else
+		{
+			//return gain, but add damage diff as fractional part
+			static const float PI = 3.14159265;
+			return (float)totalGain + atan((float)damageDiff)/PI;
 		}
 	};
 
 	for(PossibleSpellcast & psc : possibleCasts)
 		psc.value = evaluateSpellcast(psc);
-	auto pscValue = [] (const PossibleSpellcast &ps) -> int
+	auto pscValue = [] (const PossibleSpellcast &ps) -> float
 	{
 		return ps.value;
 	};
 	auto castToPerform = *vstd::maxElementByFun(possibleCasts, pscValue);
-	LOGFL("Best spell is %s. Will cast.", castToPerform.spell->name);
-	BattleAction spellcast;
-	spellcast.actionType = Battle::HERO_SPELL;
-	spellcast.additionalInfo = castToPerform.spell->id;
-	spellcast.destinationTile = castToPerform.dest;
-	spellcast.side = side;
-	spellcast.stackNumber = (!side) ? -1 : -2;
-	cb->battleMakeAction(&spellcast);
+
+	if(castToPerform.value > 0)
+	{
+		LOGFL("Best spell is %s. Will cast.", castToPerform.spell->name);
+		BattleAction spellcast;
+		spellcast.actionType = Battle::HERO_SPELL;
+		spellcast.additionalInfo = castToPerform.spell->id;
+		spellcast.destinationTile = castToPerform.dest;
+		spellcast.side = side;
+		spellcast.stackNumber = (!side) ? -1 : -2;
+		cb->battleMakeAction(&spellcast);
+	}
+	else
+	{
+		LOGFL("Best spell is %s. But it is actually useless (value %f).", castToPerform.spell->name % castToPerform.value);
+	}
 }
 
-std::vector<BattleHex> CBattleAI::getTargetsToConsider(const CSpell * spell, const ISpellCaster * caster) const
+std::vector<BattleHex> CBattleAI::getTargetsToConsider(const CSpell * spell, const spells::Caster * caster) const
 {
 	//todo: move to CSpell
-	const CSpell::TargetInfo targetInfo(spell, caster->getSpellSchoolLevel(spell));
+	const CSpell::TargetInfo targetInfo(spell, caster->getSpellSchoolLevel(spells::Mode::HERO, spell), spells::Mode::HERO);
 	std::vector<BattleHex> ret;
 	if(targetInfo.massive || targetInfo.type == CSpell::NO_TARGET)
 	{
@@ -319,38 +355,15 @@ std::vector<BattleHex> CBattleAI::getTargetsToConsider(const CSpell * spell, con
 		switch(targetInfo.type)
 		{
 		case CSpell::CREATURE:
-		{
-			for(const CStack * stack : getCbc()->battleAliveStacks())
-			{
-				bool immune = ESpellCastProblem::OK != spell->isImmuneByStack(getCbc().get(), caster, stack);
-				bool casterStack = stack->owner == caster->getOwner();
-
-				if(!immune)
-					switch (spell->positiveness)
-					{
-					case CSpell::POSITIVE:
-						if(casterStack || targetInfo.smart)
-							ret.push_back(stack->position);
-						break;
-					case CSpell::NEUTRAL:
-						ret.push_back(stack->position);
-						break;
-					case CSpell::NEGATIVE:
-						if(!casterStack || targetInfo.smart)
-							ret.push_back(stack->position);
-						break;
-					}
-			}
-		}
-			break;
 		case CSpell::LOCATION:
-		{
 			for(int i = 0; i < GameConstants::BFIELD_SIZE; i++)
-				if(BattleHex(i).isAvailable())
-					ret.push_back(i);
-		}
+			{
+				BattleHex dest(i);
+				if(dest.isAvailable())
+					if(spell->canBeCastAt(getCbc().get(), spells::Mode::HERO, caster, dest))
+						ret.push_back(i);
+			}
 			break;
-
 		default:
 			break;
 		}

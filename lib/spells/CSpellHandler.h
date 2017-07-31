@@ -18,10 +18,13 @@
 #include "../battle/BattleHex.h"
 #include "../HeroBonus.h"
 
+namespace spells
+{
+	class ISpellMechanicsFactory;
+}
+
 class CGObjectInstance;
 class CSpell;
-class ISpellMechanics;
-class ISpellMechanicsFactory;
 class IAdventureSpellMechanics;
 class CLegacyConfigParser;
 class CGHeroInstance;
@@ -34,7 +37,6 @@ class CGameInfoCallback;
 class CRandomGenerator;
 class CMap;
 class AdventureSpellCastParameters;
-class BattleSpellCastParameters;
 class SpellCastEnvironment;
 
 struct SpellSchoolInfo
@@ -80,7 +82,7 @@ public:
 		{
 			h & resourceName;
 			h & verticalPosition;
-			if(version >= 754) //save format backward compatibility
+			if(version >= 754)
 			{
 				h & pause;
 			}
@@ -138,8 +140,9 @@ public:
 		bool clearAffected;
 		std::string range;
 
-		std::vector<std::shared_ptr<Bonus>> effects;
-		std::vector<std::shared_ptr<Bonus>> cumulativeEffects;
+		//TODO: remove these two when AI will understand special effects
+		std::vector<std::shared_ptr<Bonus>> effects; //deprecated
+		std::vector<std::shared_ptr<Bonus>> cumulativeEffects; //deprecated
 
 		JsonNode specialEffects;
 
@@ -215,14 +218,10 @@ public:
 		///no immunity on primary target (mostly spell-like attack)
 		bool alwaysHitDirectly;
 
-		bool clearTarget;
 		bool clearAffected;
+		bool clearTarget;
 
-		TargetInfo(const CSpell * spell, const int level);
-		TargetInfo(const CSpell * spell, const int level, ECastingMode::ECastingMode mode);
-
-	private:
-		void init(const CSpell * spell, const int level);
+		TargetInfo(const CSpell * spell, const int level, spells::Mode mode);
 	};
 
 	SpellID id;
@@ -246,7 +245,7 @@ public:
 	CSpell();
 	~CSpell();
 
-	std::vector<BattleHex> rangeInHexes(const CBattleInfoCallback * cb, const ISpellCaster * caster, BattleHex centralHex) const;
+	std::vector<BattleHex> rangeInHexes(const CBattleInfoCallback * cb, spells::Mode mode, const spells::Caster * caster, BattleHex centralHex) const;
 
 	ETargetType getTargetType() const; //deprecated
 
@@ -271,10 +270,10 @@ public:
 
 	bool hasSpecialEffects() const;
 	///calculate spell damage on stack taking caster`s secondary skills and affectedCreature`s bonuses into account
-	ui32 calculateDamage(const ISpellCaster * caster, const CStack * affectedCreature, int spellSchoolLevel, int usedSpellPower) const;
+	ui32 calculateDamage(const spells::Caster * caster, const CStack * affectedCreature, int spellSchoolLevel, int usedSpellPower) const;
 
 	///selects from allStacks actually affected stacks
-	std::vector<const CStack *> getAffectedStacks(const CBattleInfoCallback * cb, ECastingMode::ECastingMode mode, const ISpellCaster * caster, int spellLvl, BattleHex destination) const;
+	std::vector<const CStack *> getAffectedStacks(const CBattleInfoCallback * cb, spells::Mode mode, const spells::Caster * caster, int spellLvl, BattleHex destination) const;
 
 	si32 getCost(const int skillLevel) const;
 
@@ -351,38 +350,34 @@ public:
 	///internal interface (for callbacks)
 
 	///Checks general but spell-specific problems. Use only during battle.
-	ESpellCastProblem::ESpellCastProblem canBeCast(const CBattleInfoCallback * cb, ECastingMode::ECastingMode mode, const ISpellCaster * caster) const;
+	bool canBeCast(const CBattleInfoCallback * cb, spells::Mode mode, const spells::Caster * caster) const;
+	bool canBeCast(spells::Problem & problem, const CBattleInfoCallback * cb, spells::Mode mode, const spells::Caster * caster) const;
 
 	///checks for creature immunity / anything that prevent casting *at given hex*
-	bool canBeCastAt(const CBattleInfoCallback * cb,  ECastingMode::ECastingMode mode, const ISpellCaster * caster, BattleHex destination) const;
-
-	///checks for creature immunity / anything that prevent casting *at given target* - doesn't take into account general problems such as not having spellbook or mana points etc.
-	ESpellCastProblem::ESpellCastProblem isImmuneByStack(const CBattleInfoCallback * cb, const ISpellCaster * caster, const CStack * obj) const;
+	bool canBeCastAt(const CBattleInfoCallback * cb, spells::Mode mode, const spells::Caster * caster, BattleHex destination) const;
 public:
 	///Server logic. Has write access to GameState via packets.
 	///May be executed on client side by (future) non-cheat-proof scripts.
 
 	bool adventureCast(const SpellCastEnvironment * env, const AdventureSpellCastParameters & parameters) const;
-	void battleCast(const SpellCastEnvironment * env, const BattleSpellCastParameters & parameters) const;
 
 public://internal, for use only by Mechanics classes
 	///applies caster`s secondary skills and affectedCreature`s to raw damage
-	int adjustRawDamage(const ISpellCaster * caster, const CStack * affectedCreature, int rawDamage) const;
+	int adjustRawDamage(const spells::Caster * caster, const CStack * affectedCreature, int rawDamage) const;
 
 	///returns raw damage or healed HP
 	int calculateRawEffectValue(int effectLevel, int basePowerMultiplier, int levelPowerMultiplier) const;
 
 	///generic immunity calculation
-	ESpellCastProblem::ESpellCastProblem internalIsImmune(const ISpellCaster * caster, const CStack *obj) const;
+	bool internalIsImmune(const spells::Caster * caster, const CStack *obj) const;
 
+	std::unique_ptr<spells::Mechanics> battleMechanics(const CBattleInfoCallback * cb, spells::Mode mode, const spells::Caster * caster) const;
 private:
 	void setIsOffensive(const bool val);
 	void setIsRising(const bool val);
 
 	//call this after load or deserialization. cant be done in constructor.
 	void setupMechanics();
-
-	std::unique_ptr<ISpellMechanics> battleMechanics(const CBattleInfoCallback * cb) const;
 private:
 	si32 defaultProbability;
 
@@ -412,7 +407,7 @@ private:
 
 	std::vector<LevelInfo> levels;
 
-	std::unique_ptr<ISpellMechanicsFactory> mechanics;//(!) do not serialize
+	std::unique_ptr<spells::ISpellMechanicsFactory> mechanics;//(!) do not serialize
 	std::unique_ptr<IAdventureSpellMechanics> adventureMechanics;//(!) do not serialize
 };
 
@@ -444,5 +439,5 @@ public:
 	}
 
 protected:
-	CSpell * loadFromJson(const JsonNode & json, const std::string & identifier) override;
+	CSpell * loadFromJson(const JsonNode & json, const std::string & identifier, size_t index) override;
 };

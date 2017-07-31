@@ -27,6 +27,9 @@ PotentialTargets::PotentialTargets(const CStack * attacker, const HypotheticChan
 			bai.attackerBonuses = getValOr(state.bonusesOfStacks, bai.attacker, bai.attacker);
 			bai.defenderBonuses = getValOr(state.bonusesOfStacks, bai.defender, bai.defender);
 
+			bai.attackerHealth = getValOr(state.amounts, bai.attacker, bai.attacker->health);
+			bai.defenderHealth = getValOr(state.amounts, bai.defender, bai.defender->health);
+
 			if(hex.isValid())
 			{
 				assert(dists[hex] <= attacker->Speed());

@@ -24,6 +24,10 @@ public:
 	virtual ~GlobalEffect();
 
 	void addTo(Effects * where, const int level) override;
+
+	EffectTarget filterTarget(const Mechanics * m, const BattleCast & p, const EffectTarget & target) const override;
+
+	EffectTarget transformTarget(const Mechanics * m,  const Target & aimPoint, const Target & spellTarget) const override;
 protected:
 
 private:

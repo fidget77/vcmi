@@ -1687,25 +1687,6 @@ DLL_LINKAGE void StacksHealedOrResurrected::applyGs(CGameState *gs)
 			};
 			changedStack->popBonuses(selector);
 		}
-		else if(cure)
-		{
-			//removing all effects from negative spells
-			auto selector = [](const Bonus * b)
-			{
-				//Special case: DISRUPTING_RAY is "immune" to dispell
-				//Other even PERMANENT effects can be removed
-				if(b->source == Bonus::SPELL_EFFECT)
-				{
-					const CSpell * sourceSpell = SpellID(b->sid).toSpell();
-					if(!sourceSpell)
-						return false;
-					return sourceSpell->id != SpellID::DISRUPTING_RAY && sourceSpell->isNegative();
-				}
-				else
-					return false;
-			};
-			changedStack->popBonuses(selector);
-		}
 	}
 }
 

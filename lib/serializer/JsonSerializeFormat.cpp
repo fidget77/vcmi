@@ -127,3 +127,8 @@ void JsonSerializeFormat::serializeBool(const std::string & fieldName, bool & va
 {
 	serializeBool<bool>(fieldName, value, true, false, false);
 }
+
+void JsonSerializeFormat::serializeBool(const std::string & fieldName, bool & value, const bool defaultValue)
+{
+	serializeBool<bool>(fieldName, value, true, false, defaultValue);
+}

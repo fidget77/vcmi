@@ -887,7 +887,7 @@ void CBattleInterface::bSpellf()
 
 	CCS->curh->changeGraphic(ECursor::ADVENTURE,0);
 
-	ESpellCastProblem::ESpellCastProblem spellCastProblem = curInt->cb->battleCanCastSpell(myHero, ECastingMode::HERO_CASTING);
+	ESpellCastProblem::ESpellCastProblem spellCastProblem = curInt->cb->battleCanCastSpell(myHero, spells::Mode::HERO);
 
 	if(spellCastProblem == ESpellCastProblem::OK)
 	{
@@ -1055,7 +1055,7 @@ void CBattleInterface::stackMoved(const CStack *stack, std::vector<BattleHex> de
 	waitForAnims();
 }
 
-void CBattleInterface::stacksAreAttacked(std::vector<StackAttackedInfo> attackedInfos)
+void CBattleInterface::stacksAreAttacked(std::vector<StackAttackedInfo> attackedInfos, const std::vector<MetaString> & battleLog)
 {
 	for (auto & attackedInfo : attackedInfos)
 	{
@@ -1100,11 +1100,10 @@ void CBattleInterface::stacksAreAttacked(std::vector<StackAttackedInfo> attacked
 			stackRemoved(attackedInfo.defender->ID);
 	}
 
-	if (targets > 1)
-		printConsoleAttacked(attackedInfos.front().defender, damage, killed, attackedInfos.front().attacker, true); //creatures perish
+	if(!battleLog.empty())
+		displayBattleLog(battleLog);
 	else
-		printConsoleAttacked(attackedInfos.front().defender, damage, killed, attackedInfos.front().attacker, false);
-
+		printConsoleAttacked(attackedInfos.front().defender, damage, killed, attackedInfos.front().attacker, (targets > 1)); //creatures perish
 }
 
 void CBattleInterface::stackAttacking( const CStack *attacker, BattleHex dest, const CStack *attacked, bool shooting )
@@ -1371,9 +1370,7 @@ void CBattleInterface::spellCast(const BattleSpellCast * sc)
 	}
 
 	//displaying message in console
-	for (const auto & line : sc->battleLog)
-		if (!console->addText(line.toString()))
-			logGlobal->warn("Too long battle log line");
+	displayBattleLog(sc->battleLog);
 
 	waitForAnims();
 	//mana absorption
@@ -1395,11 +1392,11 @@ void CBattleInterface::battleStacksEffectsSet(const SetStackEffect & sse)
 		redrawBackgroundWithHexes(activeStack);
 }
 
-CBattleInterface::PossibleActions CBattleInterface::getCasterAction(const CSpell * spell, const ISpellCaster * caster, ECastingMode::ECastingMode mode) const
+CBattleInterface::PossibleActions CBattleInterface::getCasterAction(const CSpell * spell, const spells::Caster * caster, spells::Mode mode) const
 {
 	PossibleActions spellSelMode = ANY_LOCATION;
 
-	const CSpell::TargetInfo ti(spell, caster->getSpellSchoolLevel(spell), mode);
+	const CSpell::TargetInfo ti(spell, caster->getSpellSchoolLevel(mode, spell), mode);
 
 	if(ti.massive || ti.type == CSpell::NO_TARGET)
 		spellSelMode = NO_LOCATION;
@@ -1443,7 +1440,7 @@ void CBattleInterface::castThisSpell(SpellID spellID)
 	const CGHeroInstance *castingHero = (attackingHeroInstance->tempOwner == curInt->playerID) ? attackingHeroInstance : defendingHeroInstance;
 	assert(castingHero); // code below assumes non-null hero
 	sp = spellID.toSpell();
-	PossibleActions spellSelMode = getCasterAction(sp, castingHero, ECastingMode::HERO_CASTING);
+	PossibleActions spellSelMode = getCasterAction(sp, castingHero, spells::Mode::HERO);
 
 	if (spellSelMode == NO_LOCATION) //user does not have to select location
 	{
@@ -1456,6 +1453,17 @@ void CBattleInterface::castThisSpell(SpellID spellID)
 		possibleActions.clear();
 		possibleActions.push_back (spellSelMode); //only this one action can be performed at the moment
 		GH.fakeMouseMove();//update cursor
+	}
+}
+
+void CBattleInterface::displayBattleLog(const std::vector<MetaString> & battleLog)
+{
+	for(const auto & line : battleLog)
+	{
+		std::string formatted = line.toString();
+		boost::algorithm::trim(formatted);
+		if(!console->addText(formatted))
+			logGlobal->warn("Too long battle log line");
 	}
 }
 
@@ -1695,9 +1703,9 @@ void CBattleInterface::enterCreatureCastingMode()
 
 	if (vstd::contains(possibleActions, NO_LOCATION))
 	{
-		const ISpellCaster *caster = activeStack;
+		const spells::Caster *caster = activeStack;
 		const CSpell *spell = SpellID(creatureSpellToCast).toSpell();
-		const bool isCastingPossible = spell->canBeCastAt(curInt->cb.get(), ECastingMode::CREATURE_ACTIVE_CASTING, caster, BattleHex::INVALID);
+		const bool isCastingPossible = spell->canBeCastAt(curInt->cb.get(), spells::Mode::CREATURE_ACTIVE, caster, BattleHex::INVALID);
 
 		if (isCastingPossible)
 		{
@@ -1734,7 +1742,7 @@ void CBattleInterface::getPossibleActionsForStack(const CStack *stack, const boo
 				if(creatureSpellToCast != -1)
 				{
 					const CSpell *spell = SpellID(creatureSpellToCast).toSpell();
-					PossibleActions act = getCasterAction(spell, stack, ECastingMode::CREATURE_ACTIVE_CASTING);
+					PossibleActions act = getCasterAction(spell, stack, spells::Mode::CREATURE_ACTIVE);
 
 					if(forceCast)
 					{
@@ -1887,7 +1895,7 @@ void CBattleInterface::blockUI(bool on)
 
 	if(hero)
 	{
-		ESpellCastProblem::ESpellCastProblem spellcastingProblem = curInt->cb->battleCanCastSpell(hero, ECastingMode::HERO_CASTING);
+		ESpellCastProblem::ESpellCastProblem spellcastingProblem = curInt->cb->battleCanCastSpell(hero, spells::Mode::HERO);
 
 		//if magic is blocked, we leave button active, so the message can be displayed after button click
 		canCastSpells = spellcastingProblem == ESpellCastProblem::OK || spellcastingProblem == ESpellCastProblem::MAGIC_IS_BLOCKED;
@@ -2178,9 +2186,9 @@ void CBattleInterface::handleHex(BattleHex myNumber, int eventType)
 				//todo: move to mechanics
 				ui8 skill = 0;
 				if (creatureCasting)
-					skill = sactive->getEffectLevel(SpellID(SpellID::TELEPORT).toSpell());
+					skill = sactive->getEffectLevel(spells::Mode::CREATURE_ACTIVE, SpellID(SpellID::TELEPORT).toSpell());
 				else
-					skill = getActiveHero()->getEffectLevel(SpellID(SpellID::TELEPORT).toSpell());
+					skill = getActiveHero()->getEffectLevel(spells::Mode::HERO, SpellID(SpellID::TELEPORT).toSpell());
 				//TODO: explicitely save power, skill
 				if (curInt->cb->battleCanTeleportTo(selectedStack, myNumber, skill))
 					legalAction = true;
@@ -2532,14 +2540,14 @@ bool CBattleInterface::isCastingPossibleHere(const CStack *sactive, const CStack
 
 	if (sp)
 	{
-		const ISpellCaster *caster = creatureCasting ? static_cast<const ISpellCaster *>(sactive) : static_cast<const ISpellCaster *>(curInt->cb->battleGetMyHero());
+		const spells::Caster *caster = creatureCasting ? static_cast<const spells::Caster *>(sactive) : static_cast<const spells::Caster *>(curInt->cb->battleGetMyHero());
 		if (caster == nullptr)
 		{
 			isCastingPossible = false;//just in case
 		}
 		else
 		{
-			const ECastingMode::ECastingMode mode = creatureCasting ? ECastingMode::CREATURE_ACTIVE_CASTING : ECastingMode::HERO_CASTING;
+			const spells::Mode mode = creatureCasting ? spells::Mode::CREATURE_ACTIVE : spells::Mode::HERO;
 			isCastingPossible = sp->canBeCastAt(curInt->cb.get(), mode, caster, myNumber);
 		}
 	}
@@ -3137,8 +3145,10 @@ void CBattleInterface::showHighlightedHexes(SDL_Surface *to)
 			}
 			if(settings["battle"]["mouseShadow"].Bool() || delayedBlit)
 			{
-				const ISpellCaster *caster = nullptr;
+				const spells::Caster *caster = nullptr;
 				const CSpell *spell = nullptr;
+
+				spells::Mode mode = spells::Mode::HERO;
 
                 if(spellToCast)//hero casts spell
 				{
@@ -3149,12 +3159,13 @@ void CBattleInterface::showHighlightedHexes(SDL_Surface *to)
 				{
 					spell = SpellID(creatureSpellToCast).toSpell();
 					caster = activeStack;
+					mode = spells::Mode::CREATURE_ACTIVE;
 				}
 
 				if(caster && spell) //when casting spell
 				{
 					// printing shaded hex(es)
-					auto shaded = spell->rangeInHexes(curInt->cb.get(), caster, currentlyHoveredHex);
+					auto shaded = spell->rangeInHexes(curInt->cb.get(), mode, caster, currentlyHoveredHex);
 					for(BattleHex shadedHex : shaded)
 					{
 						if((shadedHex.getX() != 0) && (shadedHex.getX() != GameConstants::BFIELD_WIDTH - 1))

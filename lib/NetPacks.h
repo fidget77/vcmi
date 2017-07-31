@@ -1447,7 +1447,7 @@ struct BattleStackMoved : public CPackForClient
 struct StacksHealedOrResurrected : public CPackForClient
 {
 	StacksHealedOrResurrected()
-		:lifeDrain(false), tentHealing(false), drainedFrom(0), cure(false)
+		:lifeDrain(false), tentHealing(false), drainedFrom(0)
 	{}
 
 	DLL_LINKAGE void applyGs(CGameState *gs);
@@ -1457,7 +1457,6 @@ struct StacksHealedOrResurrected : public CPackForClient
 	bool lifeDrain; //if true, this heal is an effect of life drain or soul steal
 	bool tentHealing; //if true, than it's healing via First Aid Tent
 	si32 drainedFrom; //if life drain or soul steal - then stack life was drain from, if tentHealing - stack that is a healer
-	bool cure; //archangel cast also remove negative effects
 
 	template <typename Handler> void serialize(Handler &h, const int version)
 	{
@@ -1465,7 +1464,6 @@ struct StacksHealedOrResurrected : public CPackForClient
 		h & lifeDrain;
 		h & tentHealing;
 		h & drainedFrom;
-		h & cure;
 	}
 };
 
@@ -1674,8 +1672,8 @@ struct BattleSpellCast : public CPackForClient
 struct SetStackEffect : public CPackForClient
 {
 	SetStackEffect(){};
-	DLL_LINKAGE void applyGs(CGameState *gs);
-	void applyCl(CClient *cl);
+	DLL_LINKAGE void applyGs(CGameState * gs);
+	void applyCl(CClient * cl);
 
 	std::vector<ui32> stacks; //affected stacks (IDs)
 
@@ -1690,7 +1688,7 @@ struct SetStackEffect : public CPackForClient
 	std::vector<std::pair<ui32, std::vector<Bonus>>> toRemove;
 
 	std::vector<MetaString> battleLog;
-	template <typename Handler> void serialize(Handler &h, const int version)
+	template <typename Handler> void serialize(Handler & h, const int version)
 	{
 		h & stacks;
 		h & effect;
@@ -1705,13 +1703,15 @@ struct SetStackEffect : public CPackForClient
 struct StacksInjured : public CPackForClient
 {
 	StacksInjured(){}
-	DLL_LINKAGE void applyGs(CGameState *gs);
-	void applyCl(CClient *cl);
+	DLL_LINKAGE void applyGs(CGameState * gs);
+	void applyCl(CClient * cl);
 
 	std::vector<BattleStackAttacked> stacks;
-	template <typename Handler> void serialize(Handler &h, const int version)
+	std::vector<MetaString> battleLog;
+	template <typename Handler> void serialize(Handler & h, const int version)
 	{
 		h & stacks;
+		h & battleLog;
 	}
 };
 

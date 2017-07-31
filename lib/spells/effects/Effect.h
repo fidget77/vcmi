@@ -13,22 +13,21 @@
 #include "../Magic.h"
 
 class BattleHex;
-class PacketSender;
 class CBattleInfoCallback;
-class BattleSpellCastParameters;
-class ISpellMechanics;
 class JsonSerializeFormat;
+class CRandomGenerator;
 
 namespace spells
 {
 
-using Mechanics = ::ISpellMechanics;
-using CastParameters = ::BattleSpellCastParameters;
-
 namespace effects
 {
+using RNG = ::CRandomGenerator;
 class Effects;
 class IEffect;
+class Registry;
+template<typename F>
+class RegisterEffect;
 
 //using TargetType = ::CSpell::ETargetType;//todo: use this after ETargetType moved to better place
 
@@ -57,21 +56,36 @@ public:
 
 	std::shared_ptr<IEffect> create() const override
 	{
-        return std::make_shared<E>();
+		return std::make_shared<E>();
 	}
 };
 
 class DLL_LINKAGE IEffect
 {
 public:
+	bool automatic;
+	bool optional;
 
+	IEffect();
 	virtual ~IEffect() = default;
 
 	virtual void addTo(Effects * where, const int level) = 0;
 
 	virtual bool applicable(Problem & problem, const Mechanics * m) const;
+	virtual bool applicable(Problem & problem, const Mechanics * m, const Target & aimPoint, const EffectTarget & target) const;
 
-	virtual void serializeJson(JsonSerializeFormat & handler) = 0;
+	virtual void apply(const PacketSender * server, RNG & rng, const Mechanics * m, const BattleCast & p, const EffectTarget & target) const = 0;
+
+	virtual EffectTarget filterTarget(const Mechanics * m, const BattleCast & p, const EffectTarget & target) const = 0;
+
+	virtual EffectTarget transformTarget(const Mechanics * m, const Target & aimPoint, const Target & spellTarget) const = 0;
+
+	void serializeJson(JsonSerializeFormat & handler);
+
+protected:
+	int spellLevel;
+
+	virtual void serializeJsonEffect(JsonSerializeFormat & handler) = 0;
 };
 
 //default is location target
@@ -79,32 +93,18 @@ template <TargetType TType>
 class Effect : public IEffect
 {
 public:
-	virtual ~Effect() = default;
-
-	virtual void apply(const PacketSender * server, const Mechanics * m, const BattleHex & target) const = 0;
 };
 
 template<>
 class Effect<TargetType::NO_TARGET> : public IEffect
 {
 public:
-	virtual ~Effect() = default;
-
-	virtual void apply(const PacketSender * server, const Mechanics * m, const CastParameters & p) const = 0;
-
-	virtual bool applicable(Problem & problem, const Mechanics * m, const CastParameters & p) const
-	{
-		return true;
-	}
 };
 
 template<>
 class Effect<TargetType::CREATURE> : public IEffect
 {
 public:
-	virtual ~Effect() = default;
-
-	virtual void apply(const PacketSender * server, const Mechanics * m, const std::vector<const CStack *> & target) const = 0;
 };
 
 

@@ -94,25 +94,18 @@ TStacks CBattleInfoEssentials::battleGetStacksIf(TStackFilter predicate) const
 
 TStacks CBattleInfoEssentials::battleAliveStacks() const
 {
-	return battleGetStacksIf([](const CStack * s){
+	return battleGetStacksIf([](const CStack * s)
+	{
 		return s->isValidTarget(false);
 	});
 }
 
 TStacks CBattleInfoEssentials::battleAliveStacks(ui8 side) const
 {
-	return battleGetStacksIf([=](const CStack * s){
+	return battleGetStacksIf([=](const CStack * s)
+	{
 		return s->isValidTarget(false) && s->side == side;
 	});
-}
-
-int CBattleInfoEssentials::battleGetMoatDmg() const
-{
-	RETURN_IF_NOT_BATTLE(0);
-	auto town = getBattle()->town;
-	if(!town)
-		return 0;
-	return town->town->moatDamage;
 }
 
 const CGTownInstance * CBattleInfoEssentials::battleGetDefendedTown() const

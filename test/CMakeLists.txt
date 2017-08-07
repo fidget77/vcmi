@@ -16,20 +16,28 @@ set(test_SRCS
  		main.cpp
  		CMemoryBufferTest.cpp
  		CVcmiTestConfig.cpp
- 
+
  		battle/BattleHexTest.cpp
  		battle/CHealthTest.cpp
+
+ 		game/CGameStateTest.cpp
 
  		map/CMapEditManagerTest.cpp
  		map/CMapFormatTest.cpp
  		map/MapComparer.cpp
+
+ 		mock/mock_IGameCallback.cpp
+ 		mock/mock_MapService.cpp
 )
 
 set(test_HEADERS
  		StdInc.h
- 
+
  		CVcmiTestConfig.h
  		map/MapComparer.h
+
+ 		mock/mock_IGameCallback.h
+ 		mock/mock_MapService.h
 )
 
 assign_source_group(${test_SRCS} ${test_HEADERS})

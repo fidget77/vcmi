@@ -21,12 +21,11 @@ CustomSpellMechanics::CustomSpellMechanics(const CSpell * s, const CBattleInfoCa
 	: DefaultSpellMechanics(s, Cb, caster_), effects(e)
 {}
 
-CustomSpellMechanics::~CustomSpellMechanics()
-{}
+CustomSpellMechanics::~CustomSpellMechanics() = default;
 
 void CustomSpellMechanics::applyEffects(const SpellCastEnvironment * env, const BattleCast & parameters) const
 {
-	auto callback = [&](const effects::IEffect * e, bool & stop)
+	auto callback = [&](const effects::Effect * e, bool & stop)
 	{
 		EffectTarget target = e->filterTarget(this, parameters, parameters.target);
 		e->apply(env, env->getRandomGenerator(), this, parameters, target);
@@ -37,7 +36,7 @@ void CustomSpellMechanics::applyEffects(const SpellCastEnvironment * env, const 
 
 void CustomSpellMechanics::applyEffectsForced(const SpellCastEnvironment * env, const BattleCast & parameters) const
 {
-	auto callback = [&](const effects::IEffect * e, bool & stop)
+	auto callback = [&](const effects::Effect * e, bool & stop)
 	{
 		e->apply(env, env->getRandomGenerator(), this, parameters, parameters.target);
 	};
@@ -75,7 +74,7 @@ std::vector<const CStack *> CustomSpellMechanics::getAffectedStacks(int spellLvl
 
 	EffectTarget all;
 
-	effects->forEachEffect(spellLvl, [&all, &tmp, &spellTarget, this](const effects::IEffect * e, bool & stop)
+	effects->forEachEffect(spellLvl, [&all, &tmp, &spellTarget, this](const effects::Effect * e, bool & stop)
 	{
 		EffectTarget one = e->transformTarget(this, tmp, spellTarget);
 		vstd::concatenate(all, one);

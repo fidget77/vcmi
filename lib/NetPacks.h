@@ -23,10 +23,6 @@
 
 #include "spells/ViewSpellInt.h"
 
-class CClient;
-class CGameState;
-class CGameHandler;
-class CConnection;
 class CCampaignState;
 class CArtifact;
 class CSelectionScreen;
@@ -37,35 +33,6 @@ struct ArtSlotInfo;
 struct QuestInfo;
 class CMapInfo;
 struct StartInfo;
-
-struct CPackForClient : public CPack
-{
-	CPackForClient(){};
-
-	CGameState* GS(CClient *cl);
-	void applyFirstCl(CClient *cl)//called before applying to gs
-	{}
-	void applyCl(CClient *cl)//called after applying to gs
-	{}
-};
-
-struct CPackForServer : public CPack
-{
-	PlayerColor player;
-	CConnection *c;
-	CGameState* GS(CGameHandler *gh);
-	CPackForServer():
-		player(PlayerColor::NEUTRAL),
-		c(nullptr)
-	{
-	}
-
-	bool applyGh(CGameHandler *gh) //called after applying to gs
-	{
-		logGlobal->error("Should not happen... applying plain CPackForServer");
-		return false;
-	}
-};
 
 struct Query : public CPackForClient
 {

@@ -12,7 +12,6 @@
 
 #define RETURN_IF_NOT_BATTLE(X) if(!duringBattle()) {logGlobal->error("%s called when no battle!", __FUNCTION__); return X; }
 
-class CGameState;
 struct BattleInfo;
 
 class CBattleInfoEssentials;
@@ -25,10 +24,9 @@ class DLL_LINKAGE CCallbackBase
 	const BattleInfo * getBattle() const;
 
 protected:
-	CGameState * gs;
 	boost::optional<PlayerColor> player; // not set gives access to all information, otherwise callback provides only information "visible" for player
 
-	CCallbackBase(CGameState * GS, boost::optional<PlayerColor> Player);
+	CCallbackBase(boost::optional<PlayerColor> Player);
 	CCallbackBase();
 
 	void setBattle(const BattleInfo * B);

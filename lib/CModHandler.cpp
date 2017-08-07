@@ -810,31 +810,42 @@ std::vector<std::string> CModHandler::getModList(std::string path)
 
 void CModHandler::loadMods(std::string path, std::string parent, const JsonNode & modSettings, bool enableMods)
 {
-	for (std::string modName : getModList(path))
+	for(std::string modName : getModList(path))
+		loadOneMod(modName, parent, modSettings, enableMods);
+}
+
+void CModHandler::loadOneMod(std::string modName, std::string parent, const JsonNode & modSettings, bool enableMods)
+{
+	boost::to_lower(modName);
+	std::string modFullName = parent.empty() ? modName : parent + '.' + modName;
+
+	if(CResourceHandler::get("initial")->existsResource(ResourceID(CModInfo::getModFile(modFullName))))
 	{
-		boost::to_lower(modName);
-		std::string modFullName = parent.empty() ? modName : parent + '.' + modName;
+		CModInfo mod(modFullName, modSettings[modName], JsonNode(ResourceID(CModInfo::getModFile(modFullName))));
+		if (!parent.empty()) // this is submod, add parent to dependencies
+			mod.dependencies.insert(parent);
 
-		if (CResourceHandler::get("initial")->existsResource(ResourceID(CModInfo::getModFile(modFullName))))
-		{
-			CModInfo mod(modFullName, modSettings[modName], JsonNode(ResourceID(CModInfo::getModFile(modFullName))));
-			if (!parent.empty()) // this is submod, add parent to dependecies
-				mod.dependencies.insert(parent);
+		allMods[modFullName] = mod;
+		if (mod.enabled && enableMods)
+			activeMods.push_back(modFullName);
 
-			allMods[modFullName] = mod;
-			if (mod.enabled && enableMods)
-				activeMods.push_back(modFullName);
-
-			loadMods(CModInfo::getModDir(modFullName) + '/', modFullName, modSettings[modName]["mods"], enableMods && mod.enabled);
-		}
+		loadMods(CModInfo::getModDir(modFullName) + '/', modFullName, modSettings[modName]["mods"], enableMods && mod.enabled);
 	}
 }
 
-void CModHandler::loadMods()
+void CModHandler::loadMods(bool onlyEssential)
 {
-	const JsonNode modConfig = loadModSettings("config/modSettings.json");
+	JsonNode modConfig;
 
-	loadMods("", "", modConfig["activeMods"], true);
+	if(onlyEssential)
+	{
+		loadOneMod("vcmi", "", modConfig, true);//only vcmi and submods
+	}
+	else
+	{
+		modConfig = loadModSettings("config/modSettings.json");
+		loadMods("", "", modConfig["activeMods"], true);
+	}
 
 	coreMod = CModInfo("core", modConfig["core"], JsonNode(ResourceID("config/gameConfig.json")));
 	coreMod.name = "Original game files";
@@ -976,7 +987,7 @@ void CModHandler::load()
 	logMod->info("\tAll game content loaded in %d ms", totalTime.getDiff());
 }
 
-void CModHandler::afterLoad()
+void CModHandler::afterLoad(bool onlyEssential)
 {
 	JsonNode modSettings;
 	for (auto & modEntry : allMods)
@@ -987,8 +998,12 @@ void CModHandler::afterLoad()
 	}
 	modSettings["core"] = coreMod.saveLocalData();
 
-	FileStream file(*CResourceHandler::get()->getResourceName(ResourceID("config/modSettings.json")), std::ofstream::out | std::ofstream::trunc);
-	file << modSettings.toJson();
+	if(!onlyEssential)
+	{
+		FileStream file(*CResourceHandler::get()->getResourceName(ResourceID("config/modSettings.json")), std::ofstream::out | std::ofstream::trunc);
+		file << modSettings.toJson();
+	}
+
 }
 
 std::string CModHandler::normalizeIdentifier(const std::string & scope, const std::string & remoteScope, const std::string & identifier)

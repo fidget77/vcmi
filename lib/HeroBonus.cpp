@@ -81,10 +81,26 @@ const std::map<std::string, TPropagatorPtr> bonusPropagatorMap =
 }; //untested
 
 ///CBonusProxy
-CBonusProxy::CBonusProxy(const IBonusBearer * Target, CSelector Selector):
-	cachedLast(0), target(Target), selector(Selector), data()
+CBonusProxy::CBonusProxy(const IBonusBearer * Target, CSelector Selector)
+	: cachedLast(0), target(Target), selector(Selector), data()
 {
 
+}
+
+CBonusProxy::CBonusProxy(CBonusProxy && other)
+	: cachedLast(0), target(other.target), selector(), data()
+{
+	std::swap(cachedLast, other.cachedLast);
+	std::swap(selector, other.selector);
+	std::swap(data, other.data);
+}
+
+CBonusProxy & CBonusProxy::operator=(CBonusProxy && other)
+{
+	std::swap(cachedLast, other.cachedLast);
+	std::swap(selector, other.selector);
+	std::swap(data, other.data);
+	return *this;
 }
 
 TBonusListPtr CBonusProxy::get() const
@@ -657,7 +673,19 @@ const TBonusListPtr CBonusSystemNode::getAllBonusesWithoutCaching(const CSelecto
 	return ret;
 }
 
-CBonusSystemNode::CBonusSystemNode() : bonuses(true), exportedBonuses(true), nodeType(UNKNOWN), cachedLast(0)
+CBonusSystemNode::CBonusSystemNode()
+	: bonuses(true),
+	exportedBonuses(true),
+	nodeType(UNKNOWN),
+	cachedLast(0)
+{
+}
+
+CBonusSystemNode::CBonusSystemNode(ENodeTypes NodeType)
+	: bonuses(true),
+	exportedBonuses(true),
+	nodeType(NodeType),
+	cachedLast(0)
 {
 }
 

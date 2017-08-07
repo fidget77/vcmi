@@ -56,7 +56,15 @@ using Target = std::vector<Destination>;
 using EffectTarget = Target;
 
 ///all parameters of particular cast event
-class DLL_LINKAGE BattleCast
+//TODO:
+class DLL_LINKAGE IBattleCast
+{
+public:
+	virtual ~IBattleCast();
+
+};
+
+class DLL_LINKAGE BattleCast : public IBattleCast
 {
 public:
 	//normal constructor
@@ -64,6 +72,8 @@ public:
 
 	//magic mirror constructor
 	BattleCast(const BattleCast & orig, const Caster * caster_);
+
+	virtual ~BattleCast();
 
 	void aimToHex(const BattleHex & destination);
 	void aimToStack(const CStack * destination);
@@ -89,7 +99,6 @@ public:
 	const Caster * caster;
 
 	Target target;
-
 	Mode mode;
 
 	///spell school level
@@ -127,10 +136,10 @@ class DLL_LINKAGE Mechanics
 {
 public:
 	Mechanics(const CSpell * s, const CBattleInfoCallback * Cb, const Caster * caster_);
-	virtual ~Mechanics(){};
+	virtual ~Mechanics();
 
-	bool adaptProblem(ESpellCastProblem::ESpellCastProblem source, Problem & target) const;
-	bool adaptGenericProblem(Problem & target) const;
+	virtual bool adaptProblem(ESpellCastProblem::ESpellCastProblem source, Problem & target) const = 0;
+	virtual bool adaptGenericProblem(Problem & target) const = 0;
 
 	virtual std::vector<BattleHex> rangeInHexes(BattleHex centralHex, ui8 schoolLvl, bool * outDroppedHexes = nullptr) const = 0;
 	virtual std::vector<const CStack *> getAffectedStacks(int spellLvl, BattleHex destination) const = 0;
@@ -140,7 +149,6 @@ public:
 
 	virtual void applyEffects(const SpellCastEnvironment * env, const BattleCast & parameters) const = 0;
 	virtual void applyEffectsForced(const SpellCastEnvironment * env, const BattleCast & parameters) const = 0;
-
 
 	virtual void cast(const SpellCastEnvironment * env, const BattleCast & parameters, SpellCastContext & ctx, std::vector <const CStack*> & reflected) const = 0;
 
@@ -152,6 +160,16 @@ public:
 	const CStack * casterStack; //deprecated
 
 	ui8 casterSide;
+};
+
+class DLL_LINKAGE BaseMechanics : public Mechanics
+{
+public:
+	BaseMechanics(const CSpell * s, const CBattleInfoCallback * Cb, const Caster * caster_);
+	virtual ~BaseMechanics();
+
+	virtual bool adaptProblem(ESpellCastProblem::ESpellCastProblem source, Problem & target) const override;
+	virtual bool adaptGenericProblem(Problem & target) const override;
 };
 
 }// namespace spells

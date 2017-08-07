@@ -15,10 +15,22 @@
 #include "CRandomGenerator.h"
 #include "NetPacks.h"
 
+#include "serializer/JsonDeserializer.h"
+#include "serializer/JsonSerializer.h"
 
 ///CAmmo
-CAmmo::CAmmo(const CStack * Owner, CSelector totalSelector):
-	CStackResource(Owner), totalProxy(Owner, totalSelector)
+CAmmo::CAmmo(const IUnitBonusInfo * Owner, CSelector totalSelector)
+	: used(0),
+	owner(Owner),
+	totalProxy(Owner->unitAsBearer(), totalSelector)
+{
+	reset();
+}
+
+CAmmo::CAmmo(const CAmmo & other, CSelector totalSelector)
+	: used(other.used),
+	owner(other.owner),
+	totalProxy(owner->unitAsBearer(), totalSelector)
 {
 
 }
@@ -30,7 +42,12 @@ int32_t CAmmo::available() const
 
 bool CAmmo::canUse(int32_t amount) const
 {
-	return available() - amount >= 0;
+	return !isLimited() || (available() - amount >= 0);
+}
+
+bool CAmmo::isLimited() const
+{
+	return true;
 }
 
 void CAmmo::reset()
@@ -45,6 +62,9 @@ int32_t CAmmo::total() const
 
 void CAmmo::use(int32_t amount)
 {
+	if(!isLimited())
+		return;
+
 	if(available() - amount < 0)
 	{
 		logGlobal->error("Stack ammo overuse");
@@ -54,43 +74,79 @@ void CAmmo::use(int32_t amount)
 		used += amount;
 }
 
-///CShots
-CShots::CShots(const CStack * Owner):
-	CAmmo(Owner, Selector::type(Bonus::SHOTS))
+void CAmmo::serializeJson(JsonSerializeFormat & handler)
 {
-
+	handler.serializeInt("used", used, 0);
 }
 
-void CShots::use(int32_t amount)
+///CShots
+CShots::CShots(const IUnitBonusInfo * Owner)
+	: CAmmo(Owner, Selector::type(Bonus::SHOTS))
 {
-	//don't remove ammo if we control a working ammo cart
-	bool hasAmmoCart = false;
+}
 
-	for(const CStack * st : owner->battle->stacks)
-	{
-		if(owner->battle->battleMatchOwner(st, owner, true) && st->getCreature()->idNumber == CreatureID::AMMO_CART && st->alive())
-		{
-			hasAmmoCart = true;
-			break;
-		}
-	}
+CShots::CShots(const CShots & other)
+	: CAmmo(other, Selector::type(Bonus::SHOTS))
+{
+}
 
-	if(!hasAmmoCart)
-		CAmmo::use(amount);
+CShots & CShots::operator=(const CShots & other)
+{
+	//do not change owner
+	used = other.used;
+	totalProxy = std::move(CBonusProxy(owner->unitAsBearer(), Selector::type(Bonus::SHOTS)));
+	return *this;
+}
+
+bool CShots::isLimited() const
+{
+	return !owner->unitHasAmmoCart();
 }
 
 ///CCasts
-CCasts::CCasts(const CStack * Owner):
+CCasts::CCasts(const IUnitBonusInfo * Owner):
 	CAmmo(Owner, Selector::type(Bonus::CASTS))
 {
+}
 
+CCasts::CCasts(const CCasts & other)
+	: CAmmo(other, Selector::type(Bonus::CASTS))
+{
+}
+
+CCasts & CCasts::operator=(const CCasts & other)
+{
+	//do not change owner
+	used = other.used;
+	totalProxy = CBonusProxy(owner->unitAsBearer(), Selector::type(Bonus::CASTS));
+	return *this;
 }
 
 ///CRetaliations
-CRetaliations::CRetaliations(const CStack * Owner):
-	CAmmo(Owner, Selector::type(Bonus::ADDITIONAL_RETALIATION)), totalCache(0)
+CRetaliations::CRetaliations(const IUnitBonusInfo * Owner)
+	: CAmmo(Owner, Selector::type(Bonus::ADDITIONAL_RETALIATION)),
+	totalCache(0)
 {
+}
 
+CRetaliations::CRetaliations(const CRetaliations & other)
+	: CAmmo(other, Selector::type(Bonus::ADDITIONAL_RETALIATION)),
+	totalCache(other.totalCache)
+{
+}
+
+CRetaliations & CRetaliations::operator=(const CRetaliations & other)
+{
+	//do not change owner
+	used = other.used;
+	totalCache = other.totalCache;
+	totalProxy = CBonusProxy(owner->unitAsBearer(), Selector::type(Bonus::ADDITIONAL_RETALIATION));
+	return *this;
+}
+
+bool CRetaliations::isLimited() const
+{
+	return !owner->unitAsBearer()->hasBonusOfType(Bonus::UNLIMITED_RETALIATIONS);
 }
 
 int32_t CRetaliations::total() const
@@ -107,6 +163,13 @@ void CRetaliations::reset()
 	totalCache = 0;
 }
 
+void CRetaliations::serializeJson(JsonSerializeFormat & handler)
+{
+	CAmmo::serializeJson(handler);
+	//we may be serialized in the middle of turn
+	handler.serializeInt("totalCache", totalCache, 0);
+}
+
 ///CHealth
 CHealth::CHealth(const IUnitHealthInfo * Owner):
 	owner(Owner)
@@ -121,6 +184,15 @@ CHealth::CHealth(const CHealth & other):
 	resurrected(other.resurrected)
 {
 
+}
+
+CHealth & CHealth::operator=(const CHealth & other)
+{
+	//do not change owner
+	firstHPleft = other.firstHPleft;
+	fullUnits = other.fullUnits;
+	resurrected = other.resurrected;
+	return *this;
 }
 
 void CHealth::init()
@@ -275,60 +347,187 @@ void CHealth::takeResurrected()
 	}
 }
 
-///CStack
-CStack::CStack(const CStackInstance * Base, PlayerColor O, int I, ui8 Side, SlotID S):
-	base(Base), ID(I), owner(O), slot(S), side(Side),
-	counterAttacks(this), shots(this), casts(this), health(this), cloneID(-1),
-	position()
+void CHealth::serializeJson(JsonSerializeFormat & handler)
 {
-	assert(base);
-	type = base->type;
-	baseAmount = base->count;
-	health.init(); //???
-	setNodeType(STACK_BATTLE);
+	handler.serializeInt("firstHPleft", firstHPleft, 0);
+	handler.serializeInt("fullUnits", fullUnits, 0);
+	handler.serializeInt("resurrected", resurrected, 0);
 }
 
-CStack::CStack():
-	counterAttacks(this), shots(this), casts(this), health(this)
+///CStackState
+CStackState::CStackState(const IUnitInfo * Owner)
+	: owner(Owner),
+	casts(Owner),
+	counterAttacks(Owner),
+	health(Owner),
+	shots(Owner)
 {
-	init();
-	setNodeType(STACK_BATTLE);
+
 }
 
-CStack::CStack(const CStackBasicDescriptor * stack, PlayerColor O, int I, ui8 Side, SlotID S):
-	base(nullptr), ID(I), owner(O), slot(S), side(Side),
-	counterAttacks(this), shots(this), casts(this), health(this), cloneID(-1),
-	position()
+CStackState::CStackState(const CStackState & other)
+	: owner(other.owner),
+	casts(other.casts),
+	counterAttacks(other.counterAttacks),
+	health(other.health),
+	shots(other.shots)
 {
-	type = stack->type;
-	baseAmount = stack->count;
-	health.init(); //???
-	setNodeType(STACK_BATTLE);
+
 }
 
-int32_t CStack::getKilled() const
+CStackState & CStackState::operator=(const CStackState & other)
 {
-	int32_t res = baseAmount - health.getCount() + health.getResurrected();
+	//do not change owner
+	casts = other.casts;
+	counterAttacks = other.counterAttacks;
+	health = other.health;
+	shots = other.shots;
+	return *this;
+}
+
+const IUnitInfo * CStackState::getUnitInfo() const
+{
+	return owner;
+}
+
+bool CStackState::ableToRetaliate() const
+{
+	return alive()
+	   && counterAttacks.canUse()
+	   && !owner->unitAsBearer()->hasBonusOfType(Bonus::SIEGE_WEAPON)
+	   && !owner->unitAsBearer()->hasBonusOfType(Bonus::HYPNOTIZED)
+	   && !owner->unitAsBearer()->hasBonusOfType(Bonus::NO_RETALIATION);
+}
+
+bool CStackState::alive() const
+{
+	return health.available() > 0;
+}
+
+bool CStackState::canCast() const
+{
+	return casts.canUse(1);//do not check specific cast abilities here
+}
+
+bool CStackState::isCaster() const
+{
+	return casts.total() > 0;//do not check specific cast abilities here
+}
+
+bool CStackState::canShoot() const
+{
+	return shots.canUse(1) && owner->unitAsBearer()->hasBonusOfType(Bonus::SHOOTER);
+}
+
+bool CStackState::isShooter() const
+{
+	return shots.total() > 0 && owner->unitAsBearer()->hasBonusOfType(Bonus::SHOOTER);
+}
+
+int32_t CStackState::getKilled() const
+{
+	int32_t res = owner->unitBaseAmount() - health.getCount() + health.getResurrected();
 	vstd::amax(res, 0);
 	return res;
 }
 
-int32_t CStack::getCount() const
+int32_t CStackState::getCount() const
 {
 	return health.getCount();
 }
 
-int32_t CStack::getFirstHPleft() const
+int32_t CStackState::getFirstHPleft() const
 {
 	return health.getFirstHPleft();
 }
 
-const CCreature * CStack::getCreature() const
+void CStackState::serializeJson(JsonSerializeFormat & handler)
 {
-	return type;
+	if(!handler.saving)
+		reset();
+	handler.serializeStruct("casts", casts);
+	handler.serializeStruct("counterAttacks", counterAttacks);
+	handler.serializeStruct("health", health);
+	handler.serializeStruct("shots", shots);
 }
 
-void CStack::init()
+void CStackState::localInit()
+{
+	reset();
+	health.init();
+}
+
+void CStackState::reset()
+{
+	casts.reset();
+	counterAttacks.reset();
+	health.reset();
+	shots.reset();
+}
+
+void CStackState::swap(CStackState & other)
+{
+	std::swap(owner, other.owner);
+	std::swap(casts, other.casts);
+	std::swap(counterAttacks, other.counterAttacks);
+	std::swap(health, other.health);
+	std::swap(shots, other.shots);
+}
+
+///CStackStateTransfer
+
+CStackStateTransfer::CStackStateTransfer()
+	: stackId(0),
+	data(JsonNode::DATA_NULL)
+{
+
+}
+
+CStackStateTransfer::~CStackStateTransfer() = default;
+
+void CStackStateTransfer::pack(uint32_t id, CStackState & state)
+{
+	stackId = id;
+	//TODO: use instance resolver for battle stacks
+	JsonSerializer ser(nullptr, data);
+	ser.serializeStruct("state", state);
+}
+
+void CStackStateTransfer::unpack(BattleInfo * battle)
+{
+	CStack * s = battle->getStack(stackId, false);
+
+	if(!s)
+	{
+		logGlobal->error("CRITICAL ERROR! Stack %d to update is not found, battle state is not in sync!", stackId);
+		return;
+	}
+
+	//TODO: use instance resolver for battle stacks
+    JsonDeserializer deser(nullptr, data);
+    deser.serializeStruct("state", s->stackState);
+}
+
+///CStack
+CStack::CStack(const CStackInstance * Base, PlayerColor O, int I, ui8 Side, SlotID S)
+	: CBonusSystemNode(STACK_BATTLE),
+	base(Base),
+	ID(I),
+	type(Base->type),
+	baseAmount(base->count),
+	owner(O),
+	slot(S),
+	side(Side),
+	stackState(this),
+	cloneID(-1),
+	position()
+{
+	stackState.health.init(); //???
+}
+
+CStack::CStack()
+	: CBonusSystemNode(STACK_BATTLE),
+	stackState(this)
 {
 	base = nullptr;
 	type = nullptr;
@@ -339,6 +538,27 @@ void CStack::init()
 	side = 1;
 	position = BattleHex();
 	cloneID = -1;
+}
+
+CStack::CStack(const CStackBasicDescriptor * stack, PlayerColor O, int I, ui8 Side, SlotID S)
+	: CBonusSystemNode(STACK_BATTLE),
+	base(nullptr),
+	ID(I),
+	type(stack->type),
+	baseAmount(stack->count),
+	owner(O),
+	slot(S),
+	side(Side),
+	stackState(this),
+	cloneID(-1),
+	position()
+{
+	stackState.health.init(); //???
+}
+
+const CCreature * CStack::getCreature() const
+{
+	return type;
 }
 
 void CStack::localInit(BattleInfo * battleInfo)
@@ -359,16 +579,13 @@ void CStack::localInit(BattleInfo * battleInfo)
 		attachTo(const_cast<CCreature *>(type));
 	}
 
-	shots.reset();
-	counterAttacks.reset();
-	casts.reset();
-	health.init();
+	stackState.localInit();
 }
 
 ui32 CStack::level() const
 {
 	if(base)
-		return base->getLevel(); //creatture or commander
+		return base->getLevel(); //creature or commander
 	else
 		return std::max(1, (int)getCreature()->level); //war machine, clone etc
 }
@@ -408,25 +625,6 @@ bool CStack::canMove(int turn) const
 		   && !hasBonus(Selector::type(Bonus::NOT_ACTIVE).And(Selector::turns(turn))); //eg. Ammo Cart or blinded creature
 }
 
-bool CStack::canCast() const
-{
-	return casts.canUse(1);//do not check specific cast abilities here
-}
-
-bool CStack::isCaster() const
-{
-	return casts.total() > 0;//do not check specific cast abilities here
-}
-
-bool CStack::canShoot() const
-{
-	return shots.canUse(1) && hasBonusOfType(Bonus::SHOOTER);
-}
-
-bool CStack::isShooter() const
-{
-	return shots.total() > 0 && hasBonusOfType(Bonus::SHOOTER);
-}
 
 bool CStack::moved(int turn) const
 {
@@ -442,11 +640,6 @@ bool CStack::waited(int turn) const
 		return vstd::contains(state, EBattleStackState::WAITING);
 	else
 		return false;
-}
-
-bool CStack::doubleWide() const
-{
-	return getCreature()->doubleWide;
 }
 
 BattleHex CStack::occupiedHex() const
@@ -595,7 +788,8 @@ const CGHeroInstance * CStack::getMyHero() const
 std::string CStack::nodeName() const
 {
 	std::ostringstream oss;
-	oss << "Battle stack [" << ID << "]: " << health.getCount() << " creatures of ";
+	oss << owner.getStr();
+	oss << " battle stack [" << ID << "]: " << stackState.getCount() << " of ";
 	if(type)
 		oss << type->namePl;
 	else
@@ -605,11 +799,6 @@ std::string CStack::nodeName() const
 	if(base && base->armyObj)
 		oss << " of armyobj=" << base->armyObj->id.getNum();
 	return oss.str();
-}
-
-CHealth CStack::healthAfterAttacked(int32_t & damage) const
-{
-	return healthAfterAttacked(damage, health);
 }
 
 CHealth CStack::healthAfterAttacked(int32_t & damage, const CHealth & customHealth) const
@@ -635,7 +824,7 @@ CHealth CStack::healthAfterAttacked(int32_t & damage, const CHealth & customHeal
 
 CHealth CStack::healthAfterHealed(int32_t & toHeal, EHealLevel level, EHealPower power) const
 {
-	CHealth res = health;
+	CHealth res = stackState.health;
 
 	if(level == EHealLevel::HEAL && power == EHealPower::ONE_BATTLE)
 		logGlobal->error("Heal for one battle does not make sense", nodeName(), toHeal);
@@ -649,7 +838,7 @@ CHealth CStack::healthAfterHealed(int32_t & toHeal, EHealLevel level, EHealPower
 
 void CStack::prepareAttacked(BattleStackAttacked & bsa, CRandomGenerator & rand) const
 {
-	prepareAttacked(bsa, rand, health);
+	prepareAttacked(bsa, rand, stackState.health);
 }
 
 void CStack::prepareAttacked(BattleStackAttacked & bsa, CRandomGenerator & rand, const CHealth & customHealth) const
@@ -720,18 +909,9 @@ bool CStack::isMeleeAttackPossible(const CStack * attacker, const CStack * defen
 
 }
 
-bool CStack::ableToRetaliate() const
-{
-	return alive()
-		   && (counterAttacks.canUse() || hasBonusOfType(Bonus::UNLIMITED_RETALIATIONS))
-		   && !hasBonusOfType(Bonus::SIEGE_WEAPON)
-		   && !hasBonusOfType(Bonus::HYPNOTIZED)
-		   && !hasBonusOfType(Bonus::NO_RETALIATION);
-}
-
 std::string CStack::getName() const
 {
-	return (health.getCount() == 1) ? type->nameSing : type->namePl; //War machines can't use base
+	return (stackState.getCount() == 1) ? type->nameSing : type->namePl; //War machines can't use base
 }
 
 bool CStack::isValidTarget(bool allowDead) const
@@ -768,13 +948,8 @@ bool CStack::canBeHealed() const
 
 void CStack::makeGhost()
 {
-	state.erase(EBattleStackState::ALIVE);
+	stackState.health.reset();
 	state.insert(EBattleStackState::GHOST_PENDING);
-}
-
-bool CStack::alive() const //determines if stack is alive
-{
-	return vstd::contains(state, EBattleStackState::ALIVE);
 }
 
 ui8 CStack::getSpellSchoolLevel(const spells::Mode mode, const CSpell * spell, int * outSelectedSchool) const
@@ -802,7 +977,7 @@ int CStack::getEffectLevel(const spells::Mode mode, const CSpell * spell) const
 
 int CStack::getEffectPower(const spells::Mode mode, const CSpell * spell) const
 {
-	return valOfBonuses(Bonus::CREATURE_SPELL_POWER) * health.getCount() / 100;
+	return valOfBonuses(Bonus::CREATURE_SPELL_POWER) * stackState.getCount() / 100;
 }
 
 int CStack::getEnchantPower(const spells::Mode mode, const CSpell * spell) const
@@ -815,7 +990,7 @@ int CStack::getEnchantPower(const spells::Mode mode, const CSpell * spell) const
 
 int CStack::getEffectValue(const spells::Mode mode, const CSpell * spell) const
 {
-	return valOfBonuses(Bonus::SPECIFIC_SPELL_POWER, spell->id.toEnum()) * health.getCount();
+	return valOfBonuses(Bonus::SPECIFIC_SPELL_POWER, spell->id.toEnum()) * stackState.getCount();
 }
 
 const PlayerColor CStack::getOwner() const
@@ -875,6 +1050,11 @@ void CStack::spendMana(const spells::Mode mode, const CSpell * spell, const spel
 	}
 }
 
+int32_t CStack::creatureIndex() const
+{
+	return static_cast<int32_t>(getCreature()->idNumber.toEnum());
+}
+
 int32_t CStack::unitMaxHealth() const
 {
 	return MaxHealth();
@@ -885,10 +1065,95 @@ int32_t CStack::unitBaseAmount() const
 	return baseAmount;
 }
 
+const IBonusBearer * CStack::unitAsBearer() const
+{
+	return this;
+}
+
+bool CStack::unitHasAmmoCart() const
+{
+	bool hasAmmoCart = false;
+
+	for(const CStack * st : battle->stacks)
+	{
+		if(battle->battleMatchOwner(st, this, true) && st->getCreature()->idNumber == CreatureID::AMMO_CART && st->alive())
+		{
+			hasAmmoCart = true;
+			break;
+		}
+	}
+	return hasAmmoCart;
+}
+
+bool CStack::doubleWide() const
+{
+	return getCreature()->doubleWide;
+}
+
+uint32_t CStack::unitId() const
+{
+	return ID;
+}
+
+ui8 CStack::unitSide() const
+{
+	return side;
+}
+
+const IUnitInfo * CStack::getUnitInfo() const
+{
+	return this;
+}
+
+bool CStack::ableToRetaliate() const
+{
+	return stackState.ableToRetaliate();
+}
+
+bool CStack::alive() const
+{
+	return stackState.alive();
+}
+
+int32_t CStack::getKilled() const
+{
+	return stackState.getKilled();
+}
+
+bool CStack::canCast() const
+{
+	return stackState.canCast();
+}
+
+bool CStack::isCaster() const
+{
+	return stackState.isCaster();
+}
+
+bool CStack::canShoot() const
+{
+	return stackState.canShoot();
+}
+
+bool CStack::isShooter() const
+{
+	return stackState.isShooter();
+}
+
+int32_t CStack::getCount() const
+{
+	return stackState.getCount();
+}
+
+int32_t CStack::getFirstHPleft() const
+{
+	return stackState.getFirstHPleft();
+}
+
 void CStack::addText(MetaString & text, ui8 type, int32_t serial, const boost::logic::tribool & plural) const
 {
 	if(boost::logic::indeterminate(plural))
-		serial = VLC->generaltexth->pluralText(serial, health.getCount());
+		serial = VLC->generaltexth->pluralText(serial, stackState.getCount());
 	else if(plural)
 		serial = VLC->generaltexth->pluralText(serial, 2);
 	else
@@ -900,7 +1165,7 @@ void CStack::addText(MetaString & text, ui8 type, int32_t serial, const boost::l
 void CStack::addNameReplacement(MetaString & text, const boost::logic::tribool & plural) const
 {
 	if(boost::logic::indeterminate(plural))
-		text.addCreReplacement(type->idNumber, health.getCount());
+		text.addCreReplacement(type->idNumber, stackState.getCount());
 	else if(plural)
 		text.addReplacement(MetaString::CRE_PL_NAMES, type->idNumber.num);
 	else
@@ -909,22 +1174,22 @@ void CStack::addNameReplacement(MetaString & text, const boost::logic::tribool &
 
 std::string CStack::formatGeneralMessage(const int32_t baseTextId) const
 {
-	const int32_t textId = VLC->generaltexth->pluralText(baseTextId, health.getCount());
+	const int32_t textId = VLC->generaltexth->pluralText(baseTextId, stackState.getCount());
 
 	MetaString text;
 	text.addTxt(MetaString::GENERAL_TXT, textId);
-	text.addCreReplacement(type->idNumber, health.getCount());
+	text.addCreReplacement(type->idNumber, stackState.getCount());
 
 	return text.toString();
 }
 
 void CStack::setHealth(const CHealthInfo & value)
 {
-	health.reset();
-	health.fromInfo(value);
+	stackState.health.reset();
+	stackState.health.fromInfo(value);
 }
 
 void CStack::setHealth(const CHealth & value)
 {
-	health = value;
+	stackState.health = value;
 }

@@ -11,7 +11,6 @@
 #include "StdInc.h"
 
 #include "GlobalEffect.h"
-#include "Effects.h"
 
 #include "../ISpellMechanics.h"
 
@@ -20,20 +19,12 @@ namespace spells
 namespace effects
 {
 
-GlobalEffect::GlobalEffect()
+GlobalEffect::GlobalEffect(const int level)
+	: Effect(level)
 {
 }
 
-GlobalEffect::~GlobalEffect()
-{
-
-}
-
-void GlobalEffect::addTo(Effects * where, const int level)
-{
-	spellLevel = level;
-	where->global.at(level).push_back(this->shared_from_this());
-}
+GlobalEffect::~GlobalEffect() = default;
 
 EffectTarget GlobalEffect::filterTarget(const Mechanics * m, const BattleCast & p, const EffectTarget & target) const
 {

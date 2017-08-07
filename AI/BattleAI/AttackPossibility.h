@@ -11,13 +11,12 @@
 #include "../../lib/CStack.h"
 #include "../../CCallback.h"
 #include "common.h"
+#include "StackWithBonuses.h"
 
 
 struct HypotheticChangesToBattleState
 {
-	std::map<const CStack *, const IBonusBearer *> bonusesOfStacks;
-	std::map<const CStack *, int> counterAttacksLeft;
-	std::map<const CStack *, CHealth> amounts;
+	std::map<const CStack *, std::shared_ptr<StackWithBonuses>> stackStates;
 };
 
 class Priorities
@@ -46,6 +45,6 @@ public:
 	int damageDiff() const;
 	int attackValue() const;
 
-	static AttackPossibility evaluate(const BattleAttackInfo &AttackInfo, const HypotheticChangesToBattleState &state, BattleHex hex);
+	static AttackPossibility evaluate(const BattleAttackInfo &AttackInfo, BattleHex hex);
 	static Priorities * priorities;
 };

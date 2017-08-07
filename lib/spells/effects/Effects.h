@@ -18,26 +18,25 @@ namespace spells
 namespace effects
 {
 
-class DLL_LINKAGE Effects
+class Effects
 {
 public:
 	using TargetFilter = std::function<bool(const Destination & dest)>;
-	using EffectsToApply = std::vector<std::pair<const IEffect *, EffectTarget>>;
+	using EffectsToApply = std::vector<std::pair<const Effect *, EffectTarget>>;
 
-	template <TargetType TType>
-	using EffectVector = std::array<std::vector<std::shared_ptr<Effect<TType>>>, GameConstants::SPELL_SCHOOL_LEVELS>;
+	using EffectVector = std::array<std::vector<std::shared_ptr<Effect>>, GameConstants::SPELL_SCHOOL_LEVELS>;
 
-	EffectVector<TargetType::NO_TARGET> global;
-	EffectVector<TargetType::LOCATION> location;
-	EffectVector<TargetType::CREATURE> creature;
+	EffectVector data;
 
-	Effects() = default;
-	virtual ~Effects() = default;
+	Effects();
+	virtual ~Effects();
+
+	void add(std::shared_ptr<Effect> effect, const int level);
 
 	bool applicable(Problem & problem, const Mechanics * m, const int level) const;
 	bool applicable(Problem & problem, const Mechanics * m, const int level, const Target & aimPoint, const Target & spellTarget) const;
 
-	void forEachEffect(const int level, const std::function<void(const IEffect *, bool &)> & callback) const;
+	void forEachEffect(const int level, const std::function<void(const Effect *, bool &)> & callback) const;
 
 	EffectsToApply prepare(const Mechanics * m, const BattleCast & p, const Target & spellTarget) const;
 

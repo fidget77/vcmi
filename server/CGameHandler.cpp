@@ -31,6 +31,7 @@
 #include "../lib/NetPacks.h"
 #include "../lib/VCMI_Lib.h"
 #include "../lib/mapping/CMap.h"
+#include "../lib/mapping/CMapService.h"
 #include "../lib/rmg/CMapGenOptions.h"
 #include "../lib/VCMIDirs.h"
 #include "../lib/ScopeGuard.h"
@@ -210,8 +211,6 @@ public:
 };
 
 static CApplier<CBaseForGHApply> *applier = nullptr;
-
-CMP_stack cmpst ;
 
 static inline double distance(int3 a, int3 b)
 {
@@ -1102,7 +1101,7 @@ void CGameHandler::applyBattleEffects(BattleAttack &bat, const CStack *att, cons
 		bsa2.flags |= BattleStackAttacked::EFFECT; //FIXME: play animation upon efreet and not attacker
 		bsa2.effect = 11;
 
-		bsa2.damageAmount = (std::min<int64_t>(def->health.available(), bsa.damageAmount) * def->valOfBonuses(Bonus::FIRE_SHIELD)) / 100; //TODO: scale with attack/defense
+		bsa2.damageAmount = (std::min<int64_t>(def->stackState.health.available(), bsa.damageAmount) * def->valOfBonuses(Bonus::FIRE_SHIELD)) / 100; //TODO: scale with attack/defense
 		att->prepareAttacked(bsa2, getRandomGenerator());
 		bat.bsa.push_back(bsa2);
 	}
@@ -1508,10 +1507,10 @@ void CGameHandler::init(StartInfo *si)
 	{
 		si->seedToBeUsed = std::time(nullptr);
 	}
-
+	CMapService mapService;
 	gs = new CGameState();
 	logGlobal->info("Gamestate created!");
-	gs->init(si);
+	gs->init(&mapService, si);
 	logGlobal->info("Gamestate initialized!");
 
 	// reset seed, so that clients can't predict any following random values
@@ -4039,6 +4038,8 @@ bool CGameHandler::makeBattleAction(BattleAction &ba)
 					handleAfterAttackCasting(bat);
 				}
 
+				//FIXME: issue 1811. Block counterattack on defender rebirth, also handle this in damage estimation in battle callback
+
 				//counterattack
 				if (i == 0 && destinationStack
 					&& !stack->hasBonusOfType(Bonus::BLOCKS_RETALIATION)
@@ -4120,7 +4121,7 @@ bool CGameHandler::makeBattleAction(BattleAction &ba)
 				if (
 					stack->alive()
 					&& destinationStack->alive()
-					&& stack->shots.canUse()
+					&& stack->stackState.shots.canUse()
 					)
 				{
 					BattleAttack bat;
@@ -5296,34 +5297,34 @@ void CGameHandler::attackCasting(const BattleAttack & bat, Bonus::BonusType atta
 {
 	spells::Mode mode = (attackMode == Bonus::SPELL_AFTER_ATTACK) ? spells::Mode::AFTER_ATTACK : spells::Mode::BEFORE_ATTACK;
 
-	if (attacker->hasBonusOfType(attackMode))
+	if(attacker->hasBonusOfType(attackMode))
 	{
 		std::set<SpellID> spellsToCast;
 		TBonusListPtr spells = attacker->getBonuses(Selector::type(attackMode));
-		for (const std::shared_ptr<Bonus> sf : *spells)
+		for(const std::shared_ptr<Bonus> sf : *spells)
 		{
 			spellsToCast.insert(SpellID(sf->subtype));
 		}
-		for (SpellID spellID : spellsToCast)
+		for(SpellID spellID : spellsToCast)
 		{
 			const CStack * oneOfAttacked = nullptr;
-			for (auto & elem : bat.bsa)
+			for(auto & elem : bat.bsa)
 			{
-				if ((elem.newHealth.fullUnits > 0 || elem.newHealth.firstHPleft > 0) && !elem.isSecondary()) //apply effects only to first target stack if it's alive
+				if((elem.newHealth.fullUnits > 0 || elem.newHealth.firstHPleft > 0) && !elem.isSecondary()) //apply effects only to first target stack if it's alive
 				{
 					oneOfAttacked = gs->curB->battleGetStackByID(elem.stackAttacked);
 					break;
 				}
 			}
 			bool castMe = false;
-			if (oneOfAttacked == nullptr)
+			if(oneOfAttacked == nullptr)
 			{
 				logGlobal->debug("attackCasting: all attacked creatures have been killed");
 				return;
 			}
 			int spellLevel = 0;
 			TBonusListPtr spellsByType = attacker->getBonuses(Selector::typeSubtype(attackMode, spellID));
-			for (const std::shared_ptr<Bonus> sf : *spellsByType)
+			for(const std::shared_ptr<Bonus> sf : *spellsByType)
 			{
 				vstd::amax(spellLevel, sf->additionalInfo % 1000); //pick highest level
 				int meleeRanged = sf->additionalInfo / 1000;
@@ -5338,11 +5339,11 @@ void CGameHandler::attackCasting(const BattleAttack & bat, Bonus::BonusType atta
 				continue;
 
 			//check if spell should be cast (probability handling)
-			if (getRandomGenerator().nextInt(99) >= chance)
+			if(getRandomGenerator().nextInt(99) >= chance)
 				continue;
 
 			//casting
-			if (castMe) //stacks use 0 spell power. If needed, default = 3 or custom value is used
+			if(castMe)
 			{
 				logGlobal->debug("battle spell cast");
 				spells::BattleCast parameters(gs->curB, attacker, mode, spell);
@@ -6456,7 +6457,7 @@ CasualtiesAfterBattle::CasualtiesAfterBattle(const CArmedInstance * _army, Battl
 
 		logGlobal->debug("Calculating casualties for %s", st->nodeName());
 
-		st->health.takeResurrected();
+		st->stackState.health.takeResurrected();
 
 		if(st->slot == SlotID::ARROW_TOWERS_SLOT)
 		{

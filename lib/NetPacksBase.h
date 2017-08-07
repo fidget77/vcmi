@@ -9,7 +9,10 @@
  */
 #pragma once
 
+class CClient;
 class CGameState;
+class CGameHandler;
+class CConnection;
 class CStackBasicDescriptor;
 class CGHeroInstance;
 class CStackInstance;
@@ -34,6 +37,36 @@ struct DLL_LINKAGE CPack
 	void applyGs(CGameState *gs) { }
 	virtual std::string toString() const { return boost::str(boost::format("{CPack: type '%s'}") % typeid(this).name()); }
 };
+
+struct CPackForClient : public CPack
+{
+	CPackForClient(){};
+
+	CGameState* GS(CClient *cl);
+	void applyFirstCl(CClient *cl)//called before applying to gs
+	{}
+	void applyCl(CClient *cl)//called after applying to gs
+	{}
+};
+
+struct CPackForServer : public CPack
+{
+	PlayerColor player;
+	CConnection *c;
+	CGameState* GS(CGameHandler *gh);
+	CPackForServer():
+		player(PlayerColor::NEUTRAL),
+		c(nullptr)
+	{
+	}
+
+	bool applyGh(CGameHandler *gh) //called after applying to gs
+	{
+		logGlobal->error("Should not happen... applying plain CPackForServer");
+		return false;
+	}
+};
+
 
 std::ostream & operator<<(std::ostream & out, const CPack * pack);
 

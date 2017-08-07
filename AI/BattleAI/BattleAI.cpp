@@ -76,6 +76,7 @@ BattleAction CBattleAI::activeStack( const CStack * stack )
 
 		if(auto action = considerFleeingOrSurrendering())
 			return *action;
+		//best action is from effective owner PoV, we are effective owner as we received "activeStack"
 		PotentialTargets targets(stack);
 		if(targets.possibleAttacks.size())
 		{
@@ -90,7 +91,7 @@ BattleAction CBattleAI::activeStack( const CStack * stack )
 			if(stack->waited())
 			{
 				//ThreatMap threatsToUs(stack); // These lines may be usefull but they are't used in the code.
-				auto dists = getCbc()->battleGetDistances(stack);
+				auto dists = getCbc()->battleGetDistances(stack, stack->position);
 				const EnemyInfo &ei= *range::min_element(targets.unreachableEnemies, std::bind(isCloser, _1, _2, std::ref(dists)));
 				if(distToNearestNeighbour(ei.s->position, dists) < GameConstants::BFIELD_SIZE)
 				{
@@ -221,11 +222,58 @@ void CBattleAI::attemptCastingSpell()
 	if(possibleCasts.empty())
 		return;
 
-	std::map<const CStack*, int> valueOfStack;
-	for(auto stack : cb->battleGetStacks())
+	using ValueMap = std::map<const CStack *, int>;
+
+	auto evaluateQueue = [&](ValueMap & values, const TStacks & queue, HypotheticChangesToBattleState & state)
 	{
-		PotentialTargets pt(stack);
-		valueOfStack[stack] = pt.bestActionValue();
+		for(const CStack * stack : queue)
+		{
+			if(vstd::contains(values, stack))
+				break;
+
+			PotentialTargets pt(stack, state);
+
+			if(!pt.possibleAttacks.empty())
+			{
+				AttackPossibility ap = pt.bestAction();
+
+				auto swb = getValOr(state.stackStates, stack, std::make_shared<StackWithBonuses>(stack));
+				swb->state = ap.attack.attackerState;
+				swb->position = ap.tile;
+				state.stackStates[stack] = swb;
+
+				swb = getValOr(state.stackStates, ap.attack.defender, std::make_shared<StackWithBonuses>(ap.attack.defender));
+				swb->state = ap.attack.defenderState;
+				state.stackStates[ap.attack.defender] = swb;
+			}
+
+			auto bav = pt.bestActionValue();
+			const IUnitInfo * info = stack;
+
+			//was stack actually changed?
+			auto iter = state.stackStates.find(stack);
+			if(iter != state.stackStates.end())
+				info = iter->second.get();
+
+			//best action is from effective owner PoV, we need to convert to our PoV
+			if(getCbc()->battleGetOwner(info) != playerID)
+				bav = -bav;
+			values[stack] = bav;
+		}
+	};
+
+	ValueMap valueOfStack;
+
+	TStacks all = cb->battleGetAllStacks(true);
+
+	auto amount = all.size();
+
+	TStacks queue;
+	cb->battleGetStackQueue(queue, amount);
+
+	{
+		HypotheticChangesToBattleState state;
+		evaluateQueue(valueOfStack, queue, state);
 	}
 
 	auto evaluateSpellcast = [&] (const PossibleSpellcast &ps) -> double
@@ -236,72 +284,73 @@ void CBattleAI::attemptCastingSpell()
 		int totalGain = 0;
 		int32_t damageDiff = 0;
 
-		HypotheticChangesToBattleState state;
+		//TODO: calculate stack state changes inside spell susbsystem
 
-		std::vector<std::shared_ptr<StackWithBonuses>> stateValues;
+		HypotheticChangesToBattleState state;
 
 		auto stacksAffected = ps.spell->getAffectedStacks(cb.get(), spells::Mode::HERO, hero, skillLevel, ps.dest);
 
 		if(stacksAffected.empty())
 			return -1;
 
-		switch(spellType(ps.spell))
+		for(const CStack * sta : stacksAffected)
 		{
-		case OFFENSIVE_SPELL:
+			auto swb = std::make_shared<StackWithBonuses>(sta);
+
+			switch(spellType(ps.spell))
 			{
-				for(auto stack : stacksAffected)
+			case OFFENSIVE_SPELL:
 				{
-					int32_t dmg = ps.spell->calculateDamage(hero, stack, skillLevel, spellPower);
-					if(stack->owner == playerID)
+					int32_t dmg = ps.spell->calculateDamage(hero, sta, skillLevel, spellPower);
+					if(sta->owner == playerID)
 						dmg *= 10;
 
-					state.amounts[stack] = stack->healthAfterAttacked(dmg);
+					swb->state.health = sta->healthAfterAttacked(dmg, swb->state.health);
 
-					if(stack->owner == playerID)
+					//we try to avoid damage to our stacks even if they are mind-controlled
+					if(sta->owner == playerID)
 						damageDiff -= dmg;
 					else
 						damageDiff += dmg;
+
+					//TODO tactic effect too
 				}
-
-				//TODO tactic effect too
-			}
-			break;
-		case TIMED_EFFECT:
-			{
-				for(const CStack * sta : stacksAffected)
+				break;
+			case TIMED_EFFECT:
 				{
-					auto swb = std::make_shared<StackWithBonuses>();
-					swb->stack = sta;
-
 					ps.spell->getEffects(swb->bonusesToUpdate, skillLevel, false, hero->getEnchantPower(spells::Mode::HERO, ps.spell));
 					ps.spell->getEffects(swb->bonusesToAdd, skillLevel, true, hero->getEnchantPower(spells::Mode::HERO, ps.spell));
-
-					state.bonusesOfStacks[swb->stack] = swb.get();
-					stateValues.push_back(swb);
 				}
+				break;
+			default:
+				return -1;
 			}
-			break;
-		default:
-			return -1;
+
+			state.stackStates[sta] = swb;
 		}
 
-		for(auto sta : stacksAffected)
+		ValueMap newValueOfStack;
+
+		//FIXME: calculate new queue on hypothetic states
+		evaluateQueue(newValueOfStack, queue, state);
+
+		for(auto sta : all)
 		{
-			PotentialTargets pt(sta, state);
-			auto newValue = pt.bestActionValue();
-			auto oldValue = valueOfStack[sta];
+			auto newValue = getValOr(newValueOfStack, sta, 0);
+			auto oldValue = getValOr(valueOfStack, sta, 0);
+
 			auto gain = newValue - oldValue;
 
-			LOGFL("Casting %s on %s would change the stack by %d points (from %d to %d)",
-				  ps.spell->name % sta->nodeName() % (gain) % (oldValue) % (newValue));
-
-			if(sta->owner != playerID)
-				gain = -gain;
-
-			totalGain += gain;
+			if(gain != 0)
+			{
+				LOGFL("%s would change %s by %d points (from %d to %d)",
+					  ps.spell->name % sta->nodeName() % (gain) % (oldValue) % (newValue));
+				totalGain += gain;
+			}
 		}
 
-		LOGFL("Total gain of cast %s at hex %d is %d", ps.spell->name % (ps.dest.hex) % (totalGain));
+		if(totalGain != 0)
+			LOGFL("Total gain of cast %s at hex %d is %d", ps.spell->name % (ps.dest.hex) % (totalGain));
 
 		if(damageDiff < 0)
 		{
@@ -311,8 +360,7 @@ void CBattleAI::attemptCastingSpell()
 		else
 		{
 			//return gain, but add damage diff as fractional part
-			static const float PI = 3.14159265;
-			return (float)totalGain + atan((float)damageDiff)/PI;
+			return (float)totalGain + atan((float)damageDiff)/M_PI;
 		}
 	};
 
@@ -388,7 +436,7 @@ int CBattleAI::distToNearestNeighbour(BattleHex hex, const ReachabilityInfo::TDi
 
 void CBattleAI::battleStart(const CCreatureSet *army1, const CCreatureSet *army2, int3 tile, const CGHeroInstance *hero1, const CGHeroInstance *hero2, bool Side)
 {
-	print("battleStart called");
+	LOG_TRACE(logAi);
 	side = Side;
 }
 
@@ -399,7 +447,7 @@ bool CBattleAI::isCloser(const EnemyInfo &ei1, const EnemyInfo &ei2, const Reach
 
 void CBattleAI::print(const std::string &text) const
 {
-	logAi->trace("CBattleAI [%p]: %s", this, text);
+	logAi->trace("%s Battle AI[%p]: %s", playerID.getStr(), this, text);
 }
 
 boost::optional<BattleAction> CBattleAI::considerFleeingOrSurrendering()

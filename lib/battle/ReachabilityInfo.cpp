@@ -15,21 +15,19 @@
 
 ReachabilityInfo::Parameters::Parameters()
 {
-	stack = nullptr;
 	perspective = BattlePerspective::ALL_KNOWING;
 	side = 0;
 	doubleWide = flying = false;
 }
 
-ReachabilityInfo::Parameters::Parameters(const CStack * Stack)
+ReachabilityInfo::Parameters::Parameters(const IUnitInfo * Stack, BattleHex StartPosition)
 {
-	stack = Stack;
-	perspective = (BattlePerspective::BattlePerspective)(Stack->side);
-	startPosition = Stack->position;
-	doubleWide = stack->doubleWide();
-	side = stack->side;
-	flying = stack->hasBonusOfType(Bonus::FLYING);
-	knownAccessible = stack->getHexes();
+	perspective = (BattlePerspective::BattlePerspective)(Stack->unitSide());
+	startPosition = StartPosition;
+	doubleWide = Stack->doubleWide();
+	side = Stack->unitSide();
+	flying = Stack->unitAsBearer()->hasBonusOfType(Bonus::FLYING);
+	knownAccessible = CStack::getHexes(startPosition, doubleWide, side);
 }
 
 ReachabilityInfo::ReachabilityInfo()

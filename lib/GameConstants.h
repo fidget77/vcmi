@@ -466,8 +466,8 @@ namespace EBattleStackState
 {
 	enum EBattleStackState
 	{
-		ALIVE = 180,
-		SUMMONED, CLONED,
+		SUMMONED = 181,
+		CLONED,
 		GHOST, //stack was removed from battlefield
 		HAD_MORALE,
 		WAITING,

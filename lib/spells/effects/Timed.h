@@ -22,8 +22,8 @@ namespace effects
 class Timed : public StackEffect
 {
 public:
-	Timed();
-	virtual ~Timed() = default;
+	Timed(const int level);
+	virtual ~Timed();
 
 	void apply(const PacketSender * server, RNG & rng, const Mechanics * m, const BattleCast & p, const EffectTarget & target) const override;
 

@@ -10,7 +10,6 @@
 #include "StdInc.h"
 
 #include "LocationEffect.h"
-#include "Effects.h"
 #include "../ISpellMechanics.h"
 
 namespace spells
@@ -18,21 +17,12 @@ namespace spells
 namespace effects
 {
 
-LocationEffect::LocationEffect()
+LocationEffect::LocationEffect(const int level)
+	: Effect(level)
 {
-
 }
 
-LocationEffect::~LocationEffect()
-{
-
-}
-
-void LocationEffect::addTo(Effects * where, const int level)
-{
-	spellLevel = level;
-	where->location.at(level).push_back(this->shared_from_this());
-}
+LocationEffect::~LocationEffect() = default;
 
 EffectTarget LocationEffect::filterTarget(const Mechanics * m, const BattleCast & p, const EffectTarget & target) const
 {

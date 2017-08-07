@@ -16,7 +16,19 @@ int AttackPossibility::damageDiff() const
 		priorities = new Priorities();
 	const auto dealtDmgValue = priorities->stackEvaluator(enemy) * damageDealt;
 	const auto receivedDmgValue = priorities->stackEvaluator(attack.attacker) * damageReceived;
-	return dealtDmgValue - receivedDmgValue;
+
+	int diff = 0;
+
+	//friendly fire or not
+	if(attack.attacker->unitSide() == enemy->unitSide())
+		diff = -dealtDmgValue - receivedDmgValue;
+	else
+		diff = dealtDmgValue - receivedDmgValue;
+
+	//mind control
+	if(getCbc()->battleGetOwner(attack.attackerState.getUnitInfo()) != attack.attacker->owner)
+		diff = -diff;
+	return diff;
 }
 
 int AttackPossibility::attackValue() const
@@ -24,34 +36,45 @@ int AttackPossibility::attackValue() const
 	return damageDiff() + tacticImpact;
 }
 
-AttackPossibility AttackPossibility::evaluate(const BattleAttackInfo &AttackInfo, const HypotheticChangesToBattleState &state, BattleHex hex)
+AttackPossibility AttackPossibility::evaluate(const BattleAttackInfo & AttackInfo, BattleHex hex)
 {
 	auto attacker = AttackInfo.attacker;
-	auto enemy = AttackInfo.defender;
+	auto defender = AttackInfo.defender;
 
-	const int remainingCounterAttacks = getValOr(state.counterAttacksLeft, enemy, enemy->counterAttacks.available());
-	const bool counterAttacksBlocked = attacker->hasBonusOfType(Bonus::BLOCKS_RETALIATION) || enemy->hasBonusOfType(Bonus::NO_RETALIATION);
+	const int remainingCounterAttacks = AttackInfo.defenderState.counterAttacks.available();
+	const bool counterAttacksBlocked = AttackInfo.attackerBonuses->hasBonusOfType(Bonus::BLOCKS_RETALIATION) || AttackInfo.defenderBonuses->hasBonusOfType(Bonus::NO_RETALIATION);
+
 	const int totalAttacks = 1 + AttackInfo.attackerBonuses->getBonuses(Selector::type(Bonus::ADDITIONAL_ATTACK), (Selector::effectRange (Bonus::NO_LIMIT).Or(Selector::effectRange(Bonus::ONLY_MELEE_FIGHT))))->totalValue();
 
-	AttackPossibility ap = {enemy, hex, AttackInfo, 0, 0, 0};
+	AttackPossibility ap = {defender, hex, AttackInfo, 0, 0, 0};
 
-	auto curBai = AttackInfo; //we'll modify here the stack counts
-	for(int i  = 0; i < totalAttacks; i++)
+	BattleAttackInfo curBai = AttackInfo; //we'll modify here the stack state
+	for(int i = 0; i < totalAttacks; i++)
 	{
 		std::pair<ui32, ui32> retaliation(0,0);
 		auto attackDmg = getCbc()->battleEstimateDamage(CRandomGenerator::getDefault(), curBai, &retaliation);
+
+		vstd::amin(attackDmg.first, curBai.defenderState.health.available());
+		vstd::amin(attackDmg.second, curBai.defenderState.health.available());
+
+		vstd::amin(retaliation.first, curBai.attackerState.health.available());
+		vstd::amin(retaliation.second, curBai.attackerState.health.available());
+
 		ap.damageDealt = (attackDmg.first + attackDmg.second) / 2;
 		ap.damageReceived = (retaliation.first + retaliation.second) / 2;
 
 		if(remainingCounterAttacks <= i || counterAttacksBlocked)
 			ap.damageReceived = 0;
 
-		curBai.attackerHealth = attacker->healthAfterAttacked(ap.damageReceived, curBai.attackerHealth);
-		curBai.defenderHealth = enemy->healthAfterAttacked(ap.damageDealt, curBai.defenderHealth);
-		if(curBai.attackerHealth.getCount() <= 0)
+		curBai.attackerState.health = attacker->healthAfterAttacked(ap.damageReceived, curBai.attackerState.health);
+		curBai.defenderState.health = defender->healthAfterAttacked(ap.damageDealt, curBai.defenderState.health);
+		if(!curBai.attackerState.alive())
 			break;
-		//TODO what about defender? should we break? but in pessimistic scenario defender might be alive
+		if(!curBai.defenderState.alive())
+			break;
 	}
+
+	ap.attack = curBai;
 
 	//TODO other damage related to attack (eg. fire shield and other abilities)
 

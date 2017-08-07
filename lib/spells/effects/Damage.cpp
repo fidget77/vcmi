@@ -25,9 +25,12 @@ namespace effects
 
 VCMI_REGISTER_SPELL_EFFECT(Damage, EFFECT_NAME);
 
-Damage::Damage()
+Damage::Damage(const int level)
+	: StackEffect(level)
 {
 }
+
+Damage::~Damage() = default;
 
 void Damage::apply(const PacketSender * server, RNG & rng, const Mechanics * m, const BattleCast & p, const EffectTarget & target) const
 {
@@ -76,6 +79,9 @@ void Damage::apply(const PacketSender * server, RNG & rng, const Mechanics * m, 
 			const int textId = (killed > 1) ? 379 : 378;
 			line.addTxt(MetaString::GENERAL_TXT, textId);
 			const bool multiple = stacksInjured.stacks.size() > 1;
+
+			if(killed > 1)
+				line.addReplacement(killed);
 
             if(killed > 1)
 				if(multiple || !firstTarget)

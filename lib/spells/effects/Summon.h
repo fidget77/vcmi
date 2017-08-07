@@ -18,12 +18,12 @@ namespace spells
 namespace effects
 {
 
-class DLL_LINKAGE Summon : public GlobalEffect
+class Summon : public GlobalEffect
 {
 public:
 	CreatureID creature;
 
-	Summon();
+	Summon(const int level);
 	virtual ~Summon();
 
 	bool applicable(Problem & problem, const Mechanics * m) const override;

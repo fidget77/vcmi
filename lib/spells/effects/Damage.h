@@ -21,8 +21,8 @@ namespace effects
 class Damage : public StackEffect
 {
 public:
-	Damage();
-	virtual ~Damage() = default;
+	Damage(const int level);
+	virtual ~Damage();
 
 	void apply(const PacketSender * server, RNG & rng, const Mechanics * m, const BattleCast & p, const EffectTarget & target) const override;
 

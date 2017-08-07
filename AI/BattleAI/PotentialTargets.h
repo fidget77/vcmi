@@ -16,8 +16,6 @@ public:
 	std::vector<AttackPossibility> possibleAttacks;
 	std::vector<const CStack *> unreachableEnemies;
 
-	//std::function<AttackPossibility(bool,BattleHex)>  GenerateAttackInfo; //args: shooting, destHex
-
 	PotentialTargets(){};
 	PotentialTargets(const CStack *attacker, const HypotheticChangesToBattleState &state = HypotheticChangesToBattleState());
 

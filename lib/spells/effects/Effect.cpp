@@ -18,25 +18,27 @@ namespace spells
 namespace effects
 {
 
-IEffect::IEffect()
+Effect::Effect(const int level)
 	: automatic(true),
 	optional(false),
-	spellLevel(0)
+	spellLevel(level)
 {
 
 }
 
-bool IEffect::applicable(Problem & problem, const Mechanics * m) const
-{
-	return true;
-}
+Effect::~Effect() = default;
 
-bool IEffect::applicable(Problem & problem, const Mechanics * m, const Target & aimPoint, const EffectTarget & target) const
+bool Effect::applicable(Problem & problem, const Mechanics * m) const
 {
 	return true;
 }
 
-void IEffect::serializeJson(JsonSerializeFormat & handler)
+bool Effect::applicable(Problem & problem, const Mechanics * m, const Target & aimPoint, const EffectTarget & target) const
+{
+	return true;
+}
+
+void Effect::serializeJson(JsonSerializeFormat & handler)
 {
 	handler.serializeBool("automatic", automatic, true);
 	handler.serializeBool("optional", automatic, false);

@@ -26,12 +26,14 @@ namespace effects
 
 VCMI_REGISTER_SPELL_EFFECT(Timed, EFFECT_NAME);
 
-Timed::Timed()
-	: cumulative(false),
+Timed::Timed(const int level)
+	: StackEffect(level),
+	cumulative(false),
 	bonus()
 {
-
 }
+
+Timed::~Timed() = default;
 
 void Timed::apply(const PacketSender * server, RNG & rng, const Mechanics * m, const BattleCast & p, const EffectTarget & target) const
 {

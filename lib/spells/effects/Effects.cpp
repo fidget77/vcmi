@@ -22,13 +22,22 @@ namespace spells
 namespace effects
 {
 
+Effects::Effects() = default;
+
+Effects::~Effects() = default;
+
+void Effects::add(std::shared_ptr<Effect> effect, const int level)
+{
+	data.at(level).push_back(effect);
+}
+
 bool Effects::applicable(Problem & problem, const Mechanics * m, const int level) const
 {
 	//stop on first problem
 	//require all not optional effects to be applicable
 
 	bool res = true;
-	auto callback = [&res, &problem, m](const IEffect * e, bool & stop)
+	auto callback = [&res, &problem, m](const Effect * e, bool & stop)
 	{
 		if(!e->optional && !e->applicable(problem, m))
 		{
@@ -48,7 +57,7 @@ bool Effects::applicable(Problem & problem, const Mechanics * m, const int level
 	//require all not optional effects to be applicable
 
 	bool res = true;
-	auto callback = [&res, &problem, &aimPoint, &spellTarget, m](const IEffect * e, bool & stop)
+	auto callback = [&res, &problem, &aimPoint, &spellTarget, m](const Effect * e, bool & stop)
 	{
 		EffectTarget target = e->transformTarget(m, aimPoint, spellTarget);
 
@@ -64,24 +73,10 @@ bool Effects::applicable(Problem & problem, const Mechanics * m, const int level
 	return res;
 }
 
-void Effects::forEachEffect(const int level, const std::function<void(const IEffect *, bool &)> & callback) const
+void Effects::forEachEffect(const int level, const std::function<void(const Effect *, bool &)> & callback) const
 {
 	bool stop = false;
-	for(auto one : global.at(level))
-	{
-		callback(one.get(), stop);
-		if(stop)
-			return;
-	}
-
-	for(auto one : location.at(level))
-	{
-		callback(one.get(), stop);
-		if(stop)
-			return;
-	}
-
-	for(auto one : creature.at(level))
+	for(auto one : data.at(level))
 	{
 		callback(one.get(), stop);
 		if(stop)
@@ -93,7 +88,7 @@ Effects::EffectsToApply Effects::prepare(const Mechanics * m, const BattleCast &
 {
 	EffectsToApply effectsToApply;
 
-	auto callback = [&](const IEffect * e, bool & stop)
+	auto callback = [&](const Effect * e, bool & stop)
 	{
 		if(e->automatic)
 		{
@@ -129,9 +124,9 @@ void Effects::serializeJson(JsonSerializeFormat & handler, const int level)
 			continue;
 		}
 
-		auto effect = factory->create();
+		auto effect = std::shared_ptr<Effect>(factory->create(level));
 		effect->serializeJson(handler);
-		effect->addTo(this, level);
+		add(effect, level);
 	}
 }
 

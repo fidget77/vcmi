@@ -352,6 +352,14 @@ public:
 		serializeId<T>(fieldName, value, defaultValue, decoder, endoder);
 	}
 
+	///any serializable object <-> Json struct
+	template <typename T>
+	void serializeStruct(const std::string & fieldName, T & value)
+	{
+		auto guard = enterStruct(fieldName);
+		value.serializeJson(*this);
+	}
+
 	virtual void serializeRaw(const std::string & fieldName, JsonNode & value, const boost::optional<const JsonNode &> defaultValue) = 0;
 
 protected:

@@ -17,13 +17,11 @@ namespace spells
 namespace effects
 {
 
-class GlobalEffect : public Effect<TargetType::NO_TARGET>, public std::enable_shared_from_this<GlobalEffect>
+class GlobalEffect : public Effect
 {
 public:
-	GlobalEffect();
+	GlobalEffect(const int level);
 	virtual ~GlobalEffect();
-
-	void addTo(Effects * where, const int level) override;
 
 	EffectTarget filterTarget(const Mechanics * m, const BattleCast & p, const EffectTarget & target) const override;
 

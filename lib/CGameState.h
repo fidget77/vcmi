@@ -54,6 +54,7 @@ class CQuest;
 class CCampaignScenario;
 struct EventCondition;
 class CScenarioTravel;
+class IMapService;
 
 namespace boost
 {
@@ -152,7 +153,7 @@ public:
 	CGameState();
 	virtual ~CGameState();
 
-	void init(StartInfo * si, bool allowSavingRandomMap = false);
+	void init(const IMapService * mapService, StartInfo * si, bool allowSavingRandomMap = false);
 
 	ConstTransitivePtr<StartInfo> scenarioOps, initialOpts; //second one is a copy of settings received from pregame (not randomized)
 	PlayerColor currentPlayer; //ID of player currently having turn
@@ -245,8 +246,8 @@ private:
 
 	// ----- initialization -----
 
-	void initNewGame(bool allowSavingRandomMap);
-	void initCampaign();
+	void initNewGame(const IMapService * mapService, bool allowSavingRandomMap);
+	void initCampaign(const IMapService * mapService);
 	void checkMapChecksum();
 	void initGrailPosition();
 	void initRandomFactionsForPlayers();

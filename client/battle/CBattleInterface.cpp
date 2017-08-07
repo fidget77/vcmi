@@ -2328,7 +2328,7 @@ void CBattleInterface::handleHex(BattleHex myNumber, int eventType)
 				realizeAction = [=](){giveCommand(Battle::SHOOT, myNumber, activeStack->ID);};
 				std::string estDmgText = formatDmgRange(curInt->cb->battleEstimateDamage(CRandomGenerator::getDefault(), sactive, shere)); //calculating estimated dmg
 				//printing - Shoot %s (%d shots left, %s damage)
-				consoleMsg = (boost::format(CGI->generaltexth->allTexts[296]) % shere->getName() % sactive->shots.available() % estDmgText).str();
+				consoleMsg = (boost::format(CGI->generaltexth->allTexts[296]) % shere->getName() % sactive->stackState.shots.available() % estDmgText).str();
 			}
 				break;
 			case AIMED_SPELL_CREATURE:

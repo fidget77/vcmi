@@ -138,12 +138,12 @@ SpellCastContext::SpellCastContext(const Mechanics * mechanics_, const SpellCast
 	if(mechanics->cb->battleHasHero(otherSide))
 		otherHero = mechanics->cb->battleGetFightingHero(otherSide);
 
-	logGlobal->debugStream() << "Started spell cast. Spell: " << mechanics->owner->name << "; mode:" << (int) parameters.mode;
+	logGlobal->debug("Started spell cast. Spell: %s; mode: %d", mechanics->owner->name, static_cast<int>(parameters.mode));
 }
 
 SpellCastContext::~SpellCastContext()
 {
-	logGlobal->debugStream() << "Finished spell cast. Spell: " << mechanics->owner->name << "; mode:" << (int) parameters.mode;
+	logGlobal->debug("Finished spell cast. Spell: %s; mode: %d", mechanics->owner->name, static_cast<int>(parameters.mode));
 }
 
 void SpellCastContext::addDamageToDisplay(const si32 value)
@@ -252,7 +252,7 @@ bool SpellCastContext::counteringSelector(const Bonus * bonus) const
 
 ///DefaultSpellMechanics
 DefaultSpellMechanics::DefaultSpellMechanics(const CSpell * s, const CBattleInfoCallback * Cb, const Caster * caster_)
-	: Mechanics(s, Cb, caster_)
+	: BaseMechanics(s, Cb, caster_)
 {
 };
 
@@ -488,31 +488,35 @@ bool DefaultSpellMechanics::canBeCast(Problem & problem) const
 	//allow to cast spell if there is at least one smart target
 	if(requiresCreatureTarget())
 	{
-		switch(mode)
+		CSpell::TargetInfo tinfo(owner, caster->getSpellSchoolLevel(mode, owner), mode);
+		bool targetExists = false;
+
+		for(const CStack * stack : cb->battleGetAllStacks())
 		{
-		case spells::Mode::HERO:
-		case spells::Mode::CREATURE_ACTIVE:
-		case spells::Mode::ENCHANTER:
-		case spells::Mode::PASSIVE:
+			const bool immune = !(stack->isValidTarget(!tinfo.onlyAlive)) || isImmuneByStack(stack);
+
+			switch(mode)
 			{
-				CSpell::TargetInfo tinfo(owner, caster->getSpellSchoolLevel(mode, owner), mode);
-
-				bool targetExists = false;
-
-				for(const CStack * stack : cb->battleGetAllStacks())
+			case spells::Mode::HERO:
+			case spells::Mode::CREATURE_ACTIVE:
+			case spells::Mode::ENCHANTER:
+			case spells::Mode::PASSIVE:
 				{
-					const bool immune = !(stack->isValidTarget(!tinfo.onlyAlive)) || isImmuneByStack(stack);
 					const bool ownerMatches = cb->battleMatchOwner(caster->getOwner(), stack, owner->getPositiveness());
 					targetExists = !immune && ownerMatches;
-					if(targetExists)
-						break;
 				}
-
-				if(!targetExists)
-					return adaptProblem(ESpellCastProblem::NO_APPROPRIATE_TARGET, problem);
+				break;
+			default:
+				targetExists = !immune;
+				break;
 			}
-			break;
+
+			if(targetExists)
+				break;
 		}
+
+		if(!targetExists)
+			return adaptProblem(ESpellCastProblem::NO_APPROPRIATE_TARGET, problem);
 	}
 	return true;
 }
@@ -725,13 +729,18 @@ std::vector<const CStack *> RegularSpellMechanics::calculateAffectedStacks(int s
 
 bool RegularSpellMechanics::canBeCastAt(BattleHex destination) const
 {
-	if(mode == Mode::CREATURE_ACTIVE || mode == Mode::HERO)
-	{
-		const auto level = caster->getSpellSchoolLevel(mode, owner);
-		std::vector<const CStack *> affected = getAffectedStacks(level, destination);
+	const auto level = caster->getSpellSchoolLevel(mode, owner);
+	std::vector<const CStack *> affected = getAffectedStacks(level, destination);
 
+	bool targetExists = false;
+
+	switch(mode)
+	{
+	case spells::Mode::HERO:
+	case spells::Mode::CREATURE_ACTIVE:
+	case spells::Mode::ENCHANTER:
+	case spells::Mode::PASSIVE:
 		//allow to cast spell if it affects at least one smart target
-		bool targetExists = false;
 
 		for(const CStack * stack : affected)
 		{
@@ -740,18 +749,20 @@ bool RegularSpellMechanics::canBeCastAt(BattleHex destination) const
 				break;
 		}
 
-		if(!targetExists)
-			return false;
+		break;
+	default:
+		targetExists = !affected.empty();
+		break;
 	}
 
-	return true;
+	return targetExists;
 }
 
 void RegularSpellMechanics::cast(const SpellCastEnvironment * env, const BattleCast & parameters, SpellCastContext & ctx, std::vector<const CStack*> & reflected) const
 {
 	ctx.attackedCres = getAffectedStacks(parameters.spellLvl, parameters.getFirstDestinationHex());
 
-	logGlobal->debugStream() << "will affect " << ctx.attackedCres.size() << " stacks";
+	logGlobal->debug("will affect %d stacks", ctx.attackedCres.size());
 
 	handleResistance(env, ctx);
 

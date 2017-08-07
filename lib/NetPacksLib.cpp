@@ -1248,7 +1248,7 @@ DLL_LINKAGE void BattleNextRound::applyGs(CGameState *gs)
 		s->state -= EBattleStackState::HAD_MORALE;
 		s->state -= EBattleStackState::FEAR;
 		s->state -= EBattleStackState::DRAINED_MANA;
-		s->counterAttacks.reset();
+		s->stackState.counterAttacks.reset();
 		// new turn effects
 		s->updateBonuses(Bonus::NTurns);
 
@@ -1401,14 +1401,12 @@ DLL_LINKAGE void BattleStackAttacked::applyGs(CGameState *gs)
 	at->popBonuses(Bonus::UntilBeingAttacked);
 
 	if(willRebirth())
-		at->health.reset();//kill stack first
+		at->stackState.health.reset();//kill stack first
 	else
 		at->setHealth(newHealth);
 
 	if(killed())
 	{
-		at->state -= EBattleStackState::ALIVE;
-
 		if(at->cloneID >= 0)
 		{
 			//remove clone as well
@@ -1426,8 +1424,7 @@ DLL_LINKAGE void BattleStackAttacked::applyGs(CGameState *gs)
 	if(willRebirth())
 	{
 		//TODO: handle rebirth with StacksHealedOrResurrected
-		at->casts.use();
-		at->state.insert(EBattleStackState::ALIVE);
+		at->stackState.casts.use();
 		at->setHealth(newHealth);
 
 		//removing all spells effects
@@ -1465,10 +1462,10 @@ DLL_LINKAGE void BattleAttack::applyGs(CGameState * gs)
 	assert(attacker);
 
 	if(counter())
-		attacker->counterAttacks.use();
+		attacker->stackState.counterAttacks.use();
 
 	if(shot())
-		attacker->shots.use();
+		attacker->stackState.shots.use();
 
 	for(BattleStackAttacked & stackAttacked : bsa)
 		stackAttacked.applyGs(gs);
@@ -1663,13 +1660,6 @@ DLL_LINKAGE void StacksHealedOrResurrected::applyGs(CGameState *gs)
 
 		//applying changes
 		bool resurrected = !changedStack->alive(); //indicates if stack is resurrected or just healed
-		if(resurrected)
-		{
-			if(auto totalHealth = changedStack->health.available())
-				logGlobal->warn("Dead stack %s with positive total HP %d", changedStack->nodeName(), totalHealth);
-
-			changedStack->state.insert(EBattleStackState::ALIVE);
-		}
 
 		changedStack->setHealth(elem);
 
@@ -1764,8 +1754,7 @@ DLL_LINKAGE void BattleStacksRemoved::applyGs(CGameState *gs)
 			if(gs->curB->stacks[b]->ID == rem_stack) //if found
 			{
 				CStack * toRemove = gs->curB->stacks[b];
-
-				toRemove->state.erase(EBattleStackState::ALIVE);
+				toRemove->stackState.health.reset();
 				toRemove->state.erase(EBattleStackState::GHOST_PENDING);
 				toRemove->state.insert(EBattleStackState::GHOST);
 				toRemove->detachFromAll();//TODO: may be some bonuses should remain
@@ -1823,7 +1812,7 @@ DLL_LINKAGE void BattleSetStackProperty::applyGs(CGameState * gs)
 			if(absolute)
 				logNetwork->error("Can not change casts in absolute mode");
 			else
-				stack->casts.use(-val);
+				stack->stackState.casts.use(-val);
 			break;
 		}
 		case ENCHANTER_COUNTER:

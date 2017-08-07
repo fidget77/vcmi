@@ -63,6 +63,7 @@
 			<Add option="-lboost_filesystem$(#boost.libsuffix)" />
 			<Add directory="../" />
 		</Linker>
+		<Unit filename="CMakeLists.txt" />
 		<Unit filename="CMemoryBufferTest.cpp" />
 		<Unit filename="CVcmiTestConfig.cpp" />
 		<Unit filename="CVcmiTestConfig.h" />
@@ -75,6 +76,7 @@
 		</Unit>
 		<Unit filename="battle/BattleHexTest.cpp" />
 		<Unit filename="battle/CHealthTest.cpp" />
+		<Unit filename="game/CGameStateTest.cpp" />
 		<Unit filename="googletest/googlemock/src/gmock-all.cc" />
 		<Unit filename="googletest/googletest/src/gtest-all.cc" />
 		<Unit filename="main.cpp" />
@@ -82,6 +84,10 @@
 		<Unit filename="map/CMapFormatTest.cpp" />
 		<Unit filename="map/MapComparer.cpp" />
 		<Unit filename="map/MapComparer.h" />
+		<Unit filename="mock/mock_IGameCallback.cpp" />
+		<Unit filename="mock/mock_IGameCallback.h" />
+		<Unit filename="mock/mock_MapService.cpp" />
+		<Unit filename="mock/mock_MapService.h" />
 		<Unit filename="mock/mock_UnitHealthInfo.h" />
 		<Extensions>
 			<code_completion />

@@ -328,13 +328,16 @@ EGateState CBattleInfoEssentials::battleGetGateState() const
 	return getBattle()->si.gateState;
 }
 
-PlayerColor CBattleInfoEssentials::battleGetOwner(const CStack * stack) const
+PlayerColor CBattleInfoEssentials::battleGetOwner(const IUnitInfo * stack) const
 {
 	RETURN_IF_NOT_BATTLE(PlayerColor::CANNOT_DETERMINE);
-	if(stack->hasBonusOfType(Bonus::HYPNOTIZED))
-		return getBattle()->theOtherPlayer(stack->owner);
+
+	PlayerColor initialOwner = getBattle()->sides.at(stack->unitSide()).color;
+
+	if(stack->unitAsBearer()->hasBonusOfType(Bonus::HYPNOTIZED))
+		return getBattle()->theOtherPlayer(initialOwner);
 	else
-		return stack->owner;
+		return initialOwner;
 }
 
 const CGHeroInstance * CBattleInfoEssentials::battleGetOwnerHero(const CStack * stack) const
@@ -346,23 +349,26 @@ const CGHeroInstance * CBattleInfoEssentials::battleGetOwnerHero(const CStack * 
 	return getBattle()->sides.at(side.get()).hero;
 }
 
-bool CBattleInfoEssentials::battleMatchOwner(const CStack * attacker, const CStack * defender, const boost::logic::tribool positivness ) const
+bool CBattleInfoEssentials::battleMatchOwner(const IUnitInfo * attacker, const IUnitInfo * defender, const boost::logic::tribool positivness) const
 {
 	RETURN_IF_NOT_BATTLE(false);
 	if(boost::logic::indeterminate(positivness))
 		return true;
-	else if(attacker == defender)
+	else if(attacker->unitId() == defender->unitId())
 		return positivness;
 	else
 		return battleMatchOwner(battleGetOwner(attacker), defender, positivness);
 }
 
-bool CBattleInfoEssentials::battleMatchOwner(const PlayerColor & attacker, const CStack * defender, const boost::logic::tribool positivness ) const
+bool CBattleInfoEssentials::battleMatchOwner(const PlayerColor & attacker, const IUnitInfo * defender, const boost::logic::tribool positivness) const
 {
 	RETURN_IF_NOT_BATTLE(false);
+
+	PlayerColor initialOwner = getBattle()->sides.at(defender->unitSide()).color;
+
 	if(boost::logic::indeterminate(positivness))
 		return true;
-	else if(defender->owner != battleGetOwner(defender))
+	else if(initialOwner != battleGetOwner(defender))
 		return true; //mind controlled unit is attackable for both sides
 	else
 		return (attacker == battleGetOwner(defender)) == positivness;

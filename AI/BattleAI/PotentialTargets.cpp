@@ -12,50 +12,70 @@
 
 PotentialTargets::PotentialTargets(const CStack * attacker, const HypotheticChangesToBattleState & state)
 {
-	auto dists = getCbc()->battleGetDistances(attacker);
-	auto avHexes = getCbc()->battleGetAvailableHexes(attacker, false);
+	auto attackerInfo = getValOr(state.stackStates, attacker, std::make_shared<StackWithBonuses>(attacker));
 
-	for(const CStack *enemy : getCbc()->battleGetStacks())
+	auto dists = getCbc()->battleGetDistances(attackerInfo.get(), attackerInfo->position);
+	auto avHexes = getCbc()->battleGetAvailableHexes(attackerInfo.get(), attackerInfo->position);
+
+	//FIXME: this should part of battleGetAvailableHexes
+	bool forcedTarget = false;
+	const CStack * forcedStack = nullptr;
+	BattleHex forcedHex;
+
+	if(attackerInfo->hasBonusOfType(Bonus::ATTACKS_NEAREST_CREATURE))
 	{
-		//Consider only stacks of different owner
-		if(enemy->side == attacker->side)
+		forcedTarget = true;
+		auto nearest = getCbc()->getNearestStack(attacker, boost::none);
+
+		if(nearest.first != nullptr)
+		{
+			forcedStack = nearest.first;
+			forcedHex = nearest.second;
+		}
+	}
+
+	for(const CStack * defender : getCbc()->battleGetStacks())
+	{
+		auto defenderInfo = getValOr(state.stackStates, defender, std::make_shared<StackWithBonuses>(defender));
+
+		if(!forcedTarget && !getCbc()->battleMatchOwner(attackerInfo.get(), defenderInfo.get()))
 			continue;
 
 		auto GenerateAttackInfo = [&](bool shooting, BattleHex hex) -> AttackPossibility
 		{
-			auto bai = BattleAttackInfo(attacker, enemy, shooting);
-			bai.attackerBonuses = getValOr(state.bonusesOfStacks, bai.attacker, bai.attacker);
-			bai.defenderBonuses = getValOr(state.bonusesOfStacks, bai.defender, bai.defender);
+			auto bai = BattleAttackInfo(attacker, defender, attackerInfo.get(), defenderInfo.get(), shooting);
 
-			bai.attackerHealth = getValOr(state.amounts, bai.attacker, bai.attacker->health);
-			bai.defenderHealth = getValOr(state.amounts, bai.defender, bai.defender->health);
+			bai.attackerState = attackerInfo->state;
+			bai.defenderState = defenderInfo->state;
 
-			if(hex.isValid())
-			{
-				assert(dists[hex] <= attacker->Speed());
+			if(hex.isValid() && !shooting)
 				bai.chargedFields = dists[hex];
-			}
 
-			return AttackPossibility::evaluate(bai, state, hex);
+			return AttackPossibility::evaluate(bai, hex);
 		};
 
-		if(getCbc()->battleCanShoot(attacker, enemy->position))
+		if(forcedTarget)
+		{
+			if(forcedStack && defender->ID == forcedStack->ID)
+				possibleAttacks.push_back(GenerateAttackInfo(false, forcedHex));
+			else
+				unreachableEnemies.push_back(defender);
+		}
+		else if(getCbc()->battleCanShoot(attacker, defender->position))
 		{
 			possibleAttacks.push_back(GenerateAttackInfo(true, BattleHex::INVALID));
 		}
 		else
 		{
 			for(BattleHex hex : avHexes)
-				if(CStack::isMeleeAttackPossible(attacker, enemy, hex))
+				if(CStack::isMeleeAttackPossible(attacker, defender, hex))
 					possibleAttacks.push_back(GenerateAttackInfo(false, hex));
 
-			if(!vstd::contains_if(possibleAttacks, [=](const AttackPossibility &pa) { return pa.enemy == enemy; }))
-				unreachableEnemies.push_back(enemy);
+			if(!vstd::contains_if(possibleAttacks, [=](const AttackPossibility &pa) { return pa.enemy == defender; }))
+				unreachableEnemies.push_back(defender);
 		}
 	}
 }
-
-
 
 int PotentialTargets::bestActionValue() const
 {

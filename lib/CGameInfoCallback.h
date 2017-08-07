@@ -34,6 +34,8 @@ class int3;
 class DLL_LINKAGE CGameInfoCallback : public virtual CCallbackBase
 {
 protected:
+	CGameState * gs;
+
 	CGameInfoCallback();
 	CGameInfoCallback(CGameState *GS, boost::optional<PlayerColor> Player);
 	bool hasAccess(boost::optional<PlayerColor> playerId) const;

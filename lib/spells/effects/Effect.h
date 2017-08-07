@@ -24,8 +24,9 @@ namespace effects
 {
 using RNG = ::CRandomGenerator;
 class Effects;
-class IEffect;
+class Effect;
 class Registry;
+
 template<typename F>
 class RegisterEffect;
 
@@ -38,38 +39,14 @@ enum class TargetType
 	CREATURE
 };
 
-class DLL_LINKAGE IEffectFactory
-{
-public:
-	IEffectFactory() = default;
-	virtual ~IEffectFactory() = default;
-
-	virtual std::shared_ptr<IEffect> create() const = 0;
-};
-
-template<typename E>
-class EffectFactory : public IEffectFactory
-{
-public:
-	EffectFactory() = default;
-	virtual ~EffectFactory() = default;
-
-	std::shared_ptr<IEffect> create() const override
-	{
-		return std::make_shared<E>();
-	}
-};
-
-class DLL_LINKAGE IEffect
+class Effect
 {
 public:
 	bool automatic;
 	bool optional;
 
-	IEffect();
-	virtual ~IEffect() = default;
-
-	virtual void addTo(Effects * where, const int level) = 0;
+	Effect(const int level);
+	virtual ~Effect();
 
 	virtual bool applicable(Problem & problem, const Mechanics * m) const;
 	virtual bool applicable(Problem & problem, const Mechanics * m, const Target & aimPoint, const EffectTarget & target) const;
@@ -86,25 +63,6 @@ protected:
 	int spellLevel;
 
 	virtual void serializeJsonEffect(JsonSerializeFormat & handler) = 0;
-};
-
-//default is location target
-template <TargetType TType>
-class Effect : public IEffect
-{
-public:
-};
-
-template<>
-class Effect<TargetType::NO_TARGET> : public IEffect
-{
-public:
-};
-
-template<>
-class Effect<TargetType::CREATURE> : public IEffect
-{
-public:
 };
 
 

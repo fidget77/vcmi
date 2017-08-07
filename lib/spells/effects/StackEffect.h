@@ -17,13 +17,11 @@ namespace spells
 namespace effects
 {
 
-class StackEffect : public Effect<TargetType::CREATURE>, public std::enable_shared_from_this<StackEffect>
+class StackEffect : public Effect
 {
 public:
-	StackEffect();
-	virtual ~StackEffect() = default;
-
-	void addTo(Effects * where, const int level) override;
+	StackEffect(const int level);
+	virtual ~StackEffect();
 
 	bool applicable(Problem & problem, const Mechanics * m) const override;
 	bool applicable(Problem & problem, const Mechanics * m, const Target & aimPoint, const EffectTarget & target) const override;
@@ -36,7 +34,9 @@ public:
 
     virtual bool eraseByImmunityFilter(const Mechanics * m, const CStack * s) const;
 protected:
-
+	virtual bool isReceptive(const Mechanics * m, const CStack * s) const;
+	virtual bool isSmartTarget(const Mechanics * m, const CStack * s, bool alwaysSmart) const;
+	virtual bool isValidTarget(const Mechanics * m, const CStack * s) const;
 private:
 };
 

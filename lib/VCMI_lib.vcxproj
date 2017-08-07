@@ -226,6 +226,7 @@
     <ClCompile Include="spells\ViewSpellInt.cpp" />
     <ClCompile Include="spells\effects\Effect.cpp" />
     <ClCompile Include="spells\effects\Effects.cpp" />
+    <ClCompile Include="spells\effects\Clone.cpp" />
     <ClCompile Include="spells\effects\Damage.cpp" />
     <ClCompile Include="spells\effects\GlobalEffect.cpp" />
     <ClCompile Include="spells\effects\LocationEffect.cpp" />
@@ -443,6 +444,7 @@
     <ClInclude Include="spells\ViewSpellInt.h" />
     <ClInclude Include="spells\effects\Effect.h" />
     <ClInclude Include="spells\effects\Effects.h" />
+    <ClInclude Include="spells\effects\Clone.h" />
     <ClInclude Include="spells\effects\Damage.h" />
     <ClInclude Include="spells\effects\GlobalEffect.h" />
     <ClInclude Include="spells\effects\LocationEffect.h" />

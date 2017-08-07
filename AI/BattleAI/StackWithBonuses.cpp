@@ -22,6 +22,14 @@ void actualizeEffect(TBonusListPtr target, const Bonus & ef)
 	}
 }
 
+StackWithBonuses::StackWithBonuses(const CStack * Stack)
+	: stack(Stack),
+	state(this)
+{
+	state = stack->stackState;
+	position = stack->position;
+}
+
 const TBonusListPtr StackWithBonuses::getAllBonuses(const CSelector & selector, const CSelector & limit,
 	const CBonusSystemNode * root, const std::string & cachingStr) const
 {
@@ -53,4 +61,45 @@ const TBonusListPtr StackWithBonuses::getAllBonuses(const CSelector & selector, 
 	}
 	//TODO limiters?
 	return ret;
+}
+
+int32_t StackWithBonuses::creatureIndex() const
+{
+	return stack->creatureIndex();
+}
+
+int32_t StackWithBonuses::unitMaxHealth() const
+{
+	return stack->unitMaxHealth();
+}
+
+int32_t StackWithBonuses::unitBaseAmount() const
+{
+	return stack->unitBaseAmount();
+}
+
+const IBonusBearer * StackWithBonuses::unitAsBearer() const
+{
+	return this;
+}
+
+bool StackWithBonuses::unitHasAmmoCart() const
+{
+	//todo: check ammocart alive state here
+	return stack->unitHasAmmoCart();
+}
+
+bool StackWithBonuses::doubleWide() const
+{
+	return stack->doubleWide();
+}
+
+uint32_t StackWithBonuses::unitId() const
+{
+	return stack->unitId();
+}
+
+ui8 StackWithBonuses::unitSide() const
+{
+	return stack->unitSide();
 }

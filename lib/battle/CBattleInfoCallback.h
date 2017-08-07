@@ -13,6 +13,7 @@
 #include "BattleAttackInfo.h"
 
 class CGHeroInstance;
+class IUnitInfo;
 class CStack;
 class ISpellCaster;
 class CSpell;
@@ -48,10 +49,14 @@ public:
 	void battleGetStackQueue(std::vector<const CStack *> &out, const int howMany, const int turn = 0, int lastMoved = -1) const;
 	void battleGetStackCountOutsideHexes(bool *ac) const; // returns hexes which when in front of a stack cause us to move the amount box back
 
-	std::vector<BattleHex> battleGetAvailableHexes(const CStack * stack, bool addOccupiable, std::vector<BattleHex> * attackable = nullptr) const; //returns hexes reachable by creature with id ID (valid movement destinations), DOES contain stack current position
+	///returns reachable hexes (valid movement destinations), DOES contain stack current position
+	std::vector<BattleHex> battleGetAvailableHexes(const CStack * stack, bool addOccupiable, std::vector<BattleHex> * attackable = nullptr) const;
+
+	///returns reachable hexes (valid movement destinations), DOES contain stack current position (lite version)
+	std::vector<BattleHex> battleGetAvailableHexes(const IUnitInfo * stack, BattleHex assumedPosition) const;
 
 	int battleGetSurrenderCost(PlayerColor Player) const; //returns cost of surrendering battle, -1 if surrendering is not possible
-	ReachabilityInfo::TDistances battleGetDistances(const CStack * stack, BattleHex hex = BattleHex::INVALID, BattleHex * predecessors = nullptr) const; //returns vector of distances to [dest hex number]
+	ReachabilityInfo::TDistances battleGetDistances(const IUnitInfo * stack, BattleHex assumedPosition) const;
 	std::set<BattleHex> battleGetAttackedHexes(const CStack* attacker, BattleHex destinationTile, BattleHex attackerPos = BattleHex::INVALID) const;
 
 	bool battleCanAttack(const CStack * stack, const CStack * target, BattleHex dest) const; //determines if stack with given ID can attack target at the selected destination
@@ -106,6 +111,5 @@ public:
 protected:
 	ReachabilityInfo getFlyingReachability(const ReachabilityInfo::Parameters & params) const;
 	ReachabilityInfo makeBFS(const AccessibilityInfo & accessibility, const ReachabilityInfo::Parameters & params) const;
-	ReachabilityInfo makeBFS(const CStack * stack) const; //uses default parameters -> stack position and owner's perspective
 	std::set<BattleHex> getStoppers(BattlePerspective::BattlePerspective whichSidePerspective) const; //get hexes with stopping obstacles (quicksands)
 };

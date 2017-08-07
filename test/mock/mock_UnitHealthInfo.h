@@ -8,6 +8,8 @@
  *
  */
 
+#pragma once
+
 #include "StdInc.h"
 #include "../../lib/CStack.h"
 

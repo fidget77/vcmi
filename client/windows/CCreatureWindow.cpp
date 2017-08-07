@@ -237,9 +237,9 @@ void CStackWindow::CWindowSection::createStackInfo(bool showExp, bool showArt)
 		printStatBase(EStat::SPEED, CGI->generaltexth->zelp[441].first, parent->info->creature->Speed(), battleStack->Speed());
 
 		if(battleStack->isShooter())
-			printStatBase(EStat::SHOTS, CGI->generaltexth->allTexts[198], battleStack->shots.total(), battleStack->shots.available());
+			printStatBase(EStat::SHOTS, CGI->generaltexth->allTexts[198], battleStack->stackState.shots.total(), battleStack->stackState.shots.available());
 		if(battleStack->isCaster())
-			printStatBase(EStat::MANA, CGI->generaltexth->allTexts[399], battleStack->casts.total(), battleStack->casts.available());
+			printStatBase(EStat::MANA, CGI->generaltexth->allTexts[399], battleStack->stackState.casts.total(), battleStack->stackState.casts.available());
 		printStat(EStat::HEALTH_LEFT, CGI->generaltexth->allTexts[200], battleStack->getFirstHPleft());
 
 		morale->set(battleStack);

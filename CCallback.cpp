@@ -279,9 +279,11 @@ void CCallback::buildBoat( const IShipyard *obj )
 	sendRequest(&bb);
 }
 
-CCallback::CCallback( CGameState * GS, boost::optional<PlayerColor> Player, CClient *C )
-	:CBattleCallback(GS, Player, C)
+CCallback::CCallback(CGameState * GS, boost::optional<PlayerColor> Player, CClient * C)
+	: CBattleCallback(Player, C)
 {
+	gs = GS;
+
 	waitTillRealize = false;
 	unlockGsWhenWaiting = false;
 }
@@ -367,9 +369,8 @@ void CCallback::unregisterBattleInterface(std::shared_ptr<IBattleEventsReceiver>
 	cl->additionalBattleInts[*player] -= battleEvents;
 }
 
-CBattleCallback::CBattleCallback(CGameState *GS, boost::optional<PlayerColor> Player, CClient *C )
+CBattleCallback::CBattleCallback(boost::optional<PlayerColor> Player, CClient *C )
 {
-	gs = GS;
 	player = Player;
 	cl = C;
 }

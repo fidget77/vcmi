@@ -9,75 +9,79 @@
  */
 
 #pragma once
+#include "JsonNode.h"
+#include "HeroBonus.h"
+#include "CCreatureHandler.h" //todo: remove
 #include "battle/BattleHex.h"
-#include "CCreatureHandler.h"
 #include "mapObjects/CGHeroInstance.h" // for commander serialization
 
 struct BattleStackAttacked;
 struct BattleInfo;
 class CStack;
 class CHealthInfo;
+class JsonSerializeFormat;
 
-template <typename Quantity>
-class DLL_LINKAGE CStackResource
+class DLL_LINKAGE IUnitBonusInfo
 {
 public:
-	CStackResource(const CStack * Owner):
-		owner(Owner)
-	{
-		reset();
-	}
-
-	virtual void reset()
-	{
-		used = 0;
-	};
-
-protected:
-	const CStack * owner;
-	Quantity used;
+	virtual const IBonusBearer * unitAsBearer() const = 0;
+	virtual bool unitHasAmmoCart() const = 0; //todo: handle ammo cart with bonus system
 };
 
-class DLL_LINKAGE CAmmo : public CStackResource<int32_t>
+class DLL_LINKAGE CAmmo
 {
 public:
-	CAmmo(const CStack * Owner, CSelector totalSelector);
+	explicit CAmmo(const IUnitBonusInfo * Owner, CSelector totalSelector);
+	explicit CAmmo(const CAmmo & other, CSelector totalSelector);
+
+	//bonus-related stuff if not copyable
+	CAmmo(const CAmmo & other) = delete;
+
+	//ammo itself if not movable
+	CAmmo(CAmmo && other) = delete;
 
 	int32_t available() const;
 	bool canUse(int32_t amount = 1) const;
-	virtual void reset() override;
+	virtual bool isLimited() const;
+	virtual void reset();
 	virtual int32_t total() const;
 	virtual void use(int32_t amount = 1);
 
-	template <typename Handler> void serialize(Handler & h, const int version)
-	{
-		if(!h.saving)
-			reset();
-		h & used;
-	}
+	virtual void serializeJson(JsonSerializeFormat & handler);
 protected:
+	int32_t used;
+	const IUnitBonusInfo * owner;
 	CBonusProxy totalProxy;
 };
 
 class DLL_LINKAGE CShots : public CAmmo
 {
 public:
-	CShots(const CStack * Owner);
-	void use(int32_t amount = 1) override;
+	explicit CShots(const IUnitBonusInfo * Owner);
+	CShots(const CShots & other);
+	CShots & operator=(const CShots & other);
+	bool isLimited() const override;
 };
 
 class DLL_LINKAGE CCasts : public CAmmo
 {
 public:
-	CCasts(const CStack * Owner);
+	explicit CCasts(const IUnitBonusInfo * Owner);
+	CCasts(const CCasts & other);
+	CCasts & operator=(const CCasts & other);
 };
 
 class DLL_LINKAGE CRetaliations : public CAmmo
 {
 public:
-	CRetaliations(const CStack * Owner);
+	explicit CRetaliations(const IUnitBonusInfo * Owner);
+	CRetaliations(const CRetaliations & other);
+	CRetaliations & operator=(const CRetaliations & other);
+	bool isLimited() const override;
 	int32_t total() const override;
 	void reset() override;
+
+	void serializeJson(JsonSerializeFormat & handler) override;
 private:
 	mutable int32_t totalCache;
 };
@@ -92,9 +96,10 @@ public:
 class DLL_LINKAGE CHealth
 {
 public:
-	CHealth() = default;
-	CHealth(const IUnitHealthInfo * Owner);
+	explicit CHealth(const IUnitHealthInfo * Owner);
 	CHealth(const CHealth & other);
+
+	CHealth & operator=(const CHealth & other);
 
 	void init();
 	void reset();
@@ -114,14 +119,7 @@ public:
 
 	void takeResurrected();
 
-	template <typename Handler> void serialize(Handler & h, const int version)
-	{
-		if(!h.saving)
-			reset();
-		h & firstHPleft;
-		h & fullUnits;
-		h & resurrected;
-	}
+	void serializeJson(JsonSerializeFormat & handler);
 private:
 	void addResurrected(int32_t amount);
 	void setFromTotal(const int64_t totalHealth);
@@ -132,24 +130,110 @@ private:
 	int32_t resurrected;
 };
 
-class DLL_LINKAGE CStack : public CBonusSystemNode, public spells::Caster, public IUnitHealthInfo
+///Stack interface for Stack state
+class DLL_LINKAGE IUnitInfo : public IUnitHealthInfo, public IUnitBonusInfo
+{
+public:
+	virtual bool doubleWide() const = 0;
+	virtual uint32_t unitId() const = 0;
+	virtual ui8 unitSide() const = 0;
+	virtual int32_t creatureIndex() const = 0;
+};
+
+/// Stack state interface for outside
+/// to be used instead of CStack where possible
+class DLL_LINKAGE IStackState
+{
+public:
+	virtual const IUnitInfo * getUnitInfo() const = 0;
+
+	virtual bool ableToRetaliate() const = 0;
+	virtual bool alive() const = 0;
+
+	virtual bool canCast() const = 0;
+	virtual bool isCaster() const = 0;
+	virtual bool canShoot() const = 0;
+	virtual bool isShooter() const = 0;
+
+	virtual int32_t getCount() const = 0;
+	virtual int32_t getFirstHPleft() const = 0;
+	virtual int32_t getKilled() const = 0;
+};
+
+///mutable part of CStack
+class DLL_LINKAGE CStackState : public IStackState
+{
+public:
+	CCasts casts;
+	CRetaliations counterAttacks;
+	CHealth health;
+	CShots shots;
+
+	explicit CStackState(const IUnitInfo * Owner);
+	CStackState(const CStackState & other);
+	CStackState(CStackState && other) = delete;
+
+	CStackState & operator=(const CStackState & other);
+	CStackState & operator=(CStackState && other) = delete;
+
+	const IUnitInfo * getUnitInfo() const override;
+	bool ableToRetaliate() const override;
+	bool alive() const override;
+
+	bool canCast() const override;
+	bool isCaster() const override;
+	bool canShoot() const override;
+	bool isShooter() const override;
+
+	int32_t getKilled() const override;
+	int32_t getCount() const override;
+	int32_t getFirstHPleft() const override;
+
+	void localInit();
+	void serializeJson(JsonSerializeFormat & handler);
+	void swap(CStackState & other);
+
+private:
+	const IUnitInfo * owner;
+
+	void reset();
+};
+
+class DLL_LINKAGE CStackStateTransfer
+{
+public:
+	CStackStateTransfer();
+	~CStackStateTransfer();
+
+	void pack(uint32_t id, CStackState & state);
+	void unpack(BattleInfo * battle);
+
+	template <typename Handler> void serialize(Handler & h, const int version)
+	{
+		h & stackId;
+		h & data;
+	}
+private:
+	uint32_t stackId;
+	JsonNode data;
+};
+
+class DLL_LINKAGE CStack : public CBonusSystemNode, public spells::Caster, public IUnitInfo, public IStackState
 {
 public:
 	const CStackInstance * base; //garrison slot from which stack originates (nullptr for war machines, summoned cres, etc)
 
 	ui32 ID; //unique ID of stack
-	ui32 baseAmount;
 	const CCreature * type;
+	ui32 baseAmount;
 
 	PlayerColor owner; //owner - player color (255 for neutrals)
 	SlotID slot;  //slot - position in garrison (may be 255 for neutrals/called creatures)
 	ui8 side;
-	BattleHex position; //position on battlefield; -2 - keep, -3 - lower tower, -4 - upper tower
 
-	CRetaliations counterAttacks;
-	CShots shots;
-	CCasts casts;
-	CHealth health;
+	CStackState stackState;
+
+	BattleHex position; //position on battlefield; -2 - keep, -3 - lower tower, -4 - upper tower
 
 	///id of alive clone of this stack clone if any
 	si32 cloneID;
@@ -160,29 +244,18 @@ public:
 	CStack();
 	~CStack();
 
-	int32_t getKilled() const;
-	int32_t getCount() const;
-	int32_t getFirstHPleft() const;
 	const CCreature * getCreature() const;
 
 	std::string nodeName() const override;
 
-	void init(); //set initial (invalid) values
 	void localInit(BattleInfo * battleInfo);
 	std::string getName() const; //plural or singular
 	bool willMove(int turn = 0) const; //if stack has remaining move this turn
-	bool ableToRetaliate() const; //if stack can retaliate after attacked
 
 	bool moved(int turn = 0) const; //if stack was already moved this turn
 	bool waited(int turn = 0) const;
 
-	bool canCast() const;
-	bool isCaster() const;
-
 	bool canMove(int turn = 0) const; //if stack can move
-
-	bool canShoot() const;
-	bool isShooter() const;
 
 	bool canBeHealed() const; //for first aid tent - only harmed stacks that are not war machines
 
@@ -193,7 +266,6 @@ public:
 
 	static bool isMeleeAttackPossible(const CStack * attacker, const CStack * defender, BattleHex attackerPos = BattleHex::INVALID, BattleHex defenderPos = BattleHex::INVALID);
 
-	bool doubleWide() const;
 	BattleHex occupiedHex() const; //returns number of occupied hex (not the position) if stack is double wide; otherwise -1
 	BattleHex occupiedHex(BattleHex assumedPos) const; //returns number of occupied hex (not the position) if stack is double wide and would stand on assumedPos; otherwise -1
 	std::vector<BattleHex> getHexes() const; //up to two occupied hexes, starting from front
@@ -204,7 +276,6 @@ public:
 
 	BattleHex::EDir destShiftDir() const;
 
-	CHealth healthAfterAttacked(int32_t & damage) const;
 	CHealth healthAfterAttacked(int32_t & damage, const CHealth & customHealth) const;
 
 	CHealth healthAfterHealed(int32_t & toHeal, EHealLevel level, EHealPower power) const;
@@ -236,10 +307,36 @@ public:
 	void getCastDescription(const CSpell * spell, const std::vector<const CStack *> & attacked, MetaString & text) const override;
 	void spendMana(const spells::Mode mode, const CSpell * spell, const spells::PacketSender * server, const int spellCost) const override;
 
-	///IUnitHealthInfo
+	///IUnitInfo
+
+	virtual int32_t creatureIndex() const override;
 
 	int32_t unitMaxHealth() const override;
 	int32_t unitBaseAmount() const override;
+
+	const IBonusBearer * unitAsBearer() const override;
+	bool unitHasAmmoCart() const override;
+
+	bool doubleWide() const override;
+	uint32_t unitId() const override;
+	ui8 unitSide() const override;
+
+	///IStackState
+
+	const IUnitInfo * getUnitInfo() const override;
+
+	bool ableToRetaliate() const override;
+	bool alive() const override;
+
+	bool canCast() const override;
+	bool isCaster() const override;
+
+	bool canShoot() const override;
+	bool isShooter() const override;
+
+	int32_t getKilled() const override;
+	int32_t getCount() const override;
+	int32_t getFirstHPleft() const override;
 
 	///MetaStrings
 
@@ -256,6 +353,8 @@ public:
 
 	template <typename Handler> void serialize(Handler & h, const int version)
 	{
+		//this assumes that stack objects is newly created
+		//stackState is not serialized here
 		assert(isIndependentNode());
 		h & static_cast<CBonusSystemNode&>(*this);
 		h & type;
@@ -266,10 +365,6 @@ public:
 		h & side;
 		h & position;
 		h & state;
-		h & shots;
-		h & casts;
-		h & counterAttacks;
-		h & health;
 
 		const CArmedInstance * army = (base ? base->armyObj : nullptr);
 		SlotID extSlot = (base ? base->armyObj->findStack(base) : SlotID());
@@ -306,7 +401,6 @@ public:
 		}
 
 	}
-	bool alive() const;
 
 	bool isClone() const;
 	bool isDead() const;
@@ -314,7 +408,6 @@ public:
 	bool isValidTarget(bool allowDead = false) const; //non-turret non-ghost stacks (can be attacked or be object of magic effect)
 	bool isTurret() const;
 
-	friend class CShots; //for BattleInfo access
 private:
 	const BattleInfo * battle; //do not serialize
 };

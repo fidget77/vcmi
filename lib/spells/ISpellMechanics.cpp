@@ -88,6 +88,33 @@ public:
 	}
 };
 
+class CloneMechanicsFactory : public CustomMechanicsFactory
+{
+public:
+	CloneMechanicsFactory(const CSpell * s)
+		: CustomMechanicsFactory(s)
+	{
+		for(int level = 0; level < GameConstants::SPELL_SCHOOL_LEVELS; level++)
+		{
+			int maxTier = 1000;
+			//tier 1-5 for basic, 1-6 for advanced, any level for expert
+			if(level < 3)
+			{
+				maxTier = (std::max<int>(level, 1) + 4);
+			}
+
+			std::string effectName = "core:clone";
+			JsonNode config(JsonNode::DATA_STRUCT);
+			JsonSerializer ser(nullptr, config);
+
+			auto guard = ser.enterStruct(effectName);
+			ser.serializeString("type", effectName);
+			ser.serializeInt("maxTier", maxTier);
+			loadEffects(config, level);
+		}
+	}
+};
+
 class SummonMechanicsFactory : public CustomMechanicsFactory
 {
 public:
@@ -120,28 +147,32 @@ public:
 			const CSpell::LevelInfo & levelInfo = s->getLevelInfo(level);
 			assert(levelInfo.specialEffects.isNull());
 
+			std::shared_ptr<effects::Effect> effect;
+
 			if(s->isOffensiveSpell())
 			{
 				//default constructed object should be enough
-				auto damage = std::make_shared<effects::Damage>();
-				damage->addTo(effects.get(), level);
+				effect = std::make_shared<effects::Damage>(level);
 			}
 
 			if(!levelInfo.effects.empty())
 			{
-				auto timed = std::make_shared<effects::Timed>();
+				auto timed = new effects::Timed(level);
 				timed->cumulative = false;
 				timed->bonus = levelInfo.effects;
-				timed->addTo(effects.get(), level);
+				effect.reset(timed);
 			}
 
 			if(!levelInfo.cumulativeEffects.empty())
 			{
-				auto timed = std::make_shared<effects::Timed>();
+				auto timed = new effects::Timed(level);
 				timed->cumulative = true;
 				timed->bonus = levelInfo.cumulativeEffects;
-				timed->addTo(effects.get(), level);
+				effect.reset(timed);
 			}
+
+			if(effect)
+				effects->add(effect, level);
 		}
 	}
 };
@@ -181,6 +212,8 @@ Destination & Destination::operator=(const Destination & other)
 	return *this;
 }
 
+IBattleCast::~IBattleCast() = default;
+
 BattleCast::BattleCast(const CBattleInfoCallback * cb, const Caster * caster_, const Mode mode_, const CSpell * spell_)
 	: spell(spell_),
 	cb(cb),
@@ -212,6 +245,8 @@ BattleCast::BattleCast(const BattleCast & orig, const Caster * caster_)
 	effectValue(orig.effectValue)
 {
 }
+
+BattleCast::~BattleCast() = default;
 
 void BattleCast::aimToHex(const BattleHex & destination)
 {
@@ -462,6 +497,8 @@ std::unique_ptr<ISpellMechanicsFactory> ISpellMechanicsFactory::get(const CSpell
 		return make_unique<SummonMechanicsFactory>(s, CreatureID::WATER_ELEMENTAL);
 	case SpellID::SUMMON_AIR_ELEMENTAL:
 		return make_unique<SummonMechanicsFactory>(s, CreatureID::AIR_ELEMENTAL);
+	case SpellID::CLONE:
+		return make_unique<CloneMechanicsFactory>(s);
 	default:
 		break;
 	}
@@ -478,8 +515,6 @@ std::unique_ptr<ISpellMechanicsFactory> ISpellMechanicsFactory::get(const CSpell
 		return make_unique<SpellMechanicsFactory<AcidBreathDamageMechanics>>(s);
 	case SpellID::CHAIN_LIGHTNING:
 		return make_unique<SpellMechanicsFactory<ChainLightningMechanics>>(s);
-	case SpellID::CLONE:
-		return make_unique<SpellMechanicsFactory<CloneMechanics>>(s);
 	case SpellID::CURE:
 		return make_unique<SpellMechanicsFactory<CureMechanics>>(s);
 	case SpellID::DEATH_STARE:
@@ -534,7 +569,16 @@ Mechanics::Mechanics(const CSpell * s, const CBattleInfoCallback * Cb, const Cas
 		casterSide = cb->playerToSide(caster->getOwner()).get();
 }
 
-bool Mechanics::adaptGenericProblem(Problem & target) const
+Mechanics::~Mechanics() = default;
+
+BaseMechanics::BaseMechanics(const CSpell * s, const CBattleInfoCallback * Cb, const Caster * caster_)
+	: Mechanics(s, Cb, caster_)
+{
+}
+
+BaseMechanics::~BaseMechanics() = default;
+
+bool BaseMechanics::adaptGenericProblem(Problem & target) const
 {
 	MetaString text;
 	// %s recites the incantations but they seem to have no effect.
@@ -545,7 +589,7 @@ bool Mechanics::adaptGenericProblem(Problem & target) const
 	return false;
 }
 
-bool Mechanics::adaptProblem(ESpellCastProblem::ESpellCastProblem source, Problem & target) const
+bool BaseMechanics::adaptProblem(ESpellCastProblem::ESpellCastProblem source, Problem & target) const
 {
 	if(source == ESpellCastProblem::OK)
 		return true;

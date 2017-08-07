@@ -49,7 +49,7 @@ private:
 };
 
 ///all combat spells
-class DLL_LINKAGE DefaultSpellMechanics : public Mechanics
+class DLL_LINKAGE DefaultSpellMechanics : public BaseMechanics
 {
 public:
 	DefaultSpellMechanics(const CSpell * s, const CBattleInfoCallback * Cb, const Caster * caster_);

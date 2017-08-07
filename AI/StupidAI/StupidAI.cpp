@@ -111,7 +111,7 @@ BattleAction CStupidAI::activeStack( const CStack * stack )
 {
 	//boost::this_thread::sleep(boost::posix_time::seconds(2));
 	print("activeStack called for " + stack->nodeName());
-	auto dists = cb->battleGetDistances(stack);
+	auto dists = cb->battleGetDistances(stack, stack->position);
 	std::vector<EnemyInfo> enemiesShootable, enemiesReachable, enemiesUnreachable;
 
 	if(stack->type->idNumber == CreatureID::CATAPULT)

@@ -48,15 +48,6 @@ protected:
 	std::vector<const CStack *> calculateAffectedStacks(int spellLvl, BattleHex destination) const override;
 };
 
-class DLL_LINKAGE CloneMechanics : public RegularSpellMechanics
-{
-public:
-	CloneMechanics(const CSpell * s, const CBattleInfoCallback * Cb, const Caster * caster_);
-	bool isImmuneByStack(const CStack * obj) const override;
-protected:
-	void applyBattleEffects(const SpellCastEnvironment * env, const BattleCast & parameters, SpellCastContext & ctx) const override;
-};
-
 class DLL_LINKAGE CureMechanics : public HealingSpellMechanics
 {
 public:

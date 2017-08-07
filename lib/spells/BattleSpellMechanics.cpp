@@ -162,72 +162,6 @@ std::vector<const CStack *> ChainLightningMechanics::calculateAffectedStacks(int
 	return res;
 }
 
-///CloneMechanics
-CloneMechanics::CloneMechanics(const CSpell * s, const CBattleInfoCallback * Cb, const Caster * caster_)
-	: RegularSpellMechanics(s, Cb, caster_)
-{
-}
-
-void CloneMechanics::applyBattleEffects(const SpellCastEnvironment * env, const BattleCast & parameters, SpellCastContext & ctx) const
-{
-	const CStack * clonedStack = vstd::frontOrNull(ctx.attackedCres);
-	if(!clonedStack)
-	{
-		env->complain("No target stack to clone!");
-		return;
-	}
-
-	BattleStackAdded bsa;
-	bsa.creID = clonedStack->type->idNumber;
-	bsa.side = casterSide;
-	bsa.summoned = true;
-	bsa.pos = cb->getAvaliableHex(bsa.creID, casterSide);
-	bsa.amount = clonedStack->getCount();
-	env->sendAndApply(&bsa);
-
-	BattleSetStackProperty ssp;
-	ssp.stackID = bsa.newStackID;//we know stack ID after apply
-	ssp.which = BattleSetStackProperty::CLONED;
-	ssp.val = 0;
-	ssp.absolute = 1;
-	env->sendAndApply(&ssp);
-
-	ssp.stackID = clonedStack->ID;
-	ssp.which = BattleSetStackProperty::HAS_CLONE;
-	ssp.val = bsa.newStackID;
-	ssp.absolute = 1;
-	env->sendAndApply(&ssp);
-
-	SetStackEffect sse;
-	sse.stacks.push_back(bsa.newStackID);
-	Bonus lifeTimeMarker(Bonus::N_TURNS, Bonus::NONE, Bonus::SPELL_EFFECT, 0, owner->id.num);
-	lifeTimeMarker.turnsRemain = parameters.effectDuration;
-	sse.effect.push_back(lifeTimeMarker);
-	env->sendAndApply(&sse);
-}
-
-bool CloneMechanics::isImmuneByStack(const CStack * obj) const
-{
-	//can't clone already cloned creature
-	if(obj->isClone())
-		return true;
-	//can`t clone if old clone still alive
-	if(obj->cloneID != -1)
-		return true;
-	ui8 schoolLevel;
-	schoolLevel = caster->getEffectLevel(mode, owner);
-
-	if(schoolLevel < 3)
-	{
-		int maxLevel = (std::max(schoolLevel, (ui8)1) + 4);
-		int creLevel = obj->getCreature()->level;
-		if(maxLevel < creLevel) //tier 1-5 for basic, 1-6 for advanced, any level for expert
-			return true;
-	}
-	//use default algorithm only if there is no mechanics-related problem
-	return RegularSpellMechanics::isImmuneByStack(obj);
-}
-
 ///CureMechanics
 CureMechanics::CureMechanics(const CSpell * s, const CBattleInfoCallback * Cb, const Caster * caster_)
 	: HealingSpellMechanics(s, Cb, caster_)
@@ -469,7 +403,7 @@ bool HypnotizeMechanics::isImmuneByStack(const CStack * obj) const
 {
 	//todo: maybe do not resist on passive cast
 	//TODO: what with other creatures casting hypnotize, Faerie Dragons style?
-	int64_t subjectHealth = obj->health.available();
+	int64_t subjectHealth = obj->stackState.health.available();
 	//apply 'damage' bonus for hypnotize, including hero specialty
 	int64_t maxHealth = caster->getSpellBonus(owner, owner->calculateRawEffectValue(caster->getEffectLevel(mode, owner), caster->getEffectPower(mode, owner), 1), obj);
 	if(subjectHealth > maxHealth)
@@ -888,9 +822,9 @@ bool SacrificeMechanics::canBeCast(Problem & problem) const
 		//therefore we do not need to check caster and casting mode
 		//TODO: check that we really should check immunity for both stacks
 		const bool immune = owner->internalIsImmune(caster, stack);
-		const bool casterStack = stack->owner == caster->getOwner();
+		const bool ownerMatches = stack->owner == caster->getOwner();
 
-		if(!immune && casterStack)
+		if(!immune && ownerMatches)
 		{
 			if(stack->alive())
 				targetToSacrificeExists = true;

@@ -11,8 +11,6 @@
 
 #include "StackEffect.h"
 
-#include "Effects.h"
-
 #include "../ISpellMechanics.h"
 
 #include "../../NetPacksBase.h"
@@ -23,16 +21,12 @@ namespace spells
 namespace effects
 {
 
-StackEffect::StackEffect()
+StackEffect::StackEffect(const int level)
+	: Effect(level)
 {
-
 }
 
-void StackEffect::addTo(Effects * where, const int level)
-{
-	spellLevel = level;
-	where->creature.at(level).push_back(this->shared_from_this());
-}
+StackEffect::~StackEffect() = default;
 
 bool StackEffect::applicable(Problem & problem, const Mechanics * m) const
 {
@@ -80,18 +74,12 @@ bool StackEffect::applicable(Problem & problem, const Mechanics * m, const Targe
 
 bool StackEffect::getStackFilter(const Mechanics * m, bool alwaysSmart, const CStack * s) const
 {
-	const CSpell::TargetInfo targetInfo(m->owner, spellLevel, m->mode);
-
-	const bool ownerMatches = m->cb->battleMatchOwner(m->caster->getOwner(), s, m->owner->getPositiveness());
-	const bool validTarget = s->isValidTarget(!targetInfo.onlyAlive); //todo: this should be handled by spell class
-	const bool positivenessFlag = !(targetInfo.smart || alwaysSmart) || ownerMatches;
-
-	return positivenessFlag && validTarget;
+	return isValidTarget(m, s) && isSmartTarget(m, s, alwaysSmart);
 }
 
 bool StackEffect::eraseByImmunityFilter(const Mechanics * m, const CStack * s) const
 {
-	return m->owner->internalIsImmune(m->caster, s);
+	return !isReceptive(m, s);
 }
 
 EffectTarget StackEffect::filterTarget(const Mechanics * m, const BattleCast & p, const EffectTarget & target) const
@@ -101,7 +89,9 @@ EffectTarget StackEffect::filterTarget(const Mechanics * m, const BattleCast & p
 	{
 		if(!d.stackValue)
 			return false;
-		if(eraseByImmunityFilter(m, d.stackValue))
+		if(!isValidTarget(m, d.stackValue))
+			return false;
+		if(!isReceptive(m, d.stackValue))
 			return false;
 		return true;
 	});
@@ -196,6 +186,28 @@ EffectTarget StackEffect::transformTarget(const Mechanics * m, const Target & ai
 
 	return effectTarget;
 }
+
+bool StackEffect::isValidTarget(const Mechanics * m, const CStack * s) const
+{
+	// TODO: override in rising effect
+	// TODO: check absolute immunity here
+
+	return s->isValidTarget(false);
+}
+
+bool StackEffect::isReceptive(const Mechanics * m, const CStack * s) const
+{
+	return !m->owner->internalIsImmune(m->caster, s);
+}
+
+bool StackEffect::isSmartTarget(const Mechanics * m, const CStack * s, bool alwaysSmart) const
+{
+	const CSpell::TargetInfo targetInfo(m->owner, spellLevel, m->mode);
+	const bool smart = targetInfo.smart || alwaysSmart;
+	const bool ownerMatches = m->cb->battleMatchOwner(m->caster->getOwner(), s, m->owner->getPositiveness());
+	return (!smart) || ownerMatches;
+}
+
 
 } // namespace effects
 } // namespace spells

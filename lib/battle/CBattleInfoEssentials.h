@@ -13,6 +13,7 @@
 
 class CGTownInstance;
 class CGHeroInstance;
+class IUnitInfo;
 class CStack;
 struct CObstacleInstance;
 class IBonusBearer;
@@ -92,13 +93,13 @@ public:
 	bool battleIsObstacleVisibleForSide(const CObstacleInstance & coi, BattlePerspective::BattlePerspective side) const;
 
 	///returns player that controls given stack; mind control included
-	PlayerColor battleGetOwner(const CStack * stack) const;
+	PlayerColor battleGetOwner(const IUnitInfo * stack) const;
 
 	///returns hero that controls given stack; nullptr if none; mind control included
 	const CGHeroInstance * battleGetOwnerHero(const CStack * stack) const;
 
 	///check that stacks are controlled by same|other player(s) depending on positiveness
 	///mind control included
-	bool battleMatchOwner(const CStack * attacker, const CStack * defender, const boost::logic::tribool positivness = false) const;
-	bool battleMatchOwner(const PlayerColor & attacker, const CStack * defender, const boost::logic::tribool positivness = false) const;
+	bool battleMatchOwner(const IUnitInfo * attacker, const IUnitInfo * defender, const boost::logic::tribool positivness = false) const;
+	bool battleMatchOwner(const PlayerColor & attacker, const IUnitInfo * defender, const boost::logic::tribool positivness = false) const;
 };

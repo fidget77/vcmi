@@ -64,10 +64,14 @@ public:
 	}
 };
 
-class DLL_LINKAGE CBonusProxy : public boost::noncopyable
+class DLL_LINKAGE CBonusProxy
 {
 public:
 	CBonusProxy(const IBonusBearer * Target, CSelector Selector);
+	CBonusProxy(const CBonusProxy & other) = delete;
+	CBonusProxy(CBonusProxy && other);
+
+	CBonusProxy & operator=(CBonusProxy && other);
 
 	TBonusListPtr get() const;
 
@@ -649,6 +653,7 @@ private:
 
 public:
 	explicit CBonusSystemNode();
+	explicit CBonusSystemNode(ENodeTypes NodeType);
 	CBonusSystemNode(CBonusSystemNode && other);
 	virtual ~CBonusSystemNode();
 

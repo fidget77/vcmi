@@ -346,7 +346,7 @@ void CBattleInfoCallback::battleGetStackQueue(std::vector<const CStack *> &out, 
 			continue;
 		}
 
-		int p = -1; //in which phase this tack will move?
+		int p = -1; //in which phase this stack will move?
 		if(turn <= 0 && s->waited()) //consider waiting state only for ongoing round
 		{
 			if(vstd::contains(s->state, EBattleStackState::HAD_MORALE))
@@ -420,6 +420,50 @@ void CBattleInfoCallback::battleGetStackCountOutsideHexes(bool *ac) const
 
 	for(int i = 0; i < accessibility.size(); i++)
 		ac[i] = (accessibility[i] == EAccessibility::ACCESSIBLE);
+}
+
+std::vector<BattleHex> CBattleInfoCallback::battleGetAvailableHexes(const IUnitInfo * stack, BattleHex assumedPosition) const
+{
+	std::vector<BattleHex> ret;
+
+	RETURN_IF_NOT_BATTLE(ret);
+	if(!assumedPosition.isValid()) //turrets
+		return ret;
+
+	ReachabilityInfo::Parameters params(stack, assumedPosition);
+
+	if(!battleDoWeKnowAbout(stack->unitSide()))
+	{
+		//Stack is held by enemy, we can't use his perspective to check for reachability.
+		// Happens ie. when hovering enemy stack for its range. The arg could be set properly, but it's easier to fix it here.
+		params.perspective = battleGetMySide();
+	}
+
+	auto reachability = getReachability(params);
+
+	for(int i = 0; i < GameConstants::BFIELD_SIZE; ++i)
+	{
+		// If obstacles or other stacks makes movement impossible, it can't be helped.
+		if(!reachability.isReachable(i))
+			continue;
+
+		if(battleTacticDist() && battleGetTacticsSide() == stack->unitSide())
+		{
+			//Stack has to perform tactic-phase movement -> can enter any reachable tile within given range
+			if(!isInTacticRange(i))
+				continue;
+		}
+		else
+		{
+			//Not tactics phase -> destination must be reachable and within stack range.
+			if(reachability.distances[i] > stack->unitAsBearer()->Speed(0, true))
+				continue;
+		}
+
+		ret.push_back(i);
+	}
+
+	return ret;
 }
 
 std::vector<BattleHex> CBattleInfoCallback::battleGetAvailableHexes(const CStack * stack, bool addOccupiable, std::vector<BattleHex> * attackable) const
@@ -571,8 +615,8 @@ TDmgRange CBattleInfoCallback::calculateDmgRange(const BattleAttackInfo & info) 
 	};
 
 	double additiveBonus = 1.0, multBonus = 1.0,
-			minDmg = info.attackerBonuses->getMinDamage() * info.attackerHealth.getCount(),//TODO: ONLY_MELEE_FIGHT / ONLY_DISTANCE_FIGHT
-			maxDmg = info.attackerBonuses->getMaxDamage() * info.attackerHealth.getCount();
+			minDmg = info.attackerBonuses->getMinDamage() * info.attackerState.getCount(),//TODO: ONLY_MELEE_FIGHT / ONLY_DISTANCE_FIGHT
+			maxDmg = info.attackerBonuses->getMaxDamage() * info.attackerState.getCount();
 
 	const CCreature *attackerType = info.attacker->getCreature(),
 			*defenderType = info.defender->getCreature();
@@ -792,7 +836,7 @@ TDmgRange CBattleInfoCallback::battleEstimateDamage(CRandomGenerator & rand, con
 {
 	RETURN_IF_NOT_BATTLE(std::make_pair(0, 0));
 	const bool shooting = battleCanShoot(attacker, defender->position);
-	const BattleAttackInfo bai(attacker, defender, shooting);
+	const BattleAttackInfo bai(attacker, defender, attacker, defender, shooting);
 	return battleEstimateDamage(rand, bai, retaliationDmg);
 }
 
@@ -817,10 +861,10 @@ std::pair<ui32, ui32> CBattleInfoCallback::battleEstimateDamage(CRandomGenerator
 			{
 				BattleStackAttacked bsa;
 				bsa.damageAmount = ret.*pairElems[i];
-				bai.defender->prepareAttacked(bsa, rand, bai.defenderHealth);
+				bai.defender->prepareAttacked(bsa, rand, bai.attackerState.health);
 
 				auto retaliationAttack = bai.reverse();
-				retaliationAttack.attackerHealth = retaliationAttack.attacker->healthAfterAttacked(bsa.damageAmount);
+				retaliationAttack.attackerState.health = retaliationAttack.attacker->healthAfterAttacked(bsa.damageAmount, retaliationAttack.attackerState.health);
 				retaliationDmg->*pairElems[!i] = calculateDmgRange(retaliationAttack).*pairElems[!i];
 			}
 		}
@@ -987,7 +1031,6 @@ ReachabilityInfo CBattleInfoCallback::makeBFS(const AccessibilityInfo &accessibi
 		return ret;
 
 	const std::set<BattleHex> quicksands = getStoppers(params.perspective);
-	//const bool twoHexCreature = params.doubleWide;
 
 	std::queue<BattleHex> hexq; //bfs queue
 
@@ -1021,11 +1064,6 @@ ReachabilityInfo CBattleInfoCallback::makeBFS(const AccessibilityInfo &accessibi
 	}
 
 	return ret;
-}
-
-ReachabilityInfo CBattleInfoCallback::makeBFS(const CStack * stack) const
-{
-	return makeBFS(getAccesibility(stack), ReachabilityInfo::Parameters(stack));
 }
 
 std::set<BattleHex> CBattleInfoCallback::getStoppers(BattlePerspective::BattlePerspective whichSidePerspective) const
@@ -1135,9 +1173,9 @@ bool CBattleInfoCallback::isInTacticRange(BattleHex dest) const
 			|| (side && dest.getX() < GameConstants::BFIELD_WIDTH - 1 && dest.getX() >= GameConstants::BFIELD_WIDTH - dist - 1));
 }
 
-ReachabilityInfo CBattleInfoCallback::getReachability(const CStack *stack) const
+ReachabilityInfo CBattleInfoCallback::getReachability(const CStack * stack) const
 {
-	ReachabilityInfo::Parameters params(stack);
+	ReachabilityInfo::Parameters params(stack, stack->position);
 
 	if(!battleDoWeKnowAbout(stack->side))
 	{
@@ -1324,22 +1362,18 @@ bool CBattleInfoCallback::isToReverse (BattleHex hexFrom, BattleHex hexTo, bool 
 	}
 }
 
-ReachabilityInfo::TDistances CBattleInfoCallback::battleGetDistances(const CStack * stack, BattleHex hex, BattleHex * predecessors) const
+ReachabilityInfo::TDistances CBattleInfoCallback::battleGetDistances(const IUnitInfo * stack, BattleHex assumedPosition) const
 {
 	ReachabilityInfo::TDistances ret;
 	ret.fill(-1);
 	RETURN_IF_NOT_BATTLE(ret);
 
-	ReachabilityInfo::Parameters params(stack);
+	ReachabilityInfo::Parameters params(stack, assumedPosition);
 	params.perspective = battleGetMySide();
-	params.startPosition = hex.isValid() ? hex : stack->position;
+
 	auto reachability = getReachability(params);
 
 	boost::copy(reachability.distances, ret.begin());
-
-	if(predecessors)
-		for(int i = 0; i < GameConstants::BFIELD_SIZE; i++)
-			predecessors[i] = reachability.predecessors[i];
 
 	return ret;
 }

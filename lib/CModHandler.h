@@ -246,14 +246,15 @@ class DLL_LINKAGE CModHandler
 	std::vector <TModID> resolveDependencies(std::vector<TModID> input) const;
 
 	std::vector<std::string> getModList(std::string path);
-	void loadMods(std::string path, std::string namePrefix, const JsonNode & modSettings, bool enableMods);
+	void loadMods(std::string path, std::string parent, const JsonNode & modSettings, bool enableMods);
+	void loadOneMod(std::string modName, std::string parent, const JsonNode & modSettings, bool enableMods);
 public:
 
 	CIdentifierStorage identifiers;
 
 	/// receives list of available mods and trying to load mod.json from all of them
 	void initializeConfig();
-	void loadMods();
+	void loadMods(bool onlyEssential = false);
 	void loadModFilesystems();
 
 	CModInfo & getModData(TModID modId);
@@ -264,7 +265,7 @@ public:
 
 	/// load content from all available mods
 	void load();
-	void afterLoad();
+	void afterLoad(bool onlyEssential);
 
 	struct DLL_LINKAGE hardcodedFeatures
 	{

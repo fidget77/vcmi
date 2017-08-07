@@ -29,19 +29,15 @@ namespace effects
 
 VCMI_REGISTER_SPELL_EFFECT(Summon, EFFECT_NAME);
 
-Summon::Summon()
-	: GlobalEffect(),
+Summon::Summon(const int level)
+	: GlobalEffect(level),
 	creature(),
 	permanent(false),
 	exclusive(true)
 {
-
 }
 
-Summon::~Summon()
-{
-
-}
+Summon::~Summon() = default;
 
 bool Summon::applicable(Problem & problem, const Mechanics * m) const
 {

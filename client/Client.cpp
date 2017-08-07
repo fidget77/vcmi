@@ -41,6 +41,7 @@
 #include "../lib/VCMI_Lib.h"
 #include "../lib/VCMIDirs.h"
 #include "../lib/mapping/CMap.h"
+#include "../lib/mapping/CMapService.h"
 #include "../lib/JsonNode.h"
 #include "mapHandler.h"
 #include "../lib/CConfigHandler.h"
@@ -413,10 +414,11 @@ void CClient::newGame( CConnection *con, StartInfo *si )
 	c.disableSmartPointerSerialization();
 
 	// Initialize game state
+	CMapService mapService;
 	gs = new CGameState();
 	logNetwork->info("\tCreating gamestate: %i",tmh.getDiff());
 
-	gs->init(si, settings["general"]["saveRandomMaps"].Bool());
+	gs->init(&mapService, si, settings["general"]["saveRandomMaps"].Bool());
 	logNetwork->info("Initializing GameState (together): %d ms", tmh.getDiff());
 
 	// Now after possible random map gen, we know exact player count.
@@ -951,7 +953,7 @@ void CClient::installNewBattleInterface(std::shared_ptr<CBattleGameInterface> ba
 	if(needCallback)
 	{
 		logGlobal->trace("\tInitializing the battle interface for player %s", *color);
-		auto cbc = std::make_shared<CBattleCallback>(gs, color, this);
+		auto cbc = std::make_shared<CBattleCallback>(color, this);
 		battleCallbacks[colorUsed] = cbc;
 		battleInterface->init(cbc);
 	}

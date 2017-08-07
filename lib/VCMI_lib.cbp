@@ -385,6 +385,8 @@
 		<Unit filename="spells/Problem.h" />
 		<Unit filename="spells/ViewSpellInt.cpp" />
 		<Unit filename="spells/ViewSpellInt.h" />
+		<Unit filename="spells/effects/Clone.cpp" />
+		<Unit filename="spells/effects/Clone.h" />
 		<Unit filename="spells/effects/Damage.cpp" />
 		<Unit filename="spells/effects/Damage.h" />
 		<Unit filename="spells/effects/Effect.cpp" />
@@ -402,6 +404,8 @@
 		<Unit filename="spells/effects/StackEffect.h" />
 		<Unit filename="spells/effects/Summon.cpp" />
 		<Unit filename="spells/effects/Summon.h" />
+		<Unit filename="spells/effects/Teleport.cpp" />
+		<Unit filename="spells/effects/Teleport.h" />
 		<Unit filename="spells/effects/Timed.cpp" />
 		<Unit filename="spells/effects/Timed.h" />
 		<Unit filename="vcmi_endian.h" />

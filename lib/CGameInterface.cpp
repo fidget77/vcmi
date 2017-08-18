@@ -225,10 +225,9 @@ void CAdventureAI::battleEnd(const BattleResult * br)
 	battleAI.reset();
 }
 
-void CAdventureAI::battleStacksHealedRes(const std::vector<std::pair<ui32, ui32> > & healedStacks, bool lifeDrain,
-										 bool tentHeal, si32 lifeDrainFrom)
+void CAdventureAI::battleStacksChanged(const std::vector<ui32> & stacks, const std::vector<CustomEffectInfo> & customEffects, const std::vector<MetaString> & battleLog)
 {
-	battleAI->battleStacksHealedRes(healedStacks, lifeDrain, tentHeal, lifeDrainFrom);
+	battleAI->battleStacksChanged(stacks, customEffects, battleLog);
 }
 
 BattleAction CAdventureAI::activeStack(const CStack * stack)

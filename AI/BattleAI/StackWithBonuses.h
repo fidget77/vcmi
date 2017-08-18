@@ -10,33 +10,33 @@
 #pragma once
 #include "../../lib/HeroBonus.h"
 #include "../../lib/CStack.h"
+#include "../../lib/battle/BattleProxy.h"
 
+class HypotheticBattle;
 
-class StackWithBonuses : public IBonusBearer, public IUnitInfo
+class StackWithBonuses : public IBonusBearer, public IUnitBonus
 {
 public:
-	const CStack * stack;
-
-	BattleHex position; //TODO: move to state
-
 	CStackState state;
 
 	mutable std::vector<Bonus> bonusesToAdd;
 	mutable std::vector<Bonus> bonusesToUpdate;
 
-	StackWithBonuses(const CStack * Stack);
+	StackWithBonuses(const CStackState * Stack);
 
 	///IBonusBearer
-	const TBonusListPtr getAllBonuses(const CSelector &selector, const CSelector &limit,
-		const CBonusSystemNode *root = nullptr, const std::string &cachingStr = "") const override;
+	const TBonusListPtr getAllBonuses(const CSelector & selector, const CSelector & limit,
+		const CBonusSystemNode * root = nullptr, const std::string & cachingStr = "") const override;
 
-	///IUnitInfo
-	virtual int32_t creatureIndex() const override;
-	int32_t unitMaxHealth() const override;
-	int32_t unitBaseAmount() const override;
 	const IBonusBearer * unitAsBearer() const override;
 	bool unitHasAmmoCart() const override;
-	bool doubleWide() const override;
-	uint32_t unitId() const override;
-	ui8 unitSide() const override;
+};
+
+
+class HypotheticBattle : public BattleProxy
+{
+public:
+	HypotheticBattle(Subject realBattle);
+
+	std::map<uint32_t, std::shared_ptr<StackWithBonuses>> stackStates;
 };

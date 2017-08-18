@@ -61,7 +61,7 @@ bool Summon::applicable(Problem & problem, const Mechanics * m) const
 	auto otherSummoned = m->cb->battleGetStacksIf([m, this](const CStack * st)
 	{
 		return (st->owner == m->caster->getOwner())
-			&& (vstd::contains(st->state, EBattleStackState::SUMMONED))
+			&& (st->stackState.summoned)
 			&& (!st->isClone())
 			&& (st->getCreature()->idNumber != creature);
 	});

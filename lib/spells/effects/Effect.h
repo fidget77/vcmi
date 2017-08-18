@@ -16,9 +16,12 @@ class BattleHex;
 class CBattleInfoCallback;
 class JsonSerializeFormat;
 class CRandomGenerator;
+class IStackState;
 
 namespace spells
 {
+
+using EffectTarget = Target;
 
 namespace effects
 {

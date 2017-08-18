@@ -12,7 +12,7 @@
 #include "CBattleInfoEssentials.h"
 #include "AccessibilityInfo.h"
 
-class IUnitInfo;
+class IStackState;
 
 // Reachability info is result of BFS calculation. It's dependent on stack (it's owner, whether it's flying),
 // startPosition and perpective.
@@ -34,7 +34,7 @@ struct DLL_LINKAGE ReachabilityInfo
 		BattlePerspective::BattlePerspective perspective; //some obstacles (eg. quicksands) may be invisible for some side
 
 		Parameters();
-		Parameters(const IUnitInfo * Stack, BattleHex StartPosition);
+		Parameters(const IStackState * Stack, BattleHex StartPosition);
 	};
 
 	Parameters params;

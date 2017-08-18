@@ -20,7 +20,7 @@ class DLL_LINKAGE AcidBreathDamageMechanics : public RegularSpellMechanics
 {
 public:
 	AcidBreathDamageMechanics(const CSpell * s, const CBattleInfoCallback * Cb, const Caster * caster_);
-	bool isImmuneByStack(const CStack * obj) const override;
+	bool isImmuneByStack(const IStackState * obj) const override;
 protected:
 	void applyBattleEffects(const SpellCastEnvironment * env, const BattleCast & parameters, SpellCastContext & ctx) const override;
 };
@@ -37,7 +37,7 @@ class DLL_LINKAGE DispellHelpfulMechanics : public RegularSpellMechanics
 {
 public:
 	DispellHelpfulMechanics(const CSpell * s, const CBattleInfoCallback * Cb, const Caster * caster_);
-	bool isImmuneByStack(const CStack * obj) const override;
+	bool isImmuneByStack(const IStackState * obj) const override;
 protected:
 	void applyBattleEffects(const SpellCastEnvironment * env, const BattleCast & parameters, SpellCastContext & ctx) const override;
 private:

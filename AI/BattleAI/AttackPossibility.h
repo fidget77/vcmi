@@ -13,28 +13,22 @@
 #include "common.h"
 #include "StackWithBonuses.h"
 
-
-struct HypotheticChangesToBattleState
-{
-	std::map<const CStack *, std::shared_ptr<StackWithBonuses>> stackStates;
-};
-
 class Priorities
 {
 public:
 	std::vector<double> resourceTypeBaseValues;
-	std::function<double(const CStack *)> stackEvaluator;
+	std::function<double(const IStackState *)> stackEvaluator;
 	Priorities()
 	{
 		//        range::copy(VLC->objh->resVals, std::back_inserter(resourceTypeBaseValues));
-		stackEvaluator = [](const CStack*){ return 1.0; };
+		stackEvaluator = [](const IStackState *){ return 1.0; };
 	}
 };
 
 class AttackPossibility
 {
 public:
-	const CStack *enemy; //redundant (to attack.defender) but looks nice
+	CStackState enemy; //redundant (to attack.defender) but looks nice
 	BattleHex tile; //tile from which we attack
 	BattleAttackInfo attack;
 

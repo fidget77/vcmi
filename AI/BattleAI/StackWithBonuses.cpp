@@ -22,19 +22,17 @@ void actualizeEffect(TBonusListPtr target, const Bonus & ef)
 	}
 }
 
-StackWithBonuses::StackWithBonuses(const CStack * Stack)
-	: stack(Stack),
-	state(this)
+StackWithBonuses::StackWithBonuses(const CStackState * Stack)
+	: state(Stack->getUnitInfo(), this)
 {
-	state = stack->stackState;
-	position = stack->position;
+	state = *Stack;
 }
 
 const TBonusListPtr StackWithBonuses::getAllBonuses(const CSelector & selector, const CSelector & limit,
 	const CBonusSystemNode * root, const std::string & cachingStr) const
 {
 	TBonusListPtr ret = std::make_shared<BonusList>();
-	const TBonusListPtr originalList = stack->getAllBonuses(selector, limit, root, cachingStr);
+	const TBonusListPtr originalList = state.unitAsBearer()->getAllBonuses(selector, limit, root, cachingStr);
 	range::copy(*originalList, std::back_inserter(*ret));
 
 	for(const Bonus & bonus : bonusesToUpdate)
@@ -63,21 +61,6 @@ const TBonusListPtr StackWithBonuses::getAllBonuses(const CSelector & selector, 
 	return ret;
 }
 
-int32_t StackWithBonuses::creatureIndex() const
-{
-	return stack->creatureIndex();
-}
-
-int32_t StackWithBonuses::unitMaxHealth() const
-{
-	return stack->unitMaxHealth();
-}
-
-int32_t StackWithBonuses::unitBaseAmount() const
-{
-	return stack->unitBaseAmount();
-}
-
 const IBonusBearer * StackWithBonuses::unitAsBearer() const
 {
 	return this;
@@ -85,21 +68,15 @@ const IBonusBearer * StackWithBonuses::unitAsBearer() const
 
 bool StackWithBonuses::unitHasAmmoCart() const
 {
-	//todo: check ammocart alive state here
-	return stack->unitHasAmmoCart();
+	//FIXME: check ammocart alive state here
+	return false;
 }
 
-bool StackWithBonuses::doubleWide() const
+
+HypotheticBattle::HypotheticBattle(Subject realBattle)
+	: BattleProxy(realBattle)
 {
-	return stack->doubleWide();
+
 }
 
-uint32_t StackWithBonuses::unitId() const
-{
-	return stack->unitId();
-}
 
-ui8 StackWithBonuses::unitSide() const
-{
-	return stack->unitSide();
-}

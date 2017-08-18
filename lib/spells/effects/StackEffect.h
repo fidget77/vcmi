@@ -30,13 +30,13 @@ public:
 
 	virtual EffectTarget transformTarget(const Mechanics * m, const Target & aimPoint, const Target & spellTarget) const;
 
-    bool getStackFilter(const Mechanics * m, bool alwaysSmart, const CStack * s) const;
+    bool getStackFilter(const Mechanics * m, bool alwaysSmart, const IStackState * s) const;
 
-    virtual bool eraseByImmunityFilter(const Mechanics * m, const CStack * s) const;
+    virtual bool eraseByImmunityFilter(const Mechanics * m, const IStackState * s) const;
 protected:
-	virtual bool isReceptive(const Mechanics * m, const CStack * s) const;
-	virtual bool isSmartTarget(const Mechanics * m, const CStack * s, bool alwaysSmart) const;
-	virtual bool isValidTarget(const Mechanics * m, const CStack * s) const;
+	virtual bool isReceptive(const Mechanics * m, const IStackState * s) const;
+	virtual bool isSmartTarget(const Mechanics * m, const IStackState * s, bool alwaysSmart) const;
+	virtual bool isValidTarget(const Mechanics * m, const IStackState * s) const;
 private:
 };
 

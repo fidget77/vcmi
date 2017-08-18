@@ -28,9 +28,10 @@ class CSpell;
 class IAdventureSpellMechanics;
 class CLegacyConfigParser;
 class CGHeroInstance;
+class IStackState;
 class CStack;
 class CBattleInfoCallback;
-struct BattleInfo;
+class BattleInfo;
 struct CPackForClient;
 struct BattleSpellCast;
 class CGameInfoCallback;
@@ -242,6 +243,8 @@ public:
 
 	std::vector<SpellID> counteredSpells; //spells that are removed when effect of this spell is placed on creature (for bless-curse, haste-slow, and similar pairs)
 
+	JsonNode targetCondition; //custom condition on what spell can affect
+
 	CSpell();
 	~CSpell();
 
@@ -315,10 +318,22 @@ public:
 		h & isDamage;
 		h & isOffensive;
 		h & targetType;
+
+		//TODO: convert to custom condition
 		h & immunities;
 		h & limiters;
 		h & absoluteImmunities;
 		h & absoluteLimiters;
+
+		if(version >= 780)
+		{
+			h & targetCondition;
+		}
+		else if(!h.saving)
+		{
+			targetCondition = convertTargetCondition(immunities, absoluteImmunities, limiters, absoluteLimiters);
+		}
+
 		h & iconImmune;
 		h & defaultProbability;
 		h & isSpecial;
@@ -363,18 +378,22 @@ public:
 
 public://internal, for use only by Mechanics classes
 	///applies caster`s secondary skills and affectedCreature`s to raw damage
-	int adjustRawDamage(const spells::Caster * caster, const CStack * affectedCreature, int rawDamage) const;
+	int adjustRawDamage(const spells::Caster * caster, const IStackState * affectedCreature, int rawDamage) const;
 
 	///returns raw damage or healed HP
 	int calculateRawEffectValue(int effectLevel, int basePowerMultiplier, int levelPowerMultiplier) const;
 
 	///generic immunity calculation
-	bool internalIsImmune(const spells::Caster * caster, const CStack *obj) const;
+	bool internalIsImmune(const CBattleInfoCallback * cb, const spells::Caster * caster, const IStackState * unit) const;
 
 	std::unique_ptr<spells::Mechanics> battleMechanics(const CBattleInfoCallback * cb, spells::Mode mode, const spells::Caster * caster) const;
 private:
 	void setIsOffensive(const bool val);
 	void setIsRising(const bool val);
+
+	using BTVector = std::vector<Bonus::BonusType>;
+
+	JsonNode convertTargetCondition(const BTVector & immunity, const BTVector & absImmunity, const BTVector & limit, const BTVector & absLimit) const;
 
 	//call this after load or deserialization. cant be done in constructor.
 	void setupMechanics();
@@ -390,10 +409,10 @@ private:
 
 	ETargetType targetType;
 
-	std::vector<Bonus::BonusType> immunities; //any of these grants immunity
-	std::vector<Bonus::BonusType> absoluteImmunities; //any of these grants immunity, can't be negated
-	std::vector<Bonus::BonusType> limiters; //all of them are required to be affected
-	std::vector<Bonus::BonusType> absoluteLimiters; //all of them are required to be affected, can't be negated
+	BTVector immunities; //any of these grants immunity
+	BTVector absoluteImmunities; //any of these grants immunity, can't be negated
+	BTVector limiters; //all of them are required to be affected
+	BTVector absoluteLimiters; //all of them are required to be affected, can't be negated
 
 	///graphics related stuff
 	std::string iconImmune;

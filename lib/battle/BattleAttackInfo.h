@@ -15,11 +15,8 @@ class IBonusBearer;
 
 struct DLL_LINKAGE BattleAttackInfo
 {
-	const IBonusBearer *attackerBonuses, *defenderBonuses;
-	const CStack *attacker, *defender;
-	BattleHex attackerPosition, defenderPosition;
-
-	CStackState attackerState, defenderState;
+	CStackState attacker;
+	CStackState defender;
 
 	bool shooting;
 	int chargedFields;
@@ -29,6 +26,6 @@ struct DLL_LINKAGE BattleAttackInfo
 	bool deathBlow;
 	bool ballistaDoubleDamage;
 
-	BattleAttackInfo(const CStack * Attacker, const CStack * Defender, const IUnitInfo * AttackerInfo, const IUnitInfo * DefenderInfo, bool Shooting = false);
+	BattleAttackInfo(const CStackState & Attacker, const CStackState & Defender, bool Shooting = false);
 	BattleAttackInfo reverse() const;
 };

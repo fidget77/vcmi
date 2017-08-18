@@ -82,20 +82,20 @@ BattleAction CBattleAI::activeStack( const CStack * stack )
 		{
 			auto hlp = targets.bestAction();
 			if(hlp.attack.shooting)
-				return BattleAction::makeShotAttack(stack, hlp.enemy);
+				return BattleAction::makeShotAttack(stack, &hlp.enemy);
 			else
-				return BattleAction::makeMeleeAttack(stack, hlp.enemy, hlp.tile);
+				return BattleAction::makeMeleeAttack(stack, &hlp.enemy, hlp.tile);
 		}
 		else
 		{
 			if(stack->waited())
 			{
 				//ThreatMap threatsToUs(stack); // These lines may be usefull but they are't used in the code.
-				auto dists = getCbc()->battleGetDistances(stack, stack->position);
+				auto dists = getCbc()->battleGetDistances(stack, stack->getPosition());
 				const EnemyInfo &ei= *range::min_element(targets.unreachableEnemies, std::bind(isCloser, _1, _2, std::ref(dists)));
-				if(distToNearestNeighbour(ei.s->position, dists) < GameConstants::BFIELD_SIZE)
+				if(distToNearestNeighbour(ei.s->getPosition(), dists) < GameConstants::BFIELD_SIZE)
 				{
-					return goTowards(stack, ei.s->position);
+					return goTowards(stack, ei.s->getPosition());
 				}
 			}
 			else
@@ -224,7 +224,7 @@ void CBattleAI::attemptCastingSpell()
 
 	using ValueMap = std::map<const CStack *, int>;
 
-	auto evaluateQueue = [&](ValueMap & values, const TStacks & queue, HypotheticChangesToBattleState & state)
+	auto evaluateQueue = [&](ValueMap & values, const TStacks & queue, HypotheticBattle & state)
 	{
 		for(const CStack * stack : queue)
 		{
@@ -237,23 +237,23 @@ void CBattleAI::attemptCastingSpell()
 			{
 				AttackPossibility ap = pt.bestAction();
 
-				auto swb = getValOr(state.stackStates, stack, std::make_shared<StackWithBonuses>(stack));
-				swb->state = ap.attack.attackerState;
-				swb->position = ap.tile;
-				state.stackStates[stack] = swb;
+				auto swb = getValOr(state.stackStates, stack->unitId(), std::make_shared<StackWithBonuses>(&stack->stackState));
+				swb->state = ap.attack.attacker;
+				swb->state.position = ap.tile;
+				state.stackStates[stack->unitId()] = swb;
 
-				swb = getValOr(state.stackStates, ap.attack.defender, std::make_shared<StackWithBonuses>(ap.attack.defender));
-				swb->state = ap.attack.defenderState;
-				state.stackStates[ap.attack.defender] = swb;
+				swb = getValOr(state.stackStates, ap.attack.defender.unitId(), std::make_shared<StackWithBonuses>(&ap.attack.defender));
+				swb->state = ap.attack.defender;
+				state.stackStates[ap.attack.defender.unitId()] = swb;
 			}
 
 			auto bav = pt.bestActionValue();
-			const IUnitInfo * info = stack;
+			const IStackState * info = stack;
 
 			//was stack actually changed?
-			auto iter = state.stackStates.find(stack);
+			auto iter = state.stackStates.find(stack->unitId());
 			if(iter != state.stackStates.end())
-				info = iter->second.get();
+				info = &iter->second->state;
 
 			//best action is from effective owner PoV, we need to convert to our PoV
 			if(getCbc()->battleGetOwner(info) != playerID)
@@ -272,7 +272,7 @@ void CBattleAI::attemptCastingSpell()
 	cb->battleGetStackQueue(queue, amount);
 
 	{
-		HypotheticChangesToBattleState state;
+		HypotheticBattle state(cb);
 		evaluateQueue(valueOfStack, queue, state);
 	}
 
@@ -286,7 +286,7 @@ void CBattleAI::attemptCastingSpell()
 
 		//TODO: calculate stack state changes inside spell susbsystem
 
-		HypotheticChangesToBattleState state;
+		HypotheticBattle state(cb);
 
 		auto stacksAffected = ps.spell->getAffectedStacks(cb.get(), spells::Mode::HERO, hero, skillLevel, ps.dest);
 
@@ -295,7 +295,7 @@ void CBattleAI::attemptCastingSpell()
 
 		for(const CStack * sta : stacksAffected)
 		{
-			auto swb = std::make_shared<StackWithBonuses>(sta);
+			auto swb = std::make_shared<StackWithBonuses>(&sta->stackState);
 
 			switch(spellType(ps.spell))
 			{
@@ -305,7 +305,7 @@ void CBattleAI::attemptCastingSpell()
 					if(sta->owner == playerID)
 						dmg *= 10;
 
-					swb->state.health = sta->healthAfterAttacked(dmg, swb->state.health);
+					swb->state.damage(dmg);
 
 					//we try to avoid damage to our stacks even if they are mind-controlled
 					if(sta->owner == playerID)
@@ -326,7 +326,7 @@ void CBattleAI::attemptCastingSpell()
 				return -1;
 			}
 
-			state.stackStates[sta] = swb;
+			state.stackStates[sta->unitId()] = swb;
 		}
 
 		ValueMap newValueOfStack;
@@ -442,7 +442,7 @@ void CBattleAI::battleStart(const CCreatureSet *army1, const CCreatureSet *army2
 
 bool CBattleAI::isCloser(const EnemyInfo &ei1, const EnemyInfo &ei2, const ReachabilityInfo::TDistances &dists)
 {
-	return distToNearestNeighbour(ei1.s->position, dists) < distToNearestNeighbour(ei2.s->position, dists);
+	return distToNearestNeighbour(ei1.s->getPosition(), dists) < distToNearestNeighbour(ei2.s->getPosition(), dists);
 }
 
 void CBattleAI::print(const std::string &text) const

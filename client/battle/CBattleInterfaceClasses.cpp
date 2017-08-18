@@ -505,9 +505,9 @@ Point CClickableHex::getXYUnitAnim(BattleHex hexNum, const CStack * stack, CBatt
 	assert(cbi);
 
 	Point ret(-500, -500); //returned value
-	if(stack && stack->position < 0) //creatures in turrets
+	if(stack && stack->initialPosition < 0) //creatures in turrets
 	{
-		switch(stack->position)
+		switch(stack->initialPosition)
 		{
 		case -2: //keep
 			ret = cbi->siegeH->town->town->clientInfo.siegePositions[18];

@@ -375,18 +375,19 @@ bool CSpell::canBeCastAt(const CBattleInfoCallback * cb,  spells::Mode mode, con
 		return false;
 }
 
-int CSpell::adjustRawDamage(const spells::Caster * caster, const CStack * affectedCreature, int rawDamage) const
+int CSpell::adjustRawDamage(const spells::Caster * caster, const IStackState * affectedCreature, int rawDamage) const
 {
 	int ret = rawDamage;
 	//affected creature-specific part
 	if(nullptr != affectedCreature)
 	{
+		auto bearer = affectedCreature->unitAsBearer();
 		//applying protections - when spell has more then one elements, only one protection should be applied (I think)
 		forEachSchool([&](const SpellSchoolInfo & cnf, bool & stop)
 		{
-			if(affectedCreature->hasBonusOfType(Bonus::SPELL_DAMAGE_REDUCTION, (ui8)cnf.id))
+			if(bearer->hasBonusOfType(Bonus::SPELL_DAMAGE_REDUCTION, (ui8)cnf.id))
 			{
-				ret *= 100 - affectedCreature->valOfBonuses(Bonus::SPELL_DAMAGE_REDUCTION, (ui8)cnf.id);
+				ret *= 100 - bearer->valOfBonuses(Bonus::SPELL_DAMAGE_REDUCTION, (ui8)cnf.id);
 				ret /= 100;
 				stop = true;//only bonus from one school is used
 			}
@@ -395,16 +396,16 @@ int CSpell::adjustRawDamage(const spells::Caster * caster, const CStack * affect
 		CSelector selector = Selector::type(Bonus::SPELL_DAMAGE_REDUCTION).And(Selector::subtype(-1));
 
 		//general spell dmg reduction
-		if(affectedCreature->hasBonus(selector))
+		if(bearer->hasBonus(selector))
 		{
-			ret *= 100 - affectedCreature->valOfBonuses(selector);
+			ret *= 100 - bearer->valOfBonuses(selector);
 			ret /= 100;
 		}
 
 		//dmg increasing
-		if(affectedCreature->hasBonusOfType(Bonus::MORE_DAMAGE_FROM_SPELL, id))
+		if(bearer->hasBonusOfType(Bonus::MORE_DAMAGE_FROM_SPELL, id))
 		{
-			ret *= 100 + affectedCreature->valOfBonuses(Bonus::MORE_DAMAGE_FROM_SPELL, id.toEnum());
+			ret *= 100 + bearer->valOfBonuses(Bonus::MORE_DAMAGE_FROM_SPELL, id.toEnum());
 			ret /= 100;
 		}
 	}
@@ -417,8 +418,9 @@ int CSpell::calculateRawEffectValue(int effectLevel, int basePowerMultiplier, in
 	return basePowerMultiplier * power + levelPowerMultiplier * getPower(effectLevel);
 }
 
-bool CSpell::internalIsImmune(const spells::Caster * caster, const CStack *obj) const
+bool CSpell::internalIsImmune(const CBattleInfoCallback * cb, const spells::Caster * caster, const IStackState * unit) const
 {
+	auto obj = unit->unitAsBearer();
 	//todo: use new bonus API
 	//1. Check absolute limiters
 	for(auto b : absoluteLimiters)
@@ -467,18 +469,17 @@ bool CSpell::internalIsImmune(const spells::Caster * caster, const CStack *obj) 
 	if(heroNegation)
 		return false;
 	//this stack is from other player
-	//todo: check that caster is always present (not trivial is this case)
 	//todo: NEGATE_ALL_NATURAL_IMMUNITIES special cases: dispell, chain lightning
-	else if(battleWideNegation && caster)
+	else if(battleWideNegation)
 	{
-		if(obj->owner != caster->getOwner())
+		if(!cb->battleMatchOwner(caster->getOwner(), unit, false))
 			return false;
 	}
 
 	//4. Check negatable limit
 	for(auto b : limiters)
 	{
-		if (!obj->hasBonusOfType(b))
+		if(!obj->hasBonusOfType(b))
 			return true;
 	}
 
@@ -486,7 +487,7 @@ bool CSpell::internalIsImmune(const spells::Caster * caster, const CStack *obj) 
 	//5. Check negatable immunities
 	for(auto b : immunities)
 	{
-		if (obj->hasBonusOfType(b))
+		if(obj->hasBonusOfType(b))
 			return true;
 	}
 
@@ -519,7 +520,7 @@ bool CSpell::internalIsImmune(const spells::Caster * caster, const CStack *obj) 
 	TBonusListPtr levelImmunities = obj->getBonuses(Selector::type(Bonus::LEVEL_SPELL_IMMUNITY));
 
 	if(obj->hasBonusOfType(Bonus::SPELL_IMMUNITY, id)
-		|| ( levelImmunities->size() > 0  &&  levelImmunities->totalValue() >= level  &&  level))
+		|| (levelImmunities->size() > 0 && levelImmunities->totalValue() >= level && level))
 	{
 		return true;
 	}
@@ -546,6 +547,49 @@ void CSpell::setIsRising(const bool val)
 	{
 		positiveness = CSpell::POSITIVE;
 	}
+}
+
+JsonNode CSpell::convertTargetCondition(const BTVector & immunity, const BTVector & absImmunity, const BTVector & limit, const BTVector & absLimit) const
+{
+	static const std::string CONDITION_NORMAL = "normal";
+	static const std::string CONDITION_ABSOLUTE = "absolute";
+
+#define BONUS_NAME(x) { Bonus::x, #x },
+	static const std::map<Bonus::BonusType, std::string> bonusNameRMap = { BONUS_LIST };
+#undef BONUS_NAME
+
+	auto convertVector = [](JsonNode & target, const BTVector & source, const std::string & value)
+	{
+		for(auto bonusType : source)
+		{
+			auto iter = bonusNameRMap.find(bonusType);
+			if(iter != bonusNameRMap.end())
+			{
+				auto fullId = CModHandler::makeFullIdentifier("", "bonus", iter->second);
+				target[fullId].String() = value;
+			}
+			else
+			{
+				logGlobal->error("Invalid bonus type %d", static_cast<int32_t>(bonusType));
+			}
+		}
+	};
+
+	auto convertSection = [&](JsonNode & target, const BTVector & normal, const BTVector & absolute)
+	{
+		convertVector(target, normal, CONDITION_NORMAL);
+		convertVector(target, absolute, CONDITION_ABSOLUTE);
+	};
+
+	JsonNode res(JsonNode::DATA_STRUCT);
+
+	JsonNode & jsonLimit = res["allOf"];
+	JsonNode & jsonImmunity = res["noneOf"];
+
+	convertSection(jsonLimit, limit, absLimit);
+	convertSection(jsonImmunity, immunity, absImmunity);
+
+	return res;
 }
 
 void CSpell::setupMechanics()
@@ -890,6 +934,8 @@ CSpell * CSpellHandler::loadFromJson(const JsonNode & json, const std::string & 
 	readBonusStruct("absoluteImmunity", spell->absoluteImmunities);
 	readBonusStruct("limit", spell->limiters);
 	readBonusStruct("absoluteLimit", spell->absoluteLimiters);
+
+	spell->targetCondition = json["targetCondition"];
 
 	const JsonNode & graphicsNode = json["graphics"];
 

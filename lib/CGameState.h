@@ -128,7 +128,7 @@ struct UpgradeInfo
 	UpgradeInfo(){oldID = CreatureID::NONE;};
 };
 
-struct BattleInfo;
+class BattleInfo;
 
 DLL_LINKAGE std::ostream & operator<<(std::ostream & os, const EVictoryLossCheckResult & victoryLossCheckResult);
 

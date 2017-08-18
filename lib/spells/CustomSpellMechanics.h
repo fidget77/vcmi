@@ -33,6 +33,7 @@ public:
 	bool requiresCreatureTarget() const	override;
 
 	void cast(const SpellCastEnvironment * env, const BattleCast & parameters, SpellCastContext & ctx, std::vector <const CStack*> & reflected) const override;
+	void cast(IBattleState * battleState, const BattleCast & parameters) const override;
 
 	std::vector<const CStack *> getAffectedStacks(int spellLvl, BattleHex destination) const override final;
 

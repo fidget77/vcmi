@@ -20,9 +20,11 @@ class CArmedInstance;
 class CArtifactSet;
 class CBonusSystemNode;
 struct ArtSlotInfo;
+class BattleInfo;
 
 #include "ConstTransitivePtr.h"
 #include "GameConstants.h"
+#include "JsonNode.h"
 
 struct DLL_LINKAGE CPack
 {
@@ -229,25 +231,46 @@ struct ArtifactLocation
 	}
 };
 
-class CHealthInfo
+///custom effect (resistance, reflection, etc)
+struct CustomEffectInfo
 {
-public:
-	CHealthInfo():
-		stackId(0), delta(0), firstHPleft(0), fullUnits(0), resurrected(0)
+	CustomEffectInfo()
+		:effect(0),
+		sound(0),
+		stack(0)
 	{
 	}
+	/// WoG AC format
+	ui32 effect;
+	ui32 sound;
+	ui32 stack;
+	template <typename Handler> void serialize(Handler & h, const int version)
+	{
+		h & effect;
+		h & sound;
+		h & stack;
+	}
+};
+
+class CStackStateInfo
+{
+public:
 	uint32_t stackId;
-	int32_t delta;
-	int32_t firstHPleft;
-	int32_t fullUnits;
-	int32_t resurrected;
+	//TODO: remove and use f.e. MetaString in Client to display changes
+	int32_t healthDelta;
+	JsonNode data;
+
+	CStackStateInfo()
+		: stackId(0),
+		healthDelta(0),
+		data()
+	{
+	}
 
 	template <typename Handler> void serialize(Handler & h, const int version)
 	{
 		h & stackId;
-		h & delta;
-		h & firstHPleft;
-		h & fullUnits;
-		h & resurrected;
+		h & healthDelta;
+		h & data;
 	}
 };

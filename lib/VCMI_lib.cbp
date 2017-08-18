@@ -219,6 +219,8 @@
 		<Unit filename="battle/BattleHex.h" />
 		<Unit filename="battle/BattleInfo.cpp" />
 		<Unit filename="battle/BattleInfo.h" />
+		<Unit filename="battle/BattleProxy.cpp" />
+		<Unit filename="battle/BattleProxy.h" />
 		<Unit filename="battle/CBattleInfoCallback.cpp" />
 		<Unit filename="battle/CBattleInfoCallback.h" />
 		<Unit filename="battle/CBattleInfoEssentials.cpp" />
@@ -229,6 +231,7 @@
 		<Unit filename="battle/CObstacleInstance.h" />
 		<Unit filename="battle/CPlayerBattleCallback.cpp" />
 		<Unit filename="battle/CPlayerBattleCallback.h" />
+		<Unit filename="battle/IBattleState.h" />
 		<Unit filename="battle/ReachabilityInfo.cpp" />
 		<Unit filename="battle/ReachabilityInfo.h" />
 		<Unit filename="battle/SideInBattle.cpp" />
@@ -383,6 +386,8 @@
 		<Unit filename="spells/Magic.h" />
 		<Unit filename="spells/Problem.cpp" />
 		<Unit filename="spells/Problem.h" />
+		<Unit filename="spells/TargetCondition.cpp" />
+		<Unit filename="spells/TargetCondition.h" />
 		<Unit filename="spells/ViewSpellInt.cpp" />
 		<Unit filename="spells/ViewSpellInt.h" />
 		<Unit filename="spells/effects/Clone.cpp" />

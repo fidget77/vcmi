@@ -14,6 +14,12 @@
 #include "../battle/BattleHex.h"
 
 struct Query;
+class IBattleState;
+
+namespace spells
+{
+class TargetCondition;
+}
 
 ///callback to be provided by server
 class DLL_LINKAGE SpellCastEnvironment : public spells::PacketSender
@@ -51,17 +57,12 @@ public:
 	BattleHex hexValue;
 };
 
-using Target = std::vector<Destination>;
-
-using EffectTarget = Target;
-
 ///all parameters of particular cast event
 //TODO:
 class DLL_LINKAGE IBattleCast
 {
 public:
 	virtual ~IBattleCast();
-
 };
 
 class DLL_LINKAGE BattleCast : public IBattleCast
@@ -86,6 +87,9 @@ public:
 
 	///normal cast
 	void cast(const SpellCastEnvironment * env);
+
+	///cast evaluation
+	void cast(IBattleState * battleState);
 
 	///cast with silent check for permitted cast
 	bool castIfPossible(const SpellCastEnvironment * env);
@@ -151,6 +155,9 @@ public:
 	virtual void applyEffectsForced(const SpellCastEnvironment * env, const BattleCast & parameters) const = 0;
 
 	virtual void cast(const SpellCastEnvironment * env, const BattleCast & parameters, SpellCastContext & ctx, std::vector <const CStack*> & reflected) const = 0;
+	virtual void cast(IBattleState * battleState, const BattleCast & parameters) const = 0;
+
+	virtual bool isReceptive(const IStackState * target) const = 0;
 
 	Mode mode;
 	const CSpell * owner;
@@ -165,11 +172,14 @@ public:
 class DLL_LINKAGE BaseMechanics : public Mechanics
 {
 public:
+	std::shared_ptr<TargetCondition> targetCondition;
+
 	BaseMechanics(const CSpell * s, const CBattleInfoCallback * Cb, const Caster * caster_);
 	virtual ~BaseMechanics();
 
-	virtual bool adaptProblem(ESpellCastProblem::ESpellCastProblem source, Problem & target) const override;
-	virtual bool adaptGenericProblem(Problem & target) const override;
+	bool adaptProblem(ESpellCastProblem::ESpellCastProblem source, Problem & target) const override;
+	bool adaptGenericProblem(Problem & target) const override;
+	bool isReceptive(const IStackState * target) const override;
 };
 
 }// namespace spells

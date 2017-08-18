@@ -11,21 +11,10 @@
 #include "BattleAttackInfo.h"
 
 
-BattleAttackInfo::BattleAttackInfo(const CStack * Attacker, const CStack * Defender, const IUnitInfo * AttackerInfo, const IUnitInfo * DefenderInfo, bool Shooting):
-	attackerState(AttackerInfo), defenderState(DefenderInfo)
+BattleAttackInfo::BattleAttackInfo(const CStackState & Attacker, const CStackState & Defender, bool Shooting)
+	: attacker(Attacker),
+	defender(Defender)
 {
-	attacker = Attacker;
-	defender = Defender;
-
-	attackerState = Attacker->stackState;
-	defenderState = Defender->stackState;
-
-	attackerBonuses = AttackerInfo->unitAsBearer();
-	defenderBonuses = DefenderInfo->unitAsBearer();
-
-	attackerPosition = Attacker->position;
-	defenderPosition = Defender->position;
-
 	shooting = Shooting;
 	chargedFields = 0;
 
@@ -38,11 +27,8 @@ BattleAttackInfo::BattleAttackInfo(const CStack * Attacker, const CStack * Defen
 BattleAttackInfo BattleAttackInfo::reverse() const
 {
 	BattleAttackInfo ret = *this;
-	std::swap(ret.attacker, ret.defender);
-	std::swap(ret.attackerBonuses, ret.defenderBonuses);
-	std::swap(ret.attackerPosition, ret.defenderPosition);
 
-	ret.attackerState.swap(ret.defenderState);
+	ret.attacker.swap(ret.defender);
 
 	ret.shooting = false;
 	ret.chargedFields = 0;

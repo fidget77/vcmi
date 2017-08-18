@@ -17,7 +17,7 @@ public:
 	std::vector<const CStack *> unreachableEnemies;
 
 	PotentialTargets(){};
-	PotentialTargets(const CStack *attacker, const HypotheticChangesToBattleState &state = HypotheticChangesToBattleState());
+	PotentialTargets(const CStack * attacker, const HypotheticBattle & state = HypotheticBattle(getCbc()));
 
 	AttackPossibility bestAction() const;
 	int bestActionValue() const;

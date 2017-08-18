@@ -12,7 +12,6 @@
 #include "Clone.h"
 #include "Registry.h"
 #include "../ISpellMechanics.h"
-#include "../../CCreatureHandler.h"
 #include "../../CStack.h"
 #include "../../NetPacks.h"
 #include "../../battle/CBattleInfoCallback.h"
@@ -38,7 +37,7 @@ void Clone::apply(const PacketSender * server, RNG & rng, const Mechanics * m, c
 {
 	for(const Destination & dest : target)
 	{
-		const CStack * clonedStack = dest.stackValue;
+		const IStackState * clonedStack = dest.stackValue;
 
 		//we shall have all targets to be stacks
 		if(!clonedStack)
@@ -51,7 +50,7 @@ void Clone::apply(const PacketSender * server, RNG & rng, const Mechanics * m, c
 		if(clonedStack->getCount() < 1)
 			continue;
 
-		auto hex = m->cb->getAvaliableHex(clonedStack->type->idNumber, m->casterSide);
+		auto hex = m->cb->getAvaliableHex(clonedStack->creatureId(), m->casterSide);
 
 		if(!hex.isValid())
 		{
@@ -62,7 +61,7 @@ void Clone::apply(const PacketSender * server, RNG & rng, const Mechanics * m, c
 		//TODO: generate stack ID before apply
 
 		BattleStackAdded bsa;
-		bsa.creID = clonedStack->type->idNumber;
+		bsa.creID = clonedStack->creatureId();
 		bsa.side = m->casterSide;
 		bsa.summoned = true;
 		bsa.pos = hex;
@@ -76,7 +75,7 @@ void Clone::apply(const PacketSender * server, RNG & rng, const Mechanics * m, c
 		ssp.absolute = 1;
 		server->sendAndApply(&ssp);
 
-		ssp.stackID = clonedStack->ID;
+		ssp.stackID = clonedStack->unitId();
 		ssp.which = BattleSetStackProperty::HAS_CLONE;
 		ssp.val = bsa.newStackID;
 		ssp.absolute = 1;
@@ -91,22 +90,23 @@ void Clone::apply(const PacketSender * server, RNG & rng, const Mechanics * m, c
 	}
 }
 
-bool Clone::isReceptive(const Mechanics * m, const CStack * s) const
+bool Clone::isReceptive(const Mechanics * m, const IStackState * s) const
 {
-	int creLevel = s->getCreature()->level;
+	int creLevel = s->creatureLevel();
 	if(creLevel > maxTier)
 		return false;
 
 	//use default algorithm only if there is no mechanics-related problem
 	return StackEffect::isReceptive(m, s);
 }
-bool Clone::isValidTarget(const Mechanics * m, const CStack * s) const
+
+bool Clone::isValidTarget(const Mechanics * m, const IStackState * s) const
 {
 	//can't clone already cloned creature
 	if(s->isClone())
 		return false;
 	//can`t clone if old clone still alive
-	if(s->cloneID != -1)
+	if(s->hasClone())
 		return false;
 
 	return StackEffect::isValidTarget(m, s);

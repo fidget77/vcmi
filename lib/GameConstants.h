@@ -462,26 +462,6 @@ namespace EMarketMode
 	};
 }
 
-namespace EBattleStackState
-{
-	enum EBattleStackState
-	{
-		SUMMONED = 181,
-		CLONED,
-		GHOST, //stack was removed from battlefield
-		HAD_MORALE,
-		WAITING,
-		MOVED,
-		DEFENDING,
-		FEAR,
-		//remember to drain mana only once per turn
-		DRAINED_MANA,
-		//only for defending animation
-		DEFENDING_ANIM,
-		GHOST_PENDING// stack will become GHOST in next battle state update
-	};
-}
-
 namespace ECommander
 {
 	enum SecondarySkills {ATTACK, DEFENSE, HEALTH, DAMAGE, SPEED, SPELL_POWER, CASTS, RESISTANCE};
@@ -506,8 +486,6 @@ namespace EWallState
 		DESTROYED,
 		DAMAGED,
 		INTACT
-
-
 	};
 }
 

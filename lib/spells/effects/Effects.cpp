@@ -97,7 +97,7 @@ Effects::EffectsToApply Effects::prepare(const Mechanics * m, const BattleCast &
 		}
 	};
 
-	forEachEffect(p.spellLvl, callback);
+	forEachEffect(p.effectLevel, callback);
 
 	return effectsToApply;
 }

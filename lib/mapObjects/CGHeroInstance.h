@@ -235,7 +235,7 @@ public:
 
 	///spells::Caster
 	ui8 getSpellSchoolLevel(const spells::Mode mode, const CSpell * spell, int *outSelectedSchool = nullptr) const override;
-	ui32 getSpellBonus(const CSpell * spell, ui32 base, const CStack * affectedStack) const override;
+	ui32 getSpellBonus(const CSpell * spell, ui32 base, const IStackState * affectedStack) const override;
 	ui32 getSpecificSpellBonus(const CSpell * spell, ui32 base) const override;
 
 	///default spell school level for effect calculation

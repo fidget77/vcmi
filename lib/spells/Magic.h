@@ -16,6 +16,7 @@
 
 
 class CSpell;
+class IStackState;
 class CStack;
 class PlayerColor;
 struct MetaString;
@@ -31,7 +32,6 @@ class Destination;
 using Spell = ::CSpell;
 
 using Target = std::vector<Destination>;
-using EffectTarget = Target;
 
 enum class Mode
 {
@@ -87,7 +87,7 @@ public:
 	virtual int getEffectLevel(const Mode mode, const CSpell * spell) const = 0;
 
 	///applying sorcery secondary skill etc
-	virtual ui32 getSpellBonus(const CSpell * spell, ui32 base, const CStack * affectedStack) const = 0;
+	virtual ui32 getSpellBonus(const CSpell * spell, ui32 base, const IStackState * affectedStack) const = 0;
 
 	///only bonus for particular spell
 	virtual ui32 getSpecificSpellBonus(const CSpell * spell, ui32 base) const = 0;

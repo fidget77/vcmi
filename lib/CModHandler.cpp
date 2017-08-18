@@ -1041,10 +1041,27 @@ void CModHandler::parseIdentifier(const std::string & fullIdentifier, std::strin
 
 std::string CModHandler::makeFullIdentifier(const std::string & scope, const std::string & type, const std::string & identifier)
 {
-	auto p = splitString(identifier, ':');
+	if(type == "")
+		logGlobal->error("Full identifier (%s %s) requires type name", scope, identifier);
 
-	if(p.first != "")
-		return p.first + ":" + type + "." + p.second;//ignore type if identifier is scoped
+	std::string actualScope = scope;
+	std::string actualName = identifier;
+
+	//ignore scope if identifier is scoped
+	auto scopeAndName = splitString(identifier, ':');
+
+	if(scopeAndName.first != "")
+	{
+		actualScope = scopeAndName.first;
+		actualName = scopeAndName.second;
+	}
+
+	if(actualScope == "")
+	{
+		return actualName == "" ? type : type + "." + actualName;
+	}
 	else
-		return scope == "" ? (identifier == "" ? type : type + "." + identifier) : scope + ":" + type + "." + identifier;
+	{
+		return actualName == "" ? actualScope+ ":" + type : actualScope + ":" + type + "." + actualName;
+	}
 }

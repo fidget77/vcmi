@@ -25,8 +25,8 @@ public:
 
 	void apply(const PacketSender * server, RNG & rng, const Mechanics * m, const BattleCast & p, const EffectTarget & target) const override;
 protected:
-	bool isReceptive(const Mechanics * m, const CStack * s) const override;
-	bool isValidTarget(const Mechanics * m, const CStack * s) const override;
+	bool isReceptive(const Mechanics * m, const IStackState * s) const override;
+	bool isValidTarget(const Mechanics * m, const IStackState * s) const override;
 
 	void serializeJsonEffect(JsonSerializeFormat & handler) override final;
 private:

@@ -34,9 +34,7 @@ void HealingSpellMechanics::applyBattleEffects(const SpellCastEnvironment * env,
 	EHealPower healPower = getHealPower(parameters.effectLevel);
 
 	int hpGained = calculateHealedHP(env, parameters, ctx);
-	StacksHealedOrResurrected shr;
-	shr.lifeDrain = false;
-	shr.tentHealing = false;
+	BattleStacksChanged shr;
 
 	//special case for Archangel
 	bool cure = mode == Mode::CREATURE_ACTIVE && owner->id == SpellID::RESURRECTION;
@@ -44,15 +42,18 @@ void HealingSpellMechanics::applyBattleEffects(const SpellCastEnvironment * env,
 	for(auto & attackedCre : ctx.attackedCres)
 	{
 		int32_t stackHPgained = caster->getSpellBonus(owner, hpGained, attackedCre);
-		CHealth health = attackedCre->healthAfterHealed(stackHPgained, healLevel, healPower);
+		CStackState state = attackedCre->asquire();
+		state.heal(stackHPgained, healLevel, healPower);
 
-		CHealthInfo hi;
-		health.toInfo(hi);
-		hi.stackId = attackedCre->ID;
-		hi.delta = stackHPgained;
-		shr.healedStacks.push_back(hi);
+		CStackStateInfo info;
+		state.toInfo(info);
+
+		info.stackId = attackedCre->ID;
+		info.healthDelta = stackHPgained;
+		if(stackHPgained > 0)
+			shr.changedStacks.push_back(info);
 	}
-	if(!shr.healedStacks.empty())
+	if(!shr.changedStacks.empty())
 		env->sendAndApply(&shr);
 
 	if(cure)
@@ -194,10 +195,16 @@ bool CureMechanics::dispellSelector(const Bonus * b)
 	return false; //not a spell effect
 }
 
-bool CureMechanics::isImmuneByStack(const CStack * obj) const
+bool CureMechanics::isImmuneByStack(const IStackState * obj) const
 {
-	//Selector method name is ok as cashing string. --AVS
-	if(!obj->canBeHealed() && !canDispell(obj, dispellSelector, "CureMechanics::dispellSelector"))
+	//todo: move to config
+	if(obj->unitAsBearer()->hasBonusOfType(Bonus::SIEGE_WEAPON))
+		return true;
+
+	const bool insured = obj->getFirstHPleft() < obj->unitMaxHealth();
+	const bool debuffed = canDispell(obj->unitAsBearer(), dispellSelector, "CureMechanics::dispellSelector");
+
+	if(!(insured || debuffed))
 		return true;
 
 	return RegularSpellMechanics::isImmuneByStack(obj);
@@ -209,22 +216,24 @@ DispellMechanics::DispellMechanics(const CSpell * s, const CBattleInfoCallback *
 {
 }
 
-bool DispellMechanics::isImmuneByStack(const CStack * obj) const
+bool DispellMechanics::isImmuneByStack(const IStackState * obj) const
 {
 	//just in case
 	if(!obj->alive())
 		return true;
 
-	//DISPELL ignores all immunities, except specific absolute immunity
+	auto bearer = obj->unitAsBearer();
+
+	//DISPELL ignores all immunities, except specific absolute immunity(VCMI addition)
 	{
 		//SPELL_IMMUNITY absolute case
 		std::stringstream cachingStr;
 		cachingStr << "type_" << Bonus::SPELL_IMMUNITY << "subtype_" << owner->id.toEnum() << "addInfo_1";
-		if(obj->hasBonus(Selector::typeSubtypeInfo(Bonus::SPELL_IMMUNITY, owner->id.toEnum(), 1), cachingStr.str()))
+		if(bearer->hasBonus(Selector::typeSubtypeInfo(Bonus::SPELL_IMMUNITY, owner->id.toEnum(), 1), cachingStr.str()))
 			return true;
 	}
 
-	if(canDispell(obj, Selector::all, "DefaultSpellMechanics::dispellSelector"))
+	if(canDispell(bearer, Selector::all, "DefaultSpellMechanics::dispellSelector"))
 		return false;
 	else
 		return true;
@@ -337,7 +346,7 @@ void EarthquakeMechanics::applyBattleEffects(const SpellCastEnvironment * env, c
 
 			for(auto & elem : all)
 			{
-				if(elem->position == posRemove)
+				if(elem->initialPosition == posRemove)
 				{
 					bsr.stackIDs.insert(elem->ID);
 					break;
@@ -399,11 +408,11 @@ HypnotizeMechanics::HypnotizeMechanics(const CSpell * s, const CBattleInfoCallba
 {
 }
 
-bool HypnotizeMechanics::isImmuneByStack(const CStack * obj) const
+bool HypnotizeMechanics::isImmuneByStack(const IStackState * obj) const
 {
 	//todo: maybe do not resist on passive cast
 	//TODO: what with other creatures casting hypnotize, Faerie Dragons style?
-	int64_t subjectHealth = obj->stackState.health.available();
+	int64_t subjectHealth = obj->getAvailableHealth();
 	//apply 'damage' bonus for hypnotize, including hero specialty
 	int64_t maxHealth = caster->getSpellBonus(owner, owner->calculateRawEffectValue(caster->getEffectLevel(mode, owner), caster->getEffectPower(mode, owner), 1), obj);
 	if(subjectHealth > maxHealth)
@@ -538,7 +547,7 @@ bool LandMineMechanics::canBeCast(Problem & problem) const
 	return SpecialSpellMechanics::canBeCast(problem);
 }
 
-int LandMineMechanics::defaultDamageEffect(const SpellCastEnvironment * env, const BattleCast & parameters, StacksInjured & si, const TStacks & target) const
+int LandMineMechanics::defaultDamageEffect(const SpellCastEnvironment * env, const BattleCast & parameters, StacksInjured & si, const std::vector<const IStackState *> & target) const
 {
 	auto res = PatchObstacleMechanics::defaultDamageEffect(env, parameters, si, target);
 
@@ -821,7 +830,7 @@ bool SacrificeMechanics::canBeCast(Problem & problem) const
 		//using isImmuneBy directly as this mechanics does not have overridden immunity check
 		//therefore we do not need to check caster and casting mode
 		//TODO: check that we really should check immunity for both stacks
-		const bool immune = owner->internalIsImmune(caster, stack);
+		const bool immune = owner->internalIsImmune(cb, caster, stack);
 		const bool ownerMatches = stack->owner == caster->getOwner();
 
 		if(!immune && ownerMatches)
@@ -843,7 +852,7 @@ bool SacrificeMechanics::canBeCast(Problem & problem) const
 
 void SacrificeMechanics::applyBattleEffects(const SpellCastEnvironment * env, const BattleCast & parameters, SpellCastContext & ctx) const
 {
-	const CStack * victim = nullptr;
+	const IStackState * victim = nullptr;
 	if(parameters.target.size() == 2)
 	{
 		victim = parameters.target[1].stackValue;
@@ -858,13 +867,13 @@ void SacrificeMechanics::applyBattleEffects(const SpellCastEnvironment * env, co
 	RisingSpellMechanics::applyBattleEffects(env, parameters, ctx);
 	//it is safe to remove even active stack
 	BattleStacksRemoved bsr;
-	bsr.stackIDs.insert(victim->ID);
+	bsr.stackIDs.insert(victim->unitId());
 	env->sendAndApply(&bsr);
 }
 
-int SacrificeMechanics::calculateHealedHP(const SpellCastEnvironment * env, const BattleCast& parameters, SpellCastContext& ctx) const
+int SacrificeMechanics::calculateHealedHP(const SpellCastEnvironment * env, const BattleCast& parameters, SpellCastContext & ctx) const
 {
-	const CStack * victim = nullptr;
+	const IStackState * victim = nullptr;
 
 	if(parameters.target.size() == 2)
 	{
@@ -877,7 +886,7 @@ int SacrificeMechanics::calculateHealedHP(const SpellCastEnvironment * env, cons
 		return 0;
 	}
 
-	return (parameters.effectPower + victim->MaxHealth() + owner->getPower(parameters.effectLevel)) * victim->getCount();
+	return (parameters.effectPower + victim->unitMaxHealth() + owner->getPower(parameters.effectLevel)) * victim->getCount();
 }
 
 bool SacrificeMechanics::requiresCreatureTarget() const
@@ -946,12 +955,12 @@ bool SpecialRisingSpellMechanics::canBeCastAt(BattleHex destination) const
 	return true;
 }
 
-bool SpecialRisingSpellMechanics::isImmuneByStack(const CStack * obj) const
+bool SpecialRisingSpellMechanics::isImmuneByStack(const IStackState * obj) const
 {
 	// following does apply to resurrect and animate dead(?) only
 	// for sacrifice health calculation and health limit check don't matter
 
-	if(obj->getCount() >= obj->baseAmount)
+	if(obj->getCount() >= obj->unitBaseAmount())
 		return true;
 
 	//FIXME: code duplication with BattleCast
@@ -962,7 +971,7 @@ bool SpecialRisingSpellMechanics::isImmuneByStack(const CStack * obj) const
 	};
 
 	auto maxHealth = getEffectValue();
-	if (maxHealth < obj->MaxHealth()) //must be able to rise at least one full creature
+	if(maxHealth < obj->unitMaxHealth()) //must be able to rise at least one full creature
 		return true;
 
 	return RegularSpellMechanics::isImmuneByStack(obj);
@@ -987,7 +996,7 @@ void TeleportMechanics::applyBattleEffects(const SpellCastEnvironment * env, con
 		}
 
 		//second destination creature to move
-		const CStack * target = parameters.target[1].stackValue;
+		auto target = parameters.target[1].stackValue;
 		if(nullptr == target)
 		{
 			env->complain("TeleportMechanics: no stack to teleport");
@@ -1002,7 +1011,7 @@ void TeleportMechanics::applyBattleEffects(const SpellCastEnvironment * env, con
 
 		BattleStackMoved bsm;
 		bsm.distance = -1;
-		bsm.stack = target->ID;
+		bsm.stack = target->unitId();
 		std::vector<BattleHex> tiles;
 		tiles.push_back(destination);
 		bsm.tilesToMove = tiles;
@@ -1012,7 +1021,7 @@ void TeleportMechanics::applyBattleEffects(const SpellCastEnvironment * env, con
 	else
 	{
 		env->complain("TeleportMechanics: 2 destinations required.");
-			return;
+		return;
 	}
 }
 

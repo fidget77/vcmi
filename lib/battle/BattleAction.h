@@ -11,7 +11,7 @@
 #include "BattleHex.h"
 #include "../GameConstants.h"
 
-class CStack;
+class IStackState;
 
 /// A struct which handles battle actions like defending, walking,... - represents a creature stack in a battle
 struct DLL_LINKAGE BattleAction
@@ -35,12 +35,12 @@ struct DLL_LINKAGE BattleAction
 
 	BattleAction();
 
-	static BattleAction makeHeal(const CStack * healer, const CStack * healed);
-	static BattleAction makeDefend(const CStack * stack);
-	static BattleAction makeWait(const CStack * stack);
-	static BattleAction makeMeleeAttack(const CStack * stack, const CStack * attacked, BattleHex attackFrom = BattleHex::INVALID);
-	static BattleAction makeShotAttack(const CStack * shooter, const CStack * target);
-	static BattleAction makeMove(const CStack * stack, BattleHex dest);
+	static BattleAction makeHeal(const IStackState * healer, const IStackState * healed);
+	static BattleAction makeDefend(const IStackState * stack);
+	static BattleAction makeWait(const IStackState * stack);
+	static BattleAction makeMeleeAttack(const IStackState * stack, const IStackState * attacked, BattleHex attackFrom = BattleHex::INVALID);
+	static BattleAction makeShotAttack(const IStackState * shooter, const IStackState * target);
+	static BattleAction makeMove(const IStackState * stack, BattleHex dest);
 	static BattleAction makeEndOFTacticPhase(ui8 side);
 
 	std::string toString() const;

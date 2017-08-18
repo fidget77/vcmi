@@ -72,12 +72,12 @@ bool StackEffect::applicable(Problem & problem, const Mechanics * m, const Targe
 	return false;
 }
 
-bool StackEffect::getStackFilter(const Mechanics * m, bool alwaysSmart, const CStack * s) const
+bool StackEffect::getStackFilter(const Mechanics * m, bool alwaysSmart, const IStackState * s) const
 {
 	return isValidTarget(m, s) && isSmartTarget(m, s, alwaysSmart);
 }
 
-bool StackEffect::eraseByImmunityFilter(const Mechanics * m, const CStack * s) const
+bool StackEffect::eraseByImmunityFilter(const Mechanics * m, const IStackState * s) const
 {
 	return !isReceptive(m, s);
 }
@@ -187,7 +187,7 @@ EffectTarget StackEffect::transformTarget(const Mechanics * m, const Target & ai
 	return effectTarget;
 }
 
-bool StackEffect::isValidTarget(const Mechanics * m, const CStack * s) const
+bool StackEffect::isValidTarget(const Mechanics * m, const IStackState * s) const
 {
 	// TODO: override in rising effect
 	// TODO: check absolute immunity here
@@ -195,12 +195,12 @@ bool StackEffect::isValidTarget(const Mechanics * m, const CStack * s) const
 	return s->isValidTarget(false);
 }
 
-bool StackEffect::isReceptive(const Mechanics * m, const CStack * s) const
+bool StackEffect::isReceptive(const Mechanics * m, const IStackState * s) const
 {
-	return !m->owner->internalIsImmune(m->caster, s);
+	return !m->owner->internalIsImmune(m->cb, m->caster, s);
 }
 
-bool StackEffect::isSmartTarget(const Mechanics * m, const CStack * s, bool alwaysSmart) const
+bool StackEffect::isSmartTarget(const Mechanics * m, const IStackState * s, bool alwaysSmart) const
 {
 	const CSpell::TargetInfo targetInfo(m->owner, spellLevel, m->mode);
 	const bool smart = targetInfo.smart || alwaysSmart;

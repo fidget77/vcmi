@@ -10,6 +10,7 @@ set(lib_SRCS
 		battle/BattleAttackInfo.cpp
 		battle/BattleHex.cpp
 		battle/BattleInfo.cpp
+		battle/BattleProxy.cpp
 		battle/CBattleInfoCallback.cpp
 		battle/CBattleInfoEssentials.cpp
 		battle/CCallbackBase.cpp
@@ -157,11 +158,13 @@ set(lib_HEADERS
 		battle/BattleAttackInfo.h
 		battle/BattleHex.h
 		battle/BattleInfo.h
+		battle/BattleProxy.h
 		battle/CBattleInfoCallback.h
 		battle/CBattleInfoEssentials.h
 		battle/CCallbackBase.h
 		battle/CObstacleInstance.h
 		battle/CPlayerBattleCallback.h
+		battle/IBattleState.h
 		battle/ReachabilityInfo.h
 		battle/SideInBattle.h
 		battle/SiegeInfo.h

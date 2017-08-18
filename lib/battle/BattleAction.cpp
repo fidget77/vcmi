@@ -24,62 +24,61 @@ BattleAction::BattleAction():
 {
 }
 
-BattleAction BattleAction::makeHeal(const CStack * healer, const CStack * healed)
+BattleAction BattleAction::makeHeal(const IStackState * healer, const IStackState * healed)
 {
 	BattleAction ba;
-	ba.side = healer->side;
+	ba.side = healer->unitSide();
 	ba.actionType = STACK_HEAL;
-	ba.stackNumber = healer->ID;
-	ba.destinationTile = healed->position;
+	ba.stackNumber = healer->unitId();
+	ba.destinationTile = healed->getPosition();
 	return ba;
 }
 
-BattleAction BattleAction::makeDefend(const CStack * stack)
+BattleAction BattleAction::makeDefend(const IStackState * stack)
 {
 	BattleAction ba;
-	ba.side = stack->side;
+	ba.side = stack->unitSide();
 	ba.actionType = DEFEND;
-	ba.stackNumber = stack->ID;
+	ba.stackNumber = stack->unitId();
 	return ba;
 }
 
-
-BattleAction BattleAction::makeMeleeAttack(const CStack * stack, const CStack * attacked, BattleHex attackFrom)
+BattleAction BattleAction::makeMeleeAttack(const IStackState * stack, const IStackState * attacked, BattleHex attackFrom)
 {
 	BattleAction ba;
-	ba.side = stack->side;
+	ba.side = stack->unitSide(); //FIXME: will it fail if stack mind controlled?
 	ba.actionType = WALK_AND_ATTACK;
-	ba.stackNumber = stack->ID;
+	ba.stackNumber = stack->unitId();
 	ba.destinationTile = attackFrom;
-	ba.additionalInfo = attacked->position;
+	ba.additionalInfo = attacked->getPosition();
 	return ba;
-
 }
-BattleAction BattleAction::makeWait(const CStack * stack)
+
+BattleAction BattleAction::makeWait(const IStackState * stack)
 {
 	BattleAction ba;
-	ba.side = stack->side;
+	ba.side = stack->unitSide();
 	ba.actionType = WAIT;
-	ba.stackNumber = stack->ID;
+	ba.stackNumber = stack->unitId();
 	return ba;
 }
 
-BattleAction BattleAction::makeShotAttack(const CStack * shooter, const CStack * target)
+BattleAction BattleAction::makeShotAttack(const IStackState * shooter, const IStackState * target)
 {
 	BattleAction ba;
-	ba.side = shooter->side;
+	ba.side = shooter->unitSide();
 	ba.actionType = SHOOT;
-	ba.stackNumber = shooter->ID;
-	ba.destinationTile = target->position;
+	ba.stackNumber = shooter->unitId();
+	ba.destinationTile = target->getPosition();
 	return ba;
 }
 
-BattleAction BattleAction::makeMove(const CStack * stack, BattleHex dest)
+BattleAction BattleAction::makeMove(const IStackState * stack, BattleHex dest)
 {
 	BattleAction ba;
-	ba.side = stack->side;
+	ba.side = stack->unitSide();
 	ba.actionType = WALK;
-	ba.stackNumber = stack->ID;
+	ba.stackNumber = stack->unitId();
 	ba.destinationTile = dest;
 	return ba;
 }

@@ -13,12 +13,14 @@
 
 #include "../CStack.h"
 #include "../battle/CBattleInfoCallback.h"
+#include "../battle/IBattleState.h"
 
 #include "../NetPacks.h"
 
 #include "../serializer/JsonDeserializer.h"
 #include "../serializer/JsonSerializer.h"
 
+#include "TargetCondition.h"
 #include "CDefaultSpellMechanics.h"
 
 #include "AdventureSpellMechanics.h"
@@ -36,38 +38,54 @@
 namespace spells
 {
 
+static std::shared_ptr<TargetCondition> makeCondition(const CSpell * s)
+{
+	std::shared_ptr<TargetCondition> res = std::make_shared<TargetCondition>();
+
+	JsonDeserializer deser(nullptr, s->targetCondition);
+	res->serializeJson(deser);
+
+	return res;
+}
+
 template<typename T>
 class SpellMechanicsFactory : public ISpellMechanicsFactory
 {
 public:
 	SpellMechanicsFactory(const CSpell * s)
 		: ISpellMechanicsFactory(s)
-	{}
+	{
+		targetCondition = makeCondition(s);
+	}
 
 	std::unique_ptr<Mechanics> create(const CBattleInfoCallback * cb, Mode mode, const Caster * caster) const override
 	{
-		std::unique_ptr<Mechanics> ret(new T(spell, cb, caster));
+		std::unique_ptr<BaseMechanics> ret(new T(spell, cb, caster));
 		ret->mode = mode;
+		ret->targetCondition = targetCondition;
 		return ret;
 	}
+private:
+	std::shared_ptr<TargetCondition> targetCondition;
 };
-
 
 class CustomMechanicsFactory : public ISpellMechanicsFactory
 {
 public:
 	std::unique_ptr<Mechanics> create(const CBattleInfoCallback * cb, Mode mode, const Caster * caster) const override
 	{
-		std::unique_ptr<Mechanics> ret(new CustomSpellMechanics(spell, cb, caster, effects));
+		std::unique_ptr<BaseMechanics> ret(new CustomSpellMechanics(spell, cb, caster, effects));
 		ret->mode = mode;
+		ret->targetCondition = targetCondition;
 		return ret;
 	}
 protected:
-	std::shared_ptr<spells::effects::Effects> effects;
+	std::shared_ptr<effects::Effects> effects;
 
 	CustomMechanicsFactory(const CSpell * s)
-		: ISpellMechanicsFactory(s), effects(new spells::effects::Effects)
+		: ISpellMechanicsFactory(s), effects(new effects::Effects)
 	{
+		targetCondition = makeCondition(s);
 	}
 
 	void loadEffects(const JsonNode & config, const int level)
@@ -75,6 +93,8 @@ protected:
 		JsonDeserializer deser(nullptr, config);
 		effects->serializeJson(deser, level);
 	}
+private:
+	std::shared_ptr<TargetCondition> targetCondition;
 };
 
 class ConfigurableMechanicsFactory : public CustomMechanicsFactory
@@ -186,7 +206,7 @@ Destination::Destination()
 
 Destination::Destination(const CStack * destination)
 	: stackValue(destination),
-	hexValue(destination->position)
+	hexValue(destination->getPosition())
 {
 
 }
@@ -308,13 +328,27 @@ void BattleCast::cast(const SpellCastEnvironment * env)
 
 		if(!mirrorTargets.empty())
 		{
-			int targetHex = (*RandomGeneratorUtil::nextItem(mirrorTargets, env->getRandomGenerator()))->position;
+			int targetHex = (*RandomGeneratorUtil::nextItem(mirrorTargets, env->getRandomGenerator()))->getPosition();
 
 			BattleCast mirror(*this, attackedCre);
 			mirror.aimToHex(targetHex);
 			mirror.cast(env);
 		}
 	}
+}
+
+void BattleCast::cast(IBattleState * battleState)
+{
+	//TODO: make equivalent to normal cast
+	if(target.empty())
+		aimToHex(BattleHex::INVALID);
+	auto m = spell->battleMechanics(cb, mode, caster);
+
+	//FIXME: spell countering
+	//TODO: reflection
+	//TODO: random effects evaluation
+
+	m->cast(battleState, *this);
 }
 
 bool BattleCast::castIfPossible(const SpellCastEnvironment * env)
@@ -644,6 +678,14 @@ bool BaseMechanics::adaptProblem(ESpellCastProblem::ESpellCastProblem source, Pr
 	}
 
 	return false;
+}
+
+bool BaseMechanics::isReceptive(const IStackState * target) const
+{
+	if(targetCondition)
+		return targetCondition->isReceptive(owner, target);
+	else
+		return true;
 }
 
 } //namespace spells

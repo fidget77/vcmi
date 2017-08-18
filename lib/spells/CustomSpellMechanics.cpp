@@ -10,6 +10,7 @@
 #include "StdInc.h"
 #include "CustomSpellMechanics.h"
 #include "CDefaultSpellMechanics.h"
+#include "../battle/CBattleInfoCallback.h"
 #include "Problem.h"
 
 #include "../CStack.h"
@@ -85,7 +86,10 @@ std::vector<const CStack *> CustomSpellMechanics::getAffectedStacks(int spellLvl
 	for(const Destination & dest : all)
 	{
 		if(dest.stackValue)
-			stacks.insert(dest.stackValue);
+		{
+			//FIXME: remove and return IStackState
+			stacks.insert(cb->battleGetStackByID(dest.stackValue->unitId(), false));
+		}
 	}
 
 	std::vector<const CStack *> res;
@@ -183,6 +187,12 @@ void CustomSpellMechanics::cast(const SpellCastEnvironment * env, const BattleCa
 	//and see what it does
 	for(auto & p : toApply)
 		p.first->apply(env, env->getRandomGenerator(), this, parameters, p.second);
+}
+
+void CustomSpellMechanics::cast(IBattleState * battleState, const BattleCast & parameters) const
+{
+	//TODO:  CustomSpellMechanics::cast
+	Target spellTarget = transformSpellTarget(parameters.target, parameters.spellLvl);
 }
 
 Target CustomSpellMechanics::transformSpellTarget(const Target & aimPoint, const int spellLevel) const

@@ -50,7 +50,7 @@ void Damage::apply(const PacketSender * server, RNG & rng, const Mechanics * m, 
 			BattleStackAttacked bsa;
 			bsa.damageAmount = m->owner->adjustRawDamage(m->caster, s, rawDamage);
 			damageToDisplay += bsa.damageAmount;
-			bsa.stackAttacked = s->ID;
+			bsa.stackAttacked = s->unitId();
 			bsa.attackerID = -1;
 			s->prepareAttacked(bsa, rng);
 			killed += bsa.killedAmount;

@@ -307,9 +307,9 @@ CBattleInterface::CBattleInterface(const CCreatureSet *army1, const CCreatureSet
 		bfield.push_back(hex);
 	}
 	//locking occupied positions on batlefield
-	for (const CStack *s : stacks)  //stacks gained at top of this function
-		if (s->position >= 0) //turrets have position < 0
-			bfield[s->position]->accessible = false;
+	for(const CStack * s : stacks)  //stacks gained at top of this function
+		if(s->initialPosition >= 0) //turrets have position < 0
+			bfield[s->getPosition()]->accessible = false;
 
 	//preparing graphic with cell borders
 	cellBorders = CSDL_Ext::newSurface(background->w, background->h, cellBorder);
@@ -953,9 +953,9 @@ void CBattleInterface::newStack(const CStack *stack)
 {
 	creDir[stack->ID] = stack->side == BattleSide::ATTACKER; // must be set before getting stack position
 
-	Point coords = CClickableHex::getXYUnitAnim(stack->position, stack, this);
+	Point coords = CClickableHex::getXYUnitAnim(stack->getPosition(), stack, this);
 
-	if (stack->position < 0) //turret
+	if(stack->initialPosition < 0) //turret
 	{
 		const CCreature *turretCreature = CGI->creh->creatures[siegeH->town->town->clientInfo.siegeShooter];
 
@@ -963,7 +963,7 @@ void CBattleInterface::newStack(const CStack *stack)
 
 		// Turret positions are read out of the config/wall_pos.txt
 		int posID = 0;
-		switch (stack->position)
+		switch (stack->initialPosition)
 		{
 		case -2: // keep creature
 			posID = 18;
@@ -1057,14 +1057,14 @@ void CBattleInterface::stackMoved(const CStack *stack, std::vector<BattleHex> de
 
 void CBattleInterface::stacksAreAttacked(std::vector<StackAttackedInfo> attackedInfos, const std::vector<MetaString> & battleLog)
 {
-	for (auto & attackedInfo : attackedInfos)
+	for(auto & attackedInfo : attackedInfos)
 	{
 		//if (!attackedInfo.cloneKilled) //FIXME: play dead animation for cloned creature before it vanishes
 			addNewAnim(new CDefenceAnimation(attackedInfo, this));
 
-		if (attackedInfo.rebirth)
+		if(attackedInfo.rebirth)
 		{
-			displayEffect(50, attackedInfo.defender->position); //TODO: play reverse death animation
+			displayEffect(50, attackedInfo.defender->getPosition()); //TODO: play reverse death animation
 			CCS->soundh->playSound(soundBase::RESURECT);
 		}
 	}
@@ -1282,10 +1282,13 @@ void CBattleInterface::displayBattleFinished()
 
 void CBattleInterface::spellCast(const BattleSpellCast * sc)
 {
-	const SpellID spellID(sc->id);
-	const CSpell & spell = *spellID.toSpell();
+	const SpellID spellID = sc->spellID;
+	const CSpell * spell = spellID.toSpell();
 
-	const std::string & castSoundPath = spell.getCastSound();
+	if(!spell)
+		return;
+
+	const std::string & castSoundPath = spell->getCastSound();
 
 	if (!castSoundPath.empty())
 		CCS->soundh->playSound(castSoundPath);
@@ -1301,7 +1304,7 @@ void CBattleInterface::spellCast(const BattleSpellCast * sc)
 	{
 		if(casterStack != nullptr)
 		{
-			srccoord = CClickableHex::getXYUnitAnim(casterStack->position, casterStack, this);
+			srccoord = CClickableHex::getXYUnitAnim(casterStack->getPosition(), casterStack, this);
 			srccoord.x += 250;
 			srccoord.y += 240;
 		}
@@ -1329,7 +1332,7 @@ void CBattleInterface::spellCast(const BattleSpellCast * sc)
 		if (Vflip)
 			angle = -angle;
 
-		std::string animToDisplay = spell.animationInfo.selectProjectile(angle);
+		std::string animToDisplay = spell->animationInfo.selectProjectile(angle);
 
 		if(!animToDisplay.empty())
 		{
@@ -1356,17 +1359,19 @@ void CBattleInterface::spellCast(const BattleSpellCast * sc)
 	displaySpellHit(spellID, sc->tile);
 
 	//queuing affect animation
-	for (auto & elem : sc->affectedCres)
+	for(auto & elem : sc->affectedCres)
 	{
-		BattleHex position = curInt->cb->battleGetStackByID(elem, false)->position;
-		displaySpellEffect(spellID, position);
+		auto stack = curInt->cb->battleGetStackByID(elem, false);
+		if(stack)
+			displaySpellEffect(spellID, stack->getPosition());
 	}
 
 	//queuing additional animation
-	for (auto & elem : sc->customEffects)
+	for(auto & elem : sc->customEffects)
 	{
-		BattleHex position = curInt->cb->battleGetStackByID(elem.stack, false)->position;
-		displayEffect(elem.effect, position);
+		auto stack = curInt->cb->battleGetStackByID(elem.stack, false);
+		if(stack)
+			displayEffect(elem.effect, stack->getPosition());
 	}
 
 	//displaying message in console
@@ -1467,6 +1472,18 @@ void CBattleInterface::displayBattleLog(const std::vector<MetaString> & battleLo
 	}
 }
 
+void CBattleInterface::displayCustomEffects(const std::vector<CustomEffectInfo> & customEffects)
+{
+	for(const CustomEffectInfo & one : customEffects)
+	{
+		if(one.sound != 0)
+			CCS->soundh->playSound(soundBase::soundID(one.sound));
+		const CStack * s = curInt->cb->battleGetStackByID(one.stack, false);
+		if(s && one.effect != 0)
+			displayEffect(one.effect, s->getPosition());
+	}
+}
+
 void CBattleInterface::displayEffect(ui32 effect, BattleHex destTile)
 {
 	std::string customAnim = graphics->battleACToDef[effect][0];
@@ -1527,31 +1544,37 @@ void CBattleInterface::displaySpellHit(SpellID spellID, BattleHex destinationTil
 
 void CBattleInterface::battleTriggerEffect(const BattleTriggerEffect & bte)
 {
-	const CStack *stack = curInt->cb->battleGetStackByID(bte.stackID);
-	//don't show animation when no HP is regenerated
-	switch (bte.effect)
+	const CStack * stack = curInt->cb->battleGetStackByID(bte.stackID);
+	if(!stack)
 	{
+		logGlobal->error("Invalid stack ID %d", bte.stackID);
+		return;
+	}
+	//don't show animation when no HP is regenerated
+	switch(bte.effect)
+	{
+		//TODO: move to bonus type handler
 		case Bonus::HP_REGENERATION:
-			displayEffect(74, stack->position);
+			displayEffect(74, stack->getPosition());
 			CCS->soundh->playSound(soundBase::REGENER);
 			break;
 		case Bonus::MANA_DRAIN:
-			displayEffect(77, stack->position);
+			displayEffect(77, stack->getPosition());
 			CCS->soundh->playSound(soundBase::MANADRAI);
 			break;
 		case Bonus::POISON:
-			displayEffect(67, stack->position);
+			displayEffect(67, stack->getPosition());
 			CCS->soundh->playSound(soundBase::POISON);
 			break;
 		case Bonus::FEAR:
-			displayEffect(15, stack->position);
+			displayEffect(15, stack->getPosition());
 			CCS->soundh->playSound(soundBase::FEAR);
 			break;
 		case Bonus::MORALE:
 		{
 			std::string hlp = CGI->generaltexth->allTexts[33];
 			boost::algorithm::replace_first(hlp,"%s",(stack->getName()));
-			displayEffect(20,stack->position);
+			displayEffect(20,stack->getPosition());
 			CCS->soundh->playSound(soundBase::GOODMRLE);
 			console->addText(hlp);
 			break;
@@ -1836,7 +1859,7 @@ void CBattleInterface::endAction(const BattleAction* action)
 		if (s && creDir[s->ID] != (s->side == BattleSide::ATTACKER) && s->alive()
 		   && creAnims[s->ID]->isIdle())
 		{
-			addNewAnim(new CReverseAnimation(this, s, s->position, false));
+			addNewAnim(new CReverseAnimation(this, s, s->getPosition(), false));
 		}
 	}
 
@@ -1955,7 +1978,7 @@ void CBattleInterface::startAction(const BattleAction* action)
 	}
 
 	if (action->actionType == Battle::WALK
-		|| (action->actionType == Battle::WALK_AND_ATTACK && action->destinationTile != stack->position))
+		|| (action->actionType == Battle::WALK_AND_ATTACK && action->destinationTile != stack->getPosition()))
 	{
 		assert(stack);
 		moveStarted = true;
@@ -1987,7 +2010,7 @@ void CBattleInterface::startAction(const BattleAction* action)
 		break;
 	case Battle::BAD_MORALE:
 		txtid = -34; //negative -> no separate singular/plural form
-		displayEffect(30,stack->position);
+		displayEffect(30, stack->getPosition());
 		CCS->soundh->playSound(soundBase::BADMRLE);
 		break;
 	}
@@ -2223,7 +2246,7 @@ void CBattleInterface::handleHex(BattleHex myNumber, int eventType)
 				{
 					if (!(shere->hasBonusOfType(Bonus::UNDEAD)
 						|| shere->hasBonusOfType(Bonus::NON_LIVING)
-						|| vstd::contains(shere->state, EBattleStackState::SUMMONED)
+						|| shere->stackState.summoned
 						|| shere->isClone()
 						|| shere->hasBonusOfType(Bonus::SIEGE_WEAPON)
 						))
@@ -2314,7 +2337,7 @@ void CBattleInterface::handleHex(BattleHex myNumber, int eventType)
 					}
 				};
 
-				std::string estDmgText = formatDmgRange(curInt->cb->battleEstimateDamage(CRandomGenerator::getDefault(), sactive, shere)); //calculating estimated dmg
+				std::string estDmgText = formatDmgRange(curInt->cb->battleEstimateDamage(sactive, shere)); //calculating estimated dmg
 				consoleMsg = (boost::format(CGI->generaltexth->allTexts[36]) % shere->getName() % estDmgText).str(); //Attack %s (%s damage)
 			}
 				break;
@@ -2326,7 +2349,7 @@ void CBattleInterface::handleHex(BattleHex myNumber, int eventType)
 					cursorFrame = ECursor::COMBAT_SHOOT;
 
 				realizeAction = [=](){giveCommand(Battle::SHOOT, myNumber, activeStack->ID);};
-				std::string estDmgText = formatDmgRange(curInt->cb->battleEstimateDamage(CRandomGenerator::getDefault(), sactive, shere)); //calculating estimated dmg
+				std::string estDmgText = formatDmgRange(curInt->cb->battleEstimateDamage(sactive, shere)); //calculating estimated dmg
 				//printing - Shoot %s (%d shots left, %s damage)
 				consoleMsg = (boost::format(CGI->generaltexth->allTexts[296]) % shere->getName() % sactive->stackState.shots.available() % estDmgText).str();
 			}
@@ -2479,7 +2502,7 @@ void CBattleInterface::handleHex(BattleHex myNumber, int eventType)
 					switch (sp->id.toEnum())
 					{
 						case SpellID::SACRIFICE:
-							spellToCast->destinationTile = selectedStack->position; //cast on first creature that will be resurrected
+							spellToCast->destinationTile = selectedStack->getPosition(); //cast on first creature that will be resurrected
 							break;
 						default:
 							spellToCast->destinationTile = myNumber;
@@ -3323,11 +3346,11 @@ void CBattleInterface::showAliveStacks(SDL_Surface *to, std::vector<const CStack
 				if(curInt->curAction->actionType == Battle::WALK || curInt->curAction->actionType == Battle::SHOOT) //hide when stack walks or shoots
 					return false;
 
-				else if(curInt->curAction->actionType == Battle::WALK_AND_ATTACK && curInt->curAction->destinationTile != stack->position) //when attacking, hide until walk phase finished
+				else if(curInt->curAction->actionType == Battle::WALK_AND_ATTACK && curInt->curAction->destinationTile != stack->getPosition()) //when attacking, hide until walk phase finished
 					return false;
 			}
 
-			if(curInt->curAction->actionType == Battle::SHOOT && curInt->curAction->destinationTile == stack->position) //hide if we are ranged attack target
+			if(curInt->curAction->actionType == Battle::SHOOT && curInt->curAction->destinationTile == stack->getPosition()) //hide if we are ranged attack target
 				return false;
 		}
 
@@ -3363,8 +3386,8 @@ void CBattleInterface::showAliveStacks(SDL_Surface *to, std::vector<const CStack
 		{
 			const int sideShift = stack->side == BattleSide::ATTACKER ? 1 : -1;
 			const int reverseSideShift = stack->side == BattleSide::ATTACKER ? -1 : 1;
-			const BattleHex nextPos = stack->position + sideShift;
-			const bool edge = stack->position % GameConstants::BFIELD_WIDTH == (stack->side == BattleSide::ATTACKER ? GameConstants::BFIELD_WIDTH - 2 : 1);
+			const BattleHex nextPos = stack->getPosition() + sideShift;
+			const bool edge = stack->getPosition() % GameConstants::BFIELD_WIDTH == (stack->side == BattleSide::ATTACKER ? GameConstants::BFIELD_WIDTH - 2 : 1);
 			const bool moveInside = !edge && !stackCountOutsideHexes[nextPos];
 			int xAdd = (stack->side == BattleSide::ATTACKER ? 220 : 202) +
 					   (stack->doubleWide() ? 44 : 0) * sideShift +
@@ -3490,7 +3513,7 @@ BattleObjectsByHex CBattleInterface::sortObjectsByHex()
 					return move->nextHex;
 			}
 		}
-		return stack->position;
+		return stack->getPosition();
 	};
 
 	BattleObjectsByHex sorted;
@@ -3506,7 +3529,7 @@ BattleObjectsByHex CBattleInterface::sortObjectsByHex()
 		if (creAnims.find(stack->ID) == creAnims.end()) //e.g. for summoned but not yet handled stacks
 			continue;
 
-		if (stack->position < 0) // turret shooters are handled separately
+		if (stack->initialPosition < 0) // turret shooters are handled separately
 			continue;
 
 		//FIXME: hack to ignore ghost stacks
@@ -3515,7 +3538,7 @@ BattleObjectsByHex CBattleInterface::sortObjectsByHex()
 		else if (!creAnims[stack->ID]->isDead())
 		{
 			if (!creAnims[stack->ID]->isMoving())
-				sorted.hex[stack->position].alive.push_back(stack);
+				sorted.hex[stack->getPosition()].alive.push_back(stack);
 			else
 			{
 				// flying creature - just blit them over everyone else
@@ -3526,7 +3549,7 @@ BattleObjectsByHex CBattleInterface::sortObjectsByHex()
 			}
 		}
 		else
-			sorted.hex[stack->position].dead.push_back(stack);
+			sorted.hex[stack->getPosition()].dead.push_back(stack);
 	}
 
 	// Sort battle effects (spells)
@@ -3727,7 +3750,7 @@ void CBattleInterface::showPiecesOfWall(SDL_Surface *to, std::vector<int> pieces
 
 			for (auto & stack : curInt->cb->battleGetAllStacks(true))
 			{
-				if (stack->position == stackPos)
+				if(stack->initialPosition == stackPos)
 				{
 					turret = stack;
 					break;

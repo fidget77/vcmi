@@ -12,7 +12,6 @@
 #include "NetPacksBase.h"
 
 #include "battle/BattleAction.h"
-#include "JsonNode.h"
 #include "mapObjects/CGHeroInstance.h"
 #include "ConstTransitivePtr.h"
 #include "int3.h"
@@ -1308,7 +1307,7 @@ struct MapObjectSelectDialog : public Query
 	}
 };
 
-struct BattleInfo;
+class BattleInfo;
 struct BattleStart : public CPackForClient
 {
 	BattleStart()
@@ -1411,50 +1410,45 @@ struct BattleStackMoved : public CPackForClient
 	}
 };
 
-struct StacksHealedOrResurrected : public CPackForClient
+struct BattleStacksChanged : public CPackForClient
 {
-	StacksHealedOrResurrected()
-		:lifeDrain(false), tentHealing(false), drainedFrom(0)
-	{}
+	BattleStacksChanged(){}
 
 	DLL_LINKAGE void applyGs(CGameState *gs);
 	void applyCl(CClient *cl);
 
-	std::vector<CHealthInfo> healedStacks;
-	bool lifeDrain; //if true, this heal is an effect of life drain or soul steal
-	bool tentHealing; //if true, than it's healing via First Aid Tent
-	si32 drainedFrom; //if life drain or soul steal - then stack life was drain from, if tentHealing - stack that is a healer
+	std::vector<CStackStateInfo> changedStacks;
+	std::vector<MetaString> battleLog;
+	std::vector<CustomEffectInfo> customEffects;
 
-	template <typename Handler> void serialize(Handler &h, const int version)
+	template <typename Handler> void serialize(Handler & h, const int version)
 	{
-		h & healedStacks;
-		h & lifeDrain;
-		h & tentHealing;
-		h & drainedFrom;
+		h & changedStacks;
+		h & battleLog;
+		h & customEffects;
 	}
 };
 
-struct BattleStackAttacked : public CPackForClient
+struct BattleStackAttacked
 {
 	BattleStackAttacked():
 		stackAttacked(0), attackerID(0),
 		killedAmount(0), damageAmount(0),
-		newHealth(),
+		newState(),
 		flags(0), effect(0), spellID(SpellID::NONE)
 	{};
-	void applyFirstCl(CClient * cl);
-	//void applyCl(CClient *cl);
+
 	DLL_LINKAGE void applyGs(CGameState *gs);
 
 	ui32 stackAttacked, attackerID;
 	ui32 killedAmount;
 	si32 damageAmount;
-	CHealthInfo newHealth;
+	CStackStateInfo newState;
 	enum EFlags {KILLED = 1, EFFECT = 2/*deprecated */, SECONDARY = 4, REBIRTH = 8, CLONE_KILLED = 16, SPELL_EFFECT = 32 /*, BONUS_EFFECT = 64 */};
 	ui32 flags; //uses EFlags (above)
 	ui32 effect; //set only if flag EFFECT is set
 	SpellID spellID; //only if flag SPELL_EFFECT is set
-	std::vector<StacksHealedOrResurrected> healedStacks; //used when life drain
+	std::vector<BattleStacksChanged> healedStacks; //used when life drain
 
 	bool killed() const//if target stack was killed
 	{
@@ -1481,15 +1475,11 @@ struct BattleStackAttacked : public CPackForClient
 	{
 		return flags & REBIRTH;
 	}
-	bool lifeDrain() const //if this attack involves life drain effect
-	{
-		return healedStacks.size() > 0;
-	}
 	template <typename Handler> void serialize(Handler &h, const int version)
 	{
 		h & stackAttacked;
 		h & attackerID;
-		h & newHealth;
+		h & newState;
 		h & flags;
 		h & killedAmount;
 		h & damageAmount;
@@ -1518,6 +1508,9 @@ struct BattleAttack : public CPackForClient
 	enum EFlags{SHOT = 1, COUNTER = 2, LUCKY = 4, UNLUCKY = 8, BALLISTA_DOUBLE_DMG = 16, DEATH_BLOW = 32, SPELL_LIKE = 64};
 
 	SpellID spellID; //for SPELL_LIKE
+
+	std::vector<MetaString> battleLog;
+	std::vector<CustomEffectInfo> customEffects;
 
 	bool shot() const//distance attack - decrease number of shots
 	{
@@ -1553,6 +1546,8 @@ struct BattleAttack : public CPackForClient
 		h & stackAttacking;
 		h & flags;
 		h & spellID;
+		h & battleLog;
+		h & customEffects;
 	}
 };
 
@@ -1582,23 +1577,9 @@ struct EndAction : public CPackForClient
 
 struct BattleSpellCast : public CPackForClient
 {
-	///custom effect (resistance, reflection, etc)
-	struct CustomEffect
-	{
-		/// WoG AC format
-		ui32 effect;
-		ui32 stack;
-		template <typename Handler> void serialize(Handler &h, const int version)
-		{
-			h & effect;
-			h & stack;
-		}
-	};
-
 	BattleSpellCast()
 	{
 		side = 0;
-		id = 0;
 		skill = 0;
 		manaGained = 0;
 		casterStack = -1;
@@ -1610,11 +1591,11 @@ struct BattleSpellCast : public CPackForClient
 
 	bool activeCast;
 	ui8 side; //which hero did cast spell: 0 - attacker, 1 - defender
-	ui32 id; //id of spell
+	SpellID spellID; //id of spell
 	ui8 skill; //caster's skill level
 	ui8 manaGained; //mana channeling ability
 	BattleHex tile; //destination tile (may not be set in some global/mass spells
-	std::vector<CustomEffect> customEffects;
+	std::vector<CustomEffectInfo> customEffects;
 	std::set<ui32> affectedCres; //ids of creatures affected by this spell, generally used if spell does not set any effect (like dispel or cure)
 	si32 casterStack;// -1 if not cated by creature, >=0 caster stack ID
 	bool castByHero; //if true - spell has been cast by hero, otherwise by a creature
@@ -1623,7 +1604,7 @@ struct BattleSpellCast : public CPackForClient
 	template <typename Handler> void serialize(Handler &h, const int version)
 	{
 		h & side;
-		h & id;
+		h & spellID;
 		h & skill;
 		h & manaGained;
 		h & tile;
@@ -1675,6 +1656,7 @@ struct StacksInjured : public CPackForClient
 
 	std::vector<BattleStackAttacked> stacks;
 	std::vector<MetaString> battleLog;
+
 	template <typename Handler> void serialize(Handler & h, const int version)
 	{
 		h & stacks;

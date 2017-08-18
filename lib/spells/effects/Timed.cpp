@@ -43,12 +43,12 @@ void Timed::apply(const PacketSender * server, RNG & rng, const Mechanics * m, c
 	//generate actual stack bonuses
 	//TODO: make cumulative a parameter of SetStackEffect
 
-	auto addUniqueBonus = [&sse, this](Bonus && b, const CStack * s)
+	auto addUniqueBonus = [&sse, this](Bonus && b, const IStackState * s)
 	{
 		if(cumulative)
-			sse.cumulativeUniqueBonuses.push_back(std::pair<ui32, Bonus>(s->ID, b));
+			sse.cumulativeUniqueBonuses.push_back(std::pair<ui32, Bonus>(s->unitId(), b));
 		else
-			sse.uniqueBonuses.push_back(std::pair<ui32, Bonus>(s->ID, b));
+			sse.uniqueBonuses.push_back(std::pair<ui32, Bonus>(s->unitId(), b));
 	};
 
 	std::vector<Bonus> & converted = cumulative ? sse.cumulativeEffects : sse.effect;
@@ -89,7 +89,7 @@ void Timed::apply(const PacketSender * server, RNG & rng, const Mechanics * m, c
 
 	for(auto & t : target)
 	{
-		const CStack * affected = t.stackValue;
+		const IStackState * affected = t.stackValue;
 		if(!affected)
 		{
 			server->complain("[Internal error] Invalid target for timed effect");
@@ -100,10 +100,10 @@ void Timed::apply(const PacketSender * server, RNG & rng, const Mechanics * m, c
 			continue;
 
 		si32 power = 0;
-		sse.stacks.push_back(affected->ID);
+		sse.stacks.push_back(affected->unitId());
 
 		//Apply hero specials - peculiar enchants
-		const ui8 tier = std::max((ui8)1, affected->getCreature()->level); //don't divide by 0 for certain creatures (commanders, war machines)
+		const auto tier = std::max(affected->creatureLevel(), 1); //don't divide by 0 for certain creatures (commanders, war machines)
 		if(bonus)
 		{
 			switch(bonus->additionalInfo)

@@ -20,7 +20,7 @@ ReachabilityInfo::Parameters::Parameters()
 	doubleWide = flying = false;
 }
 
-ReachabilityInfo::Parameters::Parameters(const IUnitInfo * Stack, BattleHex StartPosition)
+ReachabilityInfo::Parameters::Parameters(const IStackState * Stack, BattleHex StartPosition)
 {
 	perspective = (BattlePerspective::BattlePerspective)(Stack->unitSide());
 	startPosition = StartPosition;

@@ -10,12 +10,12 @@
 #include "StdInc.h"
 #include "PotentialTargets.h"
 
-PotentialTargets::PotentialTargets(const CStack * attacker, const HypotheticChangesToBattleState & state)
+PotentialTargets::PotentialTargets(const CStack * attacker, const HypotheticBattle & state)
 {
-	auto attackerInfo = getValOr(state.stackStates, attacker, std::make_shared<StackWithBonuses>(attacker));
+	auto attackerInfo = getValOr(state.stackStates, attacker->unitId(), std::make_shared<StackWithBonuses>(&attacker->stackState));
 
-	auto dists = getCbc()->battleGetDistances(attackerInfo.get(), attackerInfo->position);
-	auto avHexes = getCbc()->battleGetAvailableHexes(attackerInfo.get(), attackerInfo->position);
+	auto dists = getCbc()->battleGetDistances(&attackerInfo->state, attackerInfo->state.position);
+	auto avHexes = getCbc()->battleGetAvailableHexes(&attackerInfo->state, attackerInfo->state.position);
 
 	//FIXME: this should part of battleGetAvailableHexes
 	bool forcedTarget = false;
@@ -36,17 +36,14 @@ PotentialTargets::PotentialTargets(const CStack * attacker, const HypotheticChan
 
 	for(const CStack * defender : getCbc()->battleGetStacks())
 	{
-		auto defenderInfo = getValOr(state.stackStates, defender, std::make_shared<StackWithBonuses>(defender));
+		auto defenderInfo = getValOr(state.stackStates, defender->unitId(), std::make_shared<StackWithBonuses>(&defender->stackState));
 
-		if(!forcedTarget && !getCbc()->battleMatchOwner(attackerInfo.get(), defenderInfo.get()))
+		if(!forcedTarget && !getCbc()->battleMatchOwner(&attackerInfo->state, &defenderInfo->state))
 			continue;
 
 		auto GenerateAttackInfo = [&](bool shooting, BattleHex hex) -> AttackPossibility
 		{
-			auto bai = BattleAttackInfo(attacker, defender, attackerInfo.get(), defenderInfo.get(), shooting);
-
-			bai.attackerState = attackerInfo->state;
-			bai.defenderState = defenderInfo->state;
+			auto bai = BattleAttackInfo(attackerInfo->state, defenderInfo->state, shooting);
 
 			if(hex.isValid() && !shooting)
 				bai.chargedFields = dists[hex];
@@ -61,7 +58,7 @@ PotentialTargets::PotentialTargets(const CStack * attacker, const HypotheticChan
 			else
 				unreachableEnemies.push_back(defender);
 		}
-		else if(getCbc()->battleCanShoot(attacker, defender->position))
+		else if(getCbc()->battleCanShoot(attacker, defenderInfo->state.position))
 		{
 			possibleAttacks.push_back(GenerateAttackInfo(true, BattleHex::INVALID));
 		}
@@ -71,7 +68,7 @@ PotentialTargets::PotentialTargets(const CStack * attacker, const HypotheticChan
 				if(CStack::isMeleeAttackPossible(attacker, defender, hex))
 					possibleAttacks.push_back(GenerateAttackInfo(false, hex));
 
-			if(!vstd::contains_if(possibleAttacks, [=](const AttackPossibility &pa) { return pa.enemy == defender; }))
+			if(!vstd::contains_if(possibleAttacks, [=](const AttackPossibility &pa) { return pa.enemy.unitId() == defender->unitId(); }))
 				unreachableEnemies.push_back(defender);
 		}
 	}

@@ -53,7 +53,7 @@ struct EnemyInfo
 	{}
 	void calcDmg(const CStack * ourStack)
 	{
-		TDmgRange retal, dmg = cbc->battleEstimateDamage(CRandomGenerator::getDefault(), ourStack, s, &retal);
+		TDmgRange retal, dmg = cbc->battleEstimateDamage(ourStack, s, &retal);
 		adi = (dmg.first + dmg.second) / 2;
 		adr = (retal.first + retal.second) / 2;
 	}
@@ -89,7 +89,7 @@ int distToNearestNeighbour(BattleHex hex, const ReachabilityInfo::TDistances& di
 
 bool isCloser(const EnemyInfo & ei1, const EnemyInfo & ei2, const ReachabilityInfo::TDistances & dists)
 {
-	return distToNearestNeighbour(ei1.s->position, dists) < distToNearestNeighbour(ei2.s->position, dists);
+	return distToNearestNeighbour(ei1.s->getPosition(), dists) < distToNearestNeighbour(ei2.s->getPosition(), dists);
 }
 
 }
@@ -111,7 +111,7 @@ BattleAction CStupidAI::activeStack( const CStack * stack )
 {
 	//boost::this_thread::sleep(boost::posix_time::seconds(2));
 	print("activeStack called for " + stack->nodeName());
-	auto dists = cb->battleGetDistances(stack, stack->position);
+	auto dists = cb->battleGetDistances(stack, stack->getPosition());
 	std::vector<EnemyInfo> enemiesShootable, enemiesReachable, enemiesUnreachable;
 
 	if(stack->type->idNumber == CreatureID::CATAPULT)
@@ -134,7 +134,7 @@ BattleAction CStupidAI::activeStack( const CStack * stack )
 
 	for (const CStack *s : cb->battleGetStacks(CBattleCallback::ONLY_ENEMY))
 	{
-		if(cb->battleCanShoot(stack, s->position))
+		if(cb->battleCanShoot(stack, s->getPosition()))
 		{
 			enemiesShootable.push_back(s);
 		}
@@ -157,7 +157,7 @@ BattleAction CStupidAI::activeStack( const CStack * stack )
 				}
 			}
 
-			if(!vstd::contains(enemiesReachable, s) && s->position.isValid())
+			if(!vstd::contains(enemiesReachable, s) && s->getPosition().isValid())
 				enemiesUnreachable.push_back(s);
 		}
 	}
@@ -183,9 +183,9 @@ BattleAction CStupidAI::activeStack( const CStack * stack )
 		assert(enemiesUnreachable.size());
 		const EnemyInfo &ei= *std::min_element(enemiesUnreachable.begin(), enemiesUnreachable.end(), std::bind(isCloser, _1, _2, std::ref(dists)));
 		assert(ei.s);
-		if(distToNearestNeighbour(ei.s->position, dists) < GameConstants::BFIELD_SIZE)
+		if(distToNearestNeighbour(ei.s->getPosition(), dists) < GameConstants::BFIELD_SIZE)
 		{
-			return goTowards(stack, ei.s->position);
+			return goTowards(stack, ei.s->getPosition());
 		}
 	}
 
@@ -241,11 +241,6 @@ void CStupidAI::battleStart(const CCreatureSet *army1, const CCreatureSet *army2
 {
 	print("battleStart called");
 	side = Side;
-}
-
-void CStupidAI::battleStacksHealedRes(const std::vector<std::pair<ui32, ui32> > & healedStacks, bool lifeDrain, bool tentHeal, si32 lifeDrainFrom)
-{
-	print("battleStacksHealedRes called");
 }
 
 void CStupidAI::battleNewStackAppeared(const CStack * stack)

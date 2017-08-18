@@ -14,19 +14,20 @@ int AttackPossibility::damageDiff() const
 {
 	if (!priorities)
 		priorities = new Priorities();
-	const auto dealtDmgValue = priorities->stackEvaluator(enemy) * damageDealt;
-	const auto receivedDmgValue = priorities->stackEvaluator(attack.attacker) * damageReceived;
+	const auto dealtDmgValue = priorities->stackEvaluator(&enemy) * damageDealt;
+	const auto receivedDmgValue = priorities->stackEvaluator(&attack.attacker) * damageReceived;
 
 	int diff = 0;
 
 	//friendly fire or not
-	if(attack.attacker->unitSide() == enemy->unitSide())
+	if(attack.attacker.unitSide() == enemy.unitSide())
 		diff = -dealtDmgValue - receivedDmgValue;
 	else
 		diff = dealtDmgValue - receivedDmgValue;
 
 	//mind control
-	if(getCbc()->battleGetOwner(attack.attackerState.getUnitInfo()) != attack.attacker->owner)
+	auto actualSide = getCbc()->playerToSide(getCbc()->battleGetOwner(&attack.attacker));
+	if(actualSide && actualSide.get() != attack.attacker.unitSide())
 		diff = -diff;
 	return diff;
 }
@@ -38,27 +39,24 @@ int AttackPossibility::attackValue() const
 
 AttackPossibility AttackPossibility::evaluate(const BattleAttackInfo & AttackInfo, BattleHex hex)
 {
-	auto attacker = AttackInfo.attacker;
-	auto defender = AttackInfo.defender;
+	const int remainingCounterAttacks = AttackInfo.defender.counterAttacks.available();
+	const bool counterAttacksBlocked = AttackInfo.attacker.unitAsBearer()->hasBonusOfType(Bonus::BLOCKS_RETALIATION) || AttackInfo.defender.unitAsBearer()->hasBonusOfType(Bonus::NO_RETALIATION);
 
-	const int remainingCounterAttacks = AttackInfo.defenderState.counterAttacks.available();
-	const bool counterAttacksBlocked = AttackInfo.attackerBonuses->hasBonusOfType(Bonus::BLOCKS_RETALIATION) || AttackInfo.defenderBonuses->hasBonusOfType(Bonus::NO_RETALIATION);
+	const int totalAttacks = 1 + AttackInfo.attacker.unitAsBearer()->getBonuses(Selector::type(Bonus::ADDITIONAL_ATTACK), (Selector::effectRange (Bonus::NO_LIMIT).Or(Selector::effectRange(Bonus::ONLY_MELEE_FIGHT))))->totalValue();
 
-	const int totalAttacks = 1 + AttackInfo.attackerBonuses->getBonuses(Selector::type(Bonus::ADDITIONAL_ATTACK), (Selector::effectRange (Bonus::NO_LIMIT).Or(Selector::effectRange(Bonus::ONLY_MELEE_FIGHT))))->totalValue();
-
-	AttackPossibility ap = {defender, hex, AttackInfo, 0, 0, 0};
+	AttackPossibility ap = {AttackInfo.defender, hex, AttackInfo, 0, 0, 0};
 
 	BattleAttackInfo curBai = AttackInfo; //we'll modify here the stack state
 	for(int i = 0; i < totalAttacks; i++)
 	{
 		std::pair<ui32, ui32> retaliation(0,0);
-		auto attackDmg = getCbc()->battleEstimateDamage(CRandomGenerator::getDefault(), curBai, &retaliation);
+		auto attackDmg = getCbc()->battleEstimateDamage(curBai, &retaliation);
 
-		vstd::amin(attackDmg.first, curBai.defenderState.health.available());
-		vstd::amin(attackDmg.second, curBai.defenderState.health.available());
+		vstd::amin(attackDmg.first, curBai.defender.health.available());
+		vstd::amin(attackDmg.second, curBai.defender.health.available());
 
-		vstd::amin(retaliation.first, curBai.attackerState.health.available());
-		vstd::amin(retaliation.second, curBai.attackerState.health.available());
+		vstd::amin(retaliation.first, curBai.attacker.health.available());
+		vstd::amin(retaliation.second, curBai.attacker.health.available());
 
 		ap.damageDealt = (attackDmg.first + attackDmg.second) / 2;
 		ap.damageReceived = (retaliation.first + retaliation.second) / 2;
@@ -66,11 +64,11 @@ AttackPossibility AttackPossibility::evaluate(const BattleAttackInfo & AttackInf
 		if(remainingCounterAttacks <= i || counterAttacksBlocked)
 			ap.damageReceived = 0;
 
-		curBai.attackerState.health = attacker->healthAfterAttacked(ap.damageReceived, curBai.attackerState.health);
-		curBai.defenderState.health = defender->healthAfterAttacked(ap.damageDealt, curBai.defenderState.health);
-		if(!curBai.attackerState.alive())
+		curBai.attacker.damage(ap.damageReceived);
+		curBai.defender.damage(ap.damageDealt);
+		if(!curBai.attacker.alive())
 			break;
-		if(!curBai.defenderState.alive())
+		if(!curBai.defender.alive())
 			break;
 	}
 

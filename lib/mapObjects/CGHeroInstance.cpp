@@ -845,7 +845,7 @@ ui8 CGHeroInstance::getSpellSchoolLevel(const spells::Mode mode, const CSpell * 
 	return skill;
 }
 
-ui32 CGHeroInstance::getSpellBonus(const CSpell * spell, ui32 base, const CStack * affectedStack) const
+ui32 CGHeroInstance::getSpellBonus(const CSpell * spell, ui32 base, const IStackState * affectedStack) const
 {
 	//applying sorcery secondary skill
 
@@ -858,8 +858,8 @@ ui32 CGHeroInstance::getSpellBonus(const CSpell * spell, ui32 base, const CStack
 		stop = true; //only bonus from one school is used
 	});
 
-	if (affectedStack && affectedStack->getCreature()->level) //Hero specials like Solmyr, Deemer
-		base *= (100. + ((valOfBonuses(Bonus::SPECIAL_SPELL_LEV,  spell->id.toEnum()) * level) / affectedStack->getCreature()->level)) / 100.0;
+	if(affectedStack && affectedStack->creatureLevel() > 0) //Hero specials like Solmyr, Deemer
+		base *= (100. + ((valOfBonuses(Bonus::SPECIAL_SPELL_LEV, spell->id.toEnum()) * level) / affectedStack->creatureLevel())) / 100.0;
 
 	return base;
 }

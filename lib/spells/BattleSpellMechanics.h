@@ -52,7 +52,7 @@ class DLL_LINKAGE CureMechanics : public HealingSpellMechanics
 {
 public:
 	CureMechanics(const CSpell * s, const CBattleInfoCallback * Cb, const Caster * caster_);
-	bool isImmuneByStack(const CStack * obj) const override;
+	bool isImmuneByStack(const IStackState * obj) const override;
 	EHealLevel getHealLevel(int effectLevel) const override final;
 	EHealPower getHealPower(int effectLevel) const override final;
 protected:
@@ -65,7 +65,7 @@ class DLL_LINKAGE DispellMechanics : public RegularSpellMechanics
 {
 public:
 	DispellMechanics(const CSpell * s, const CBattleInfoCallback * Cb, const Caster * caster_);
-	bool isImmuneByStack(const CStack * obj) const override;
+	bool isImmuneByStack(const IStackState * obj) const override;
 protected:
 	void applyBattleEffects(const SpellCastEnvironment * env, const BattleCast & parameters, SpellCastContext & ctx) const override;
 };
@@ -84,7 +84,7 @@ class DLL_LINKAGE HypnotizeMechanics : public RegularSpellMechanics
 {
 public:
 	HypnotizeMechanics(const CSpell * s, const CBattleInfoCallback * Cb, const Caster * caster_);
-	bool isImmuneByStack(const CStack * obj) const override;
+	bool isImmuneByStack(const IStackState * obj) const override;
 };
 
 class DLL_LINKAGE ObstacleMechanics : public SpecialSpellMechanics
@@ -113,7 +113,7 @@ public:
 	bool canBeCast(Problem & problem) const override;
 	bool requiresCreatureTarget() const	override;
 protected:
-	int defaultDamageEffect(const SpellCastEnvironment * env, const BattleCast & parameters, StacksInjured & si, const TStacks & target) const override;
+	int defaultDamageEffect(const SpellCastEnvironment * env, const BattleCast & parameters, StacksInjured & si, const std::vector<const IStackState *> & target) const override;
 	void setupObstacle(SpellCreatedObstacle * obstacle) const override;
 };
 
@@ -191,7 +191,7 @@ class DLL_LINKAGE SpecialRisingSpellMechanics : public RisingSpellMechanics
 {
 public:
 	SpecialRisingSpellMechanics(const CSpell * s, const CBattleInfoCallback * Cb, const Caster * caster_);
-	bool isImmuneByStack(const CStack * obj) const override;
+	bool isImmuneByStack(const IStackState * obj) const override;
 	bool canBeCastAt(BattleHex destination) const override;
 };
 

@@ -8,20 +8,22 @@
  *
  */
 #pragma once
-#include "SiegeInfo.h"
-#include "SideInBattle.h"
+#include "../int3.h"
 #include "../HeroBonus.h"
 #include "CBattleInfoCallback.h"
-#include "../int3.h"
+#include "IBattleState.h"
+#include "SiegeInfo.h"
+#include "SideInBattle.h"
 
 class CStack;
 class CStackInstance;
 class CStackBasicDescriptor;
 
-struct DLL_LINKAGE BattleInfo : public CBonusSystemNode, public CBattleInfoCallback
+class DLL_LINKAGE BattleInfo : public CBonusSystemNode, public CBattleInfoCallback, public IBattleState
 {
+public:
 	std::array<SideInBattle, 2> sides; //sides[0] - attacker, sides[1] - defender
-	si32 round, activeStack, selectedStack;
+	si32 round, activeStack;
 	const CGTownInstance * town; //used during town siege, nullptr if this is not a siege (note that fortless town IS also a siege)
 	int3 tile; //for background and bonuses
 	std::vector<CStack*> stacks;
@@ -39,7 +41,6 @@ struct DLL_LINKAGE BattleInfo : public CBonusSystemNode, public CBattleInfoCallb
 		h & sides;
 		h & round;
 		h & activeStack;
-		h & selectedStack;
 		h & town;
 		h & tile;
 		h & stacks;
@@ -54,7 +55,35 @@ struct DLL_LINKAGE BattleInfo : public CBonusSystemNode, public CBattleInfoCallb
 
 	//////////////////////////////////////////////////////////////////////////
 	BattleInfo();
-	~BattleInfo(){};
+	virtual ~BattleInfo();
+
+	//////////////////////////////////////////////////////////////////////////
+	// IBattleInfo
+
+	int32_t getActiveStackID() const override;
+
+	TStacks getStacksIf(TStackFilter predicate) const override;
+
+	BFieldType getBattlefieldType() const override;
+	ETerrainType getTerrainType() const override;
+
+	ObstacleCList getAllObstacles() const override;
+
+	PlayerColor getSidePlayer(ui8 side) const override;
+	const CArmedInstance * getSideArmy(ui8 side) const override;
+	const CGHeroInstance * getSideHero(ui8 side) const override;
+
+	ui8 getTacticDist() const override;
+	ui8 getTacticsSide() const override;
+
+	const CGTownInstance * getDefendedTown() const override;
+	si8 getWallState(int partOfWall) const override;
+	EGateState getGateState() const override;
+
+	uint32_t getCastSpells(ui8 side) const override;
+	int32_t getEnchanterCounter(ui8 side) const override;
+
+	const IBonusBearer * asBearer() const override;
 
 	//////////////////////////////////////////////////////////////////////////
 	CStack * getStack(int stackID, bool onlyAlive = true);
@@ -79,9 +108,7 @@ struct DLL_LINKAGE BattleInfo : public CBonusSystemNode, public CBattleInfoCallb
 	void localInit();
 
 	static BattleInfo * setupBattle(int3 tile, ETerrainType terrain, BFieldType battlefieldType, const CArmedInstance * armies[2], const CGHeroInstance * heroes[2], bool creatureBank, const CGTownInstance * town);
-	//bool hasNativeStack(ui8 side) const;
 
-	PlayerColor theOtherPlayer(PlayerColor player) const;
 	ui8 whatSide(PlayerColor player) const;
 
 	static BattlefieldBI::BattlefieldBI battlefieldTypeToBI(BFieldType bfieldType); //converts above to ERM BI format
@@ -95,6 +122,6 @@ class DLL_LINKAGE CMP_stack
 	int turn;
 public:
 
-	bool operator ()(const CStack* a, const CStack* b);
+	bool operator ()(const IStackState * a, const IStackState * b);
 	CMP_stack(int Phase = 1, int Turn = 0);
 };

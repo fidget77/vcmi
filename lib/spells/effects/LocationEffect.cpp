@@ -36,7 +36,7 @@ EffectTarget LocationEffect::filterTarget(const Mechanics * m, const BattleCast 
 
 EffectTarget LocationEffect::transformTarget(const Mechanics * m, const Target & aimPoint, const Target & spellTarget) const
 {
-	//by def ault effect covers exactly spell range
+	//by default effect covers exactly spell range
 	return EffectTarget(spellTarget);
 }
 

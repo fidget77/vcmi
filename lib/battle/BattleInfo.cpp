@@ -16,6 +16,7 @@
 #include "../mapObjects/CGTownInstance.h"
 #include "../CGeneralTextHandler.h"
 
+///BattleInfo
 const CStack * BattleInfo::getNextStack() const
 {
 	std::vector<const CStack *> hlp;
@@ -51,7 +52,7 @@ std::pair< std::vector<BattleHex>, int > BattleInfo::getPath(BattleHex start, Ba
 ui32 BattleInfo::calculateDmg(const CStack * attacker, const CStack * defender,
 	bool shooting, ui8 charge, bool lucky, bool unlucky, bool deathBlow, bool ballistaDoubleDmg, CRandomGenerator & rand)
 {
-	BattleAttackInfo bai(attacker, defender, attacker, defender, shooting);
+	BattleAttackInfo bai(attacker->stackState, defender->stackState, shooting);
 	bai.chargedFields = charge;
 	bai.luckyHit = lucky;
 	bai.unluckyHit = unlucky;
@@ -92,7 +93,7 @@ CStack * BattleInfo::generateNewStack(const CStackInstance & base, ui8 side, Slo
 		(base.armyObj && base.armyObj->tempOwner == owner));
 
 	auto ret = new CStack(&base, owner, stackID, side, slot);
-	ret->position = getAvaliableHex(base.getCreatureID(), side, position); //TODO: what if no free tile on battlefield was found?
+	ret->initialPosition = getAvaliableHex(base.getCreatureID(), side, position); //TODO: what if no free tile on battlefield was found?
 	return ret;
 }
 
@@ -101,7 +102,7 @@ CStack * BattleInfo::generateNewStack(const CStackBasicDescriptor & base, ui8 si
 	int stackID = getIdForNewStack();
 	PlayerColor owner = sides[side].color;
 	auto ret = new CStack(&base, owner, stackID, side, slot);
-	ret->position = position;
+	ret->initialPosition = position;
 	return ret;
 }
 
@@ -627,11 +628,6 @@ const CGHeroInstance * BattleInfo::getHero(PlayerColor player) const
 	return nullptr;
 }
 
-PlayerColor BattleInfo::theOtherPlayer(PlayerColor player) const
-{
-	return sides[!whatSide(player)].color;
-}
-
 ui8 BattleInfo::whatSide(PlayerColor player) const
 {
 	for(int i = 0; i < sides.size(); i++)
@@ -686,12 +682,101 @@ CStack * BattleInfo::getStack(int stackID, bool onlyAlive)
 }
 
 BattleInfo::BattleInfo()
-	: round(-1), activeStack(-1), selectedStack(-1), town(nullptr), tile(-1,-1,-1),
+	: round(-1), activeStack(-1), town(nullptr), tile(-1,-1,-1),
 	battlefieldType(BFieldType::NONE), terrainType(ETerrainType::WRONG),
 	tacticsSide(0), tacticDistance(0)
 {
 	setBattle(this);
 	setNodeType(BATTLE);
+}
+
+BattleInfo::~BattleInfo() = default;
+
+int32_t BattleInfo::getActiveStackID() const
+{
+	return activeStack;
+}
+
+TStacks BattleInfo::getStacksIf(TStackFilter predicate) const
+{
+	TStacks ret;
+	vstd::copy_if(stacks, std::back_inserter(ret), predicate);
+	return ret;
+}
+
+BFieldType BattleInfo::getBattlefieldType() const
+{
+	return battlefieldType;
+}
+
+ETerrainType BattleInfo::getTerrainType() const
+{
+	return terrainType;
+}
+
+IBattleInfo::ObstacleCList BattleInfo::getAllObstacles() const
+{
+	ObstacleCList ret;
+
+	for(auto iter = obstacles.cbegin(); iter != obstacles.cend(); iter++)
+		ret.push_back(*iter);
+
+	return ret;
+}
+
+PlayerColor BattleInfo::getSidePlayer(ui8 side) const
+{
+	return sides.at(side).color;
+}
+
+const CArmedInstance * BattleInfo::getSideArmy(ui8 side) const
+{
+	return sides.at(side).armyObject;
+}
+
+const CGHeroInstance * BattleInfo::getSideHero(ui8 side) const
+{
+	return sides.at(side).hero;
+}
+
+ui8 BattleInfo::getTacticDist() const
+{
+	return tacticDistance;
+}
+
+ui8 BattleInfo::getTacticsSide() const
+{
+	return tacticsSide;
+}
+
+const CGTownInstance * BattleInfo::getDefendedTown() const
+{
+	return town;
+}
+
+si8 BattleInfo::getWallState(int partOfWall) const
+{
+	return si.wallState.at(partOfWall);
+}
+
+EGateState BattleInfo::getGateState() const
+{
+	return si.gateState;
+}
+
+uint32_t BattleInfo::getCastSpells(ui8 side) const
+{
+	return sides.at(side).castSpellsCount;
+}
+
+int32_t BattleInfo::getEnchanterCounter(ui8 side) const
+{
+	return sides.at(side).enchanterCounter;
+}
+
+const IBonusBearer * BattleInfo::asBearer() const
+{
+	return this;
 }
 
 CArmedInstance * BattleInfo::battleGetArmyObject(ui8 side) const
@@ -705,29 +790,29 @@ CGHeroInstance * BattleInfo::battleGetFightingHero(ui8 side) const
 }
 
 
-bool CMP_stack::operator()(const CStack* a, const CStack* b)
+bool CMP_stack::operator()(const IStackState * a, const IStackState * b)
 {
 	switch(phase)
 	{
 	case 0: //catapult moves after turrets
-		return a->getCreature()->idNumber > b->getCreature()->idNumber; //catapult is 145 and turrets are 149
+		return a->creatureIndex() > b->creatureIndex(); //catapult is 145 and turrets are 149
 	case 1: //fastest first, upper slot first
 		{
-			int as = a->Speed(turn), bs = b->Speed(turn);
+			int as = a->unitAsBearer()->Speed(turn), bs = b->unitAsBearer()->Speed(turn);
 			if(as != bs)
 				return as > bs;
 			else
-				return a->slot < b->slot;
+				return a->unitSlot() < b->unitSlot(); //FIXME: what about summoned stacks?
 		}
 	case 2: //fastest last, upper slot first
 		//TODO: should be replaced with order of receiving morale!
 	case 3: //fastest last, upper slot first
 		{
-			int as = a->Speed(turn), bs = b->Speed(turn);
+			int as = a->unitAsBearer()->Speed(turn), bs = b->unitAsBearer()->Speed(turn);
 			if(as != bs)
 				return as < bs;
 			else
-				return a->slot < b->slot;
+				return a->unitSlot() < b->unitSlot();
 		}
 	default:
 		assert(0);

@@ -212,7 +212,7 @@ TEST_F(CGameStateTest, issue2765)
 		cast.spellLvl = 3;
 		cast.effectLevel = 3;
 
-		EXPECT_FALSE(age->canBeCastAt(battle, spells::Mode::AFTER_ATTACK, att, def->position));
+		EXPECT_FALSE(age->canBeCastAt(battle, spells::Mode::AFTER_ATTACK, att, def->getPosition()));
 
 		EXPECT_TRUE(cast.castIfPossible(this));//should be possible, but with no effect (change to aimed cast check?)
 

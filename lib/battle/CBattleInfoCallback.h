@@ -13,7 +13,6 @@
 #include "BattleAttackInfo.h"
 
 class CGHeroInstance;
-class IUnitInfo;
 class CStack;
 class ISpellCaster;
 class CSpell;
@@ -53,10 +52,10 @@ public:
 	std::vector<BattleHex> battleGetAvailableHexes(const CStack * stack, bool addOccupiable, std::vector<BattleHex> * attackable = nullptr) const;
 
 	///returns reachable hexes (valid movement destinations), DOES contain stack current position (lite version)
-	std::vector<BattleHex> battleGetAvailableHexes(const IUnitInfo * stack, BattleHex assumedPosition) const;
+	std::vector<BattleHex> battleGetAvailableHexes(const IStackState * stack, BattleHex assumedPosition) const;
 
 	int battleGetSurrenderCost(PlayerColor Player) const; //returns cost of surrendering battle, -1 if surrendering is not possible
-	ReachabilityInfo::TDistances battleGetDistances(const IUnitInfo * stack, BattleHex assumedPosition) const;
+	ReachabilityInfo::TDistances battleGetDistances(const IStackState * stack, BattleHex assumedPosition) const;
 	std::set<BattleHex> battleGetAttackedHexes(const CStack* attacker, BattleHex destinationTile, BattleHex attackerPos = BattleHex::INVALID) const;
 
 	bool battleCanAttack(const CStack * stack, const CStack * target, BattleHex dest) const; //determines if stack with given ID can attack target at the selected destination
@@ -67,8 +66,8 @@ public:
 	TDmgRange calculateDmgRange(const BattleAttackInfo & info) const; //charge - number of hexes travelled before attack (for champion's jousting); returns pair <min dmg, max dmg>
 
 	//hextowallpart //int battleGetWallUnderHex(BattleHex hex) const; //returns part of destructible wall / gate / keep under given hex or -1 if not found
-	std::pair<ui32, ui32> battleEstimateDamage(CRandomGenerator & rand, const BattleAttackInfo & bai, std::pair<ui32, ui32> * retaliationDmg = nullptr) const; //estimates damage dealt by attacker to defender; it may be not precise especially when stack has randomly working bonuses; returns pair <min dmg, max dmg>
-	std::pair<ui32, ui32> battleEstimateDamage(CRandomGenerator & rand, const CStack * attacker, const CStack * defender, std::pair<ui32, ui32> * retaliationDmg = nullptr) const; //estimates damage dealt by attacker to defender; it may be not precise especially when stack has randomly working bonuses; returns pair <min dmg, max dmg>
+	std::pair<ui32, ui32> battleEstimateDamage(const BattleAttackInfo & bai, std::pair<ui32, ui32> * retaliationDmg = nullptr) const; //estimates damage dealt by attacker to defender; it may be not precise especially when stack has randomly working bonuses; returns pair <min dmg, max dmg>
+	std::pair<ui32, ui32> battleEstimateDamage(const CStack * attacker, const CStack * defender, std::pair<ui32, ui32> * retaliationDmg = nullptr) const; //estimates damage dealt by attacker to defender; it may be not precise especially when stack has randomly working bonuses; returns pair <min dmg, max dmg>
 	si8 battleHasDistancePenalty(const CStack * stack, BattleHex destHex) const;
 	si8 battleHasDistancePenalty(const IBonusBearer * bonusBearer, BattleHex shooterPosition, BattleHex destHex) const;
 	si8 battleHasWallPenalty(const CStack * stack, BattleHex destHex) const; //checks if given stack has wall penalty
@@ -89,7 +88,7 @@ public:
 	SpellID getRandomCastedSpell(CRandomGenerator & rand, const CStack * caster) const; //called at the beginning of turn for Faerie Dragon
 
 	si8 battleHasShootingPenalty(const CStack * stack, BattleHex destHex);
-	si8 battleCanTeleportTo(const CStack * stack, BattleHex destHex, int telportLevel) const; //checks if teleportation of given stack to given position can take place
+	si8 battleCanTeleportTo(const IStackState * stack, BattleHex destHex, int telportLevel) const; //checks if teleportation of given stack to given position can take place
 
 	//convenience methods using the ones above
 	bool isInTacticRange(BattleHex dest) const;
@@ -103,7 +102,7 @@ public:
 	ReachabilityInfo getReachability(const CStack *stack) const;
 	ReachabilityInfo getReachability(const ReachabilityInfo::Parameters & params) const;
 	AccessibilityInfo getAccesibility() const;
-	AccessibilityInfo getAccesibility(const CStack *stack) const; //Hexes ocupied by stack will be marked as accessible.
+	AccessibilityInfo getAccesibility(const IStackState * stack) const; //Hexes ocupied by stack will be marked as accessible.
 	AccessibilityInfo getAccesibility(const std::vector<BattleHex> & accessibleHexes) const; //given hexes will be marked as accessible
 	std::pair<const CStack *, BattleHex> getNearestStack(const CStack * closest, BattleSideOpt side) const;
 

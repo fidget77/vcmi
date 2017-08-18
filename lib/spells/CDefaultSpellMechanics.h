@@ -34,7 +34,7 @@ public:
 	si32 getDamageToDisplay() const;
 
 	void addBattleLog(MetaString && line);
-	void addCustomEffect(const CStack * target, ui32 effect);
+	void addCustomEffect(const IStackState * target, ui32 effect);
 
 	void beforeCast();
 	void cast();
@@ -60,8 +60,8 @@ public:
 	std::vector<BattleHex> rangeInHexes(BattleHex centralHex, ui8 schoolLvl, bool * outDroppedHexes = nullptr) const override;
 
 	bool canBeCast(Problem & problem) const override;
-
-	virtual bool isImmuneByStack(const CStack * obj) const;
+	void cast(IBattleState * battleState, const BattleCast & parameters) const override;
+	virtual bool isImmuneByStack(const IStackState * obj) const;
 
 	virtual bool requiresCreatureTarget() const;
 
@@ -71,8 +71,8 @@ protected:
 	bool canDispell(const IBonusBearer * obj, const CSelector & selector, const std::string & cachingStr = "") const;
 	void doDispell(const SpellCastEnvironment * env, SpellCastContext & ctx, const CSelector & selector) const;
 
-	virtual int defaultDamageEffect(const SpellCastEnvironment * env, const BattleCast & parameters, StacksInjured & si, const TStacks & target) const;
-	virtual void defaultTimedEffect(const SpellCastEnvironment * env, const BattleCast & parameters, SetStackEffect & sse, const TStacks & target) const;
+	virtual int defaultDamageEffect(const SpellCastEnvironment * env, const BattleCast & parameters, StacksInjured & si, const std::vector<const IStackState *> & target) const;
+	virtual void defaultTimedEffect(const SpellCastEnvironment * env, const BattleCast & parameters, SetStackEffect & sse, const std::vector<const IStackState *> & target) const;
 
 	void handleResistance(const SpellCastEnvironment * env, SpellCastContext & ctx) const;
 	void handleMagicMirror(const SpellCastEnvironment * env, SpellCastContext & ctx, std::vector <const CStack*> & reflected) const;

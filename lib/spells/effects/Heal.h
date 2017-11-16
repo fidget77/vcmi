@@ -10,7 +10,7 @@
 
 #pragma once
 
-#include "StackEffect.h"
+#include "UnitEffect.h"
 #include "../../GameConstants.h"
 
 struct BattleStacksChanged;
@@ -20,7 +20,7 @@ namespace spells
 namespace effects
 {
 
-class Heal : public StackEffect
+class Heal : public UnitEffect
 {
 public:
 	Heal(const int level);
@@ -31,7 +31,10 @@ public:
 
 protected:
 	bool isValidTarget(const Mechanics * m, const battle::Unit * unit) const override;
-	void serializeJsonEffect(JsonSerializeFormat & handler) override final;
+	void serializeJsonUnitEffect(JsonSerializeFormat & handler) override final;
+	virtual void serializeJsonHealEffect(JsonSerializeFormat & handler);
+
+	void apply(int64_t value, const PacketSender * server, RNG & rng, const Mechanics * m, const EffectTarget & target) const;
 
 private:
     EHealLevel healLevel;
@@ -39,7 +42,7 @@ private:
 
 	int32_t minFullUnits;
 
-	void prepareEffects(BattleStacksChanged & pack, RNG & rng, const Mechanics * m, const EffectTarget & target) const;
+	void prepareHealEffect(int64_t value, BattleStacksChanged & pack, RNG & rng, const Mechanics * m, const EffectTarget & target) const;
 };
 
 } // namespace effects

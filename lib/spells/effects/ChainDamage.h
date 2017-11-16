@@ -1,5 +1,5 @@
 /*
- * LocationEffect.h, part of VCMI engine
+ * ChainDamage.h, part of VCMI engine
  *
  * Authors: listed in file AUTHORS in main folder
  *
@@ -10,26 +10,27 @@
 
 #pragma once
 
-#include "Effect.h"
-
+#include "Damage.h"
 
 namespace spells
 {
 namespace effects
 {
 
-class LocationEffect : public Effect
+class ChainDamage : public Damage
 {
 public:
-	LocationEffect(const int level);
-	virtual ~LocationEffect();
-
-	EffectTarget filterTarget(const Mechanics * m, const EffectTarget & target) const override;
+	ChainDamage(const int level);
+	virtual ~ChainDamage();
 
 	EffectTarget transformTarget(const Mechanics * m, const Target & aimPoint, const Target & spellTarget) const override;
 protected:
+	int64_t damageForTarget(size_t targetIndex, const Mechanics * m, const battle::Unit * target) const override;
 
+	void serializeJsonDamageEffect(JsonSerializeFormat & handler) override;
 private:
+	int32_t length;
+	double factor;
 };
 
 } // namespace effects

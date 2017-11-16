@@ -172,10 +172,25 @@ void CustomSpellMechanics::cast(const SpellCastEnvironment * env, const BattleCa
 
 	ctx.attackedCres = affected;
 
+	switch (mode)
+	{
+	case Mode::CREATURE_ACTIVE:
+	case Mode::ENCHANTER:
+	case Mode::HERO:
+	case Mode::PASSIVE:
+		{
+			MetaString line;
+			caster->getCastDescription(owner, affected, line);
+			ctx.addBattleLog(std::move(line));
+		}
+		break;
+
+	default:
+		break;
+	}
+
 	//TODO: handle special cases
-	MetaString line;
-	caster->getCastDescription(owner, affected, line);
-	ctx.addBattleLog(std::move(line));
+
 
 	//now we actually cast a spell
 	ctx.cast();
@@ -227,7 +242,6 @@ std::set<const battle::Unit *> CustomSpellMechanics::collectTargets(const effect
 
 	return result;
 }
-
 
 Target CustomSpellMechanics::transformSpellTarget(const Target & aimPoint) const
 {

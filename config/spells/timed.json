@@ -239,9 +239,9 @@
 					"dispel":{
 						"type":"core:dispel",
 						"optional":true,
-						"negative":true,
-						"neutral":true,
-						"positive":false
+						"dispelNegative":true,
+						"dispelNeutral":true,
+						"dispelPositive":false
 					}
 				}
 			},

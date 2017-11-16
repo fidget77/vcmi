@@ -5427,19 +5427,8 @@ void CGameHandler::handleAttackBeforeCasting(bool ranged, const CStack * attacke
 
 void CGameHandler::handleAfterAttackCasting(bool ranged, const CStack * attacker, const CStack * defender)
 {
-	if (!attacker->alive() || !defender->alive()) // can be already dead
+	if(!attacker->alive() || !defender->alive()) // can be already dead
 		return;
-
-	auto cast = [=](SpellID spellID, int power)
-	{
-		const CSpell * spell = SpellID(spellID).toSpell();
-
-		spells::BattleCast parameters(gs->curB, attacker, spells::Mode::AFTER_ATTACK, spell);
-		parameters.setSpellLevel(0);
-		parameters.aimToStack(defender);
-		parameters.setEffectPower(power);
-		parameters.cast(spellEnv);
-	};
 
 	attackCasting(ranged, Bonus::SPELL_AFTER_ATTACK, attacker, defender);
 
@@ -5470,14 +5459,20 @@ void CGameHandler::handleAfterAttackCasting(bool ranged, const CStack * attacker
 		if(staredCreatures)
 		{
 			//TODO: death stare was not originally available for multiple-hex attacks, but...
-			cast(SpellID::DEATH_STARE, staredCreatures);
+			const CSpell * spell = SpellID(SpellID::DEATH_STARE).toSpell();
+
+			spells::BattleCast parameters(gs->curB, attacker, spells::Mode::AFTER_ATTACK, spell);
+			parameters.setSpellLevel(0);
+			parameters.aimToStack(defender);
+			parameters.setEffectValue(staredCreatures);
+			parameters.cast(spellEnv);
 		}
 	}
 
 	if(!defender->alive())
 		return;
 
-	int acidDamage = 0;
+	int64_t acidDamage = 0;
 	TBonusListPtr acidBreath = attacker->getBonuses(Selector::type(Bonus::ACID_BREATH));
 	for(const std::shared_ptr<Bonus> b : *acidBreath)
 	{
@@ -5485,8 +5480,17 @@ void CGameHandler::handleAfterAttackCasting(bool ranged, const CStack * attacker
 			acidDamage += b->val;
 	}
 
-	if(acidDamage)
-		cast(SpellID::ACID_BREATH_DAMAGE, acidDamage * attacker->getCount());
+	if(acidDamage > 0)
+	{
+		const CSpell * spell = SpellID(SpellID::ACID_BREATH_DAMAGE).toSpell();
+
+		spells::BattleCast parameters(gs->curB, attacker, spells::Mode::AFTER_ATTACK, spell);
+		parameters.setSpellLevel(0);
+		parameters.aimToStack(defender);
+		parameters.setEffectValue(acidDamage * attacker->getCount());
+		parameters.cast(spellEnv);
+	}
+
 
 	if(!defender->alive())
 		return;

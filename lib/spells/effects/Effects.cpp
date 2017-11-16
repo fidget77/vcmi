@@ -26,9 +26,10 @@ Effects::Effects() = default;
 
 Effects::~Effects() = default;
 
-void Effects::add(std::shared_ptr<Effect> effect, const int level)
+void Effects::add(const std::string & name, std::shared_ptr<Effect> effect, const int level)
 {
-	data.at(level).push_back(effect);
+	effect->name = name;
+	data.at(level)[name] = effect;
 }
 
 bool Effects::applicable(Problem & problem, const Mechanics * m) const
@@ -41,6 +42,9 @@ bool Effects::applicable(Problem & problem, const Mechanics * m) const
 
 	auto callback = [&res, &res2, &problem, m](const Effect * e, bool & stop)
 	{
+		if(!e->automatic)
+			return;
+
 		if(e->applicable(problem, m))
 		{
 			res2 = true;
@@ -66,6 +70,9 @@ bool Effects::applicable(Problem & problem, const Mechanics * m, const Target & 
 	bool res2 = false;
 	auto callback = [&res, &res2, &problem, &aimPoint, &spellTarget, m](const Effect * e, bool & stop)
 	{
+		if(!e->automatic)
+			return;
+
 		EffectTarget target = e->transformTarget(m, aimPoint, spellTarget);
 
 		if(e->applicable(problem, m, aimPoint, target))
@@ -89,7 +96,7 @@ void Effects::forEachEffect(const int level, const std::function<void(const Effe
 	bool stop = false;
 	for(auto one : data.at(level))
 	{
-		callback(one.get(), stop);
+		callback(one.second.get(), stop);
 		if(stop)
 			return;
 	}
@@ -101,7 +108,16 @@ Effects::EffectsToApply Effects::prepare(const Mechanics * m, const Target & aim
 
 	auto callback = [&](const Effect * e, bool & stop)
 	{
-		if(e->automatic)
+		bool applyThis = false;
+
+		//todo: find a better way to handle such special cases
+
+		if(m->getSpellIndex() == SpellID::RESURRECTION && e->name == "cure")
+			applyThis = m->mode == Mode::CREATURE_ACTIVE;
+		else
+			applyThis = e->automatic;
+
+		if(applyThis)
 		{
 			EffectTarget target = e->transformTarget(m, aimPoint, spellTarget);
 			effectsToApply.push_back(std::make_pair(e, target));
@@ -137,7 +153,7 @@ void Effects::serializeJson(JsonSerializeFormat & handler, const int level)
 
 		auto effect = std::shared_ptr<Effect>(factory->create(level));
 		effect->serializeJson(handler);
-		add(effect, level);
+		add(name, effect, level);
 	}
 }
 

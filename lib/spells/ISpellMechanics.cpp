@@ -26,7 +26,6 @@
 
 #include "AdventureSpellMechanics.h"
 #include "BattleSpellMechanics.h"
-#include "CreatureSpellMechanics.h"
 #include "CustomSpellMechanics.h"
 
 #include "effects/Effects.h"
@@ -120,13 +119,13 @@ public:
 			const CSpell::LevelInfo & levelInfo = s->getLevelInfo(level);
 			assert(levelInfo.specialEffects.isNull());
 
-			std::shared_ptr<effects::Effect> effect;
-
 			if(s->isOffensiveSpell())
 			{
 				//default constructed object should be enough
-				effect = std::make_shared<effects::Damage>(level);
+				effects->add("directDamage", std::make_shared<effects::Damage>(level), level);
 			}
+
+			std::shared_ptr<effects::Effect> effect;
 
 			if(!levelInfo.effects.empty())
 			{
@@ -145,7 +144,7 @@ public:
 			}
 
 			if(effect)
-				effects->add(effect, level);
+				effects->add("timed", effect, level);
 		}
 	}
 };
@@ -384,20 +383,7 @@ std::unique_ptr<ISpellMechanicsFactory> ISpellMechanicsFactory::get(const CSpell
 	//to be converted
 	switch(s->id)
 	{
-	case SpellID::RESURRECTION:
-		return make_unique<SpellMechanicsFactory<SpecialRisingSpellMechanics>>(s);
-	case SpellID::ACID_BREATH_DAMAGE:
-		return make_unique<SpellMechanicsFactory<AcidBreathDamageMechanics>>(s);
-	case SpellID::CHAIN_LIGHTNING:
-		return make_unique<SpellMechanicsFactory<ChainLightningMechanics>>(s);
-	case SpellID::DEATH_STARE:
-		return make_unique<SpellMechanicsFactory<DeathStareMechanics>>(s);
-	case SpellID::DISPEL:
-		return make_unique<SpellMechanicsFactory<DispellMechanics>>(s);
-	case SpellID::DISPEL_HELPFUL_SPELLS:
-		return make_unique<SpellMechanicsFactory<DispellHelpfulMechanics>>(s);
-	case SpellID::EARTHQUAKE:
-		return make_unique<SpellMechanicsFactory<EarthquakeMechanics>>(s);
+
 	case SpellID::FIRE_WALL:
 		return make_unique<SpellMechanicsFactory<FireWallMechanics>>(s);
 	case SpellID::FORCE_FIELD:
@@ -406,20 +392,9 @@ std::unique_ptr<ISpellMechanicsFactory> ISpellMechanicsFactory::get(const CSpell
 		return make_unique<SpellMechanicsFactory<LandMineMechanics>>(s);
 	case SpellID::QUICKSAND:
 		return make_unique<SpellMechanicsFactory<QuicksandMechanics>>(s);
-	case SpellID::REMOVE_OBSTACLE:
-		return make_unique<SpellMechanicsFactory<RemoveObstacleMechanics>>(s);
-	case SpellID::SACRIFICE:
-		return make_unique<SpellMechanicsFactory<SacrificeMechanics>>(s);
-	case SpellID::STONE_GAZE:
-	case SpellID::POISON:
-	case SpellID::BIND:
-	case SpellID::DISEASE:
-	case SpellID::PARALYZE:
+
 	case SpellID::THUNDERBOLT:
-	case SpellID::ACID_BREATH_DEFENSE:
-	case SpellID::AGE:
-		//do not touch original creature abilities for now
-		//TODO: configurable log messages
+
 		return make_unique<SpellMechanicsFactory<RegularSpellMechanics>>(s);
 	default:
 		return make_unique<FallbackMechanicsFactory>(s);

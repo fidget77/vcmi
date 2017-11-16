@@ -98,29 +98,3 @@ public:
 	}
 };
 
-namespace RandomGeneratorUtil
-{
-	template<typename Container>
-	auto nextItem(const Container & container, CRandomGenerator & rand) -> decltype(std::begin(container))
-	{
-		assert(!container.empty());
-		return std::next(container.begin(), rand.nextInt(container.size() - 1));
-	}
-
-	template<typename Container>
-	auto nextItem(Container & container, CRandomGenerator & rand) -> decltype(std::begin(container))
-	{
-		assert(!container.empty());
-		return std::next(container.begin(), rand.nextInt(container.size() - 1));
-	}
-
-	template<typename T>
-	void randomShuffle(std::vector<T>& container, CRandomGenerator & rand)
-	{
-		int n = (container.end() - container.begin());
-		for (int i = n-1; i>0; --i)
-		{
-			std::swap (container.begin()[i],container.begin()[rand.nextInt(i)]);
-		}
-	}
-}

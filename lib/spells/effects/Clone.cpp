@@ -27,7 +27,7 @@ namespace effects
 VCMI_REGISTER_SPELL_EFFECT(Clone, EFFECT_NAME);
 
 Clone::Clone(const int level)
-	: StackEffect(level),
+	: UnitEffect(level),
 	maxTier(0)
 {
 }
@@ -99,7 +99,7 @@ bool Clone::isReceptive(const Mechanics * m, const battle::Unit * s) const
 		return false;
 
 	//use default algorithm only if there is no mechanics-related problem
-	return StackEffect::isReceptive(m, s);
+	return UnitEffect::isReceptive(m, s);
 }
 
 bool Clone::isValidTarget(const Mechanics * m, const battle::Unit * s) const
@@ -111,10 +111,10 @@ bool Clone::isValidTarget(const Mechanics * m, const battle::Unit * s) const
 	if(s->hasClone())
 		return false;
 
-	return StackEffect::isValidTarget(m, s);
+	return UnitEffect::isValidTarget(m, s);
 }
 
-void Clone::serializeJsonEffect(JsonSerializeFormat & handler)
+void Clone::serializeJsonUnitEffect(JsonSerializeFormat & handler)
 {
 	handler.serializeInt("maxTier", maxTier);
 }

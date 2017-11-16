@@ -10,17 +10,18 @@
 
 #pragma once
 
-#include "StackEffect.h"
+#include "UnitEffect.h"
 
 struct Bonus;
 struct SetStackEffect;
+struct MetaString;
 
 namespace spells
 {
 namespace effects
 {
 
-class Timed : public StackEffect
+class Timed : public UnitEffect
 {
 public:
 	bool cumulative;
@@ -33,11 +34,12 @@ public:
 	void apply(IBattleState * battleState, RNG & rng, const Mechanics * m, const EffectTarget & target) const override;
 
 protected:
-	void serializeJsonEffect(JsonSerializeFormat & handler) override final;
+	void serializeJsonUnitEffect(JsonSerializeFormat & handler) override final;
 
 private:
 	void convertBonus(const Mechanics * m, int32_t & duration, std::vector<Bonus> & converted) const;
-	void prepareEffects(SetStackEffect & sse, const Mechanics * m, const EffectTarget & target) const;
+	void describeEffect(std::vector<MetaString> & log, const Mechanics * m, const std::vector<Bonus> & bonuses, const battle::Unit * target) const;
+	void prepareEffects(SetStackEffect & sse, const Mechanics * m, const EffectTarget & target, bool describe) const;
 };
 
 } // namespace effects

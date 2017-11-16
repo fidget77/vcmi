@@ -1,5 +1,5 @@
 /*
- * StackEffect.cpp, part of VCMI engine
+ * UnitEffect.cpp, part of VCMI engine
  *
  * Authors: listed in file AUTHORS in main folder
  *
@@ -9,26 +9,28 @@
  */
 #include "StdInc.h"
 
-#include "StackEffect.h"
+#include "UnitEffect.h"
 
 #include "../ISpellMechanics.h"
 
 #include "../../NetPacksBase.h"
 #include "../../battle/CBattleInfoCallback.h"
+#include "../../serializer/JsonSerializeFormat.h"
 
 namespace spells
 {
 namespace effects
 {
 
-StackEffect::StackEffect(const int level)
-	: Effect(level)
+UnitEffect::UnitEffect(const int level)
+	: Effect(level),
+	ignoreImmunity(false)
 {
 }
 
-StackEffect::~StackEffect() = default;
+UnitEffect::~UnitEffect() = default;
 
-bool StackEffect::applicable(Problem & problem, const Mechanics * m) const
+bool UnitEffect::applicable(Problem & problem, const Mechanics * m) const
 {
 	//stack effect is applicable in general if there is at least one smart target
 
@@ -39,10 +41,10 @@ bool StackEffect::applicable(Problem & problem, const Mechanics * m) const
 	case Mode::ENCHANTER:
 	case Mode::PASSIVE:
 		{
-			auto mainFilter = std::bind(&StackEffect::getStackFilter, this, m, true, _1);
-			auto predicate = std::bind(&StackEffect::eraseByImmunityFilter, this, m, _1);
+			auto mainFilter = std::bind(&UnitEffect::getStackFilter, this, m, true, _1);
+			auto predicate = std::bind(&UnitEffect::eraseByImmunityFilter, this, m, _1);
 
-			TStacks targets = m->cb->battleGetStacksIf(mainFilter);
+			auto targets = m->cb->battleGetUnitsIf(mainFilter);
 			vstd::erase_if(targets, predicate);
 			if(targets.empty())
 			{
@@ -58,7 +60,7 @@ bool StackEffect::applicable(Problem & problem, const Mechanics * m) const
 	return true;
 }
 
-bool StackEffect::applicable(Problem & problem, const Mechanics * m, const Target & aimPoint, const EffectTarget & target) const
+bool UnitEffect::applicable(Problem & problem, const Mechanics * m, const Target & aimPoint, const EffectTarget & target) const
 {
 	//stack effect is applicable if it affects at least one smart target
 	//assume target correctly transformed, just reapply smart filter
@@ -72,17 +74,17 @@ bool StackEffect::applicable(Problem & problem, const Mechanics * m, const Targe
 	return false;
 }
 
-bool StackEffect::getStackFilter(const Mechanics * m, bool alwaysSmart, const battle::Unit * s) const
+bool UnitEffect::getStackFilter(const Mechanics * m, bool alwaysSmart, const battle::Unit * s) const
 {
 	return isValidTarget(m, s) && isSmartTarget(m, s, alwaysSmart);
 }
 
-bool StackEffect::eraseByImmunityFilter(const Mechanics * m, const battle::Unit * s) const
+bool UnitEffect::eraseByImmunityFilter(const Mechanics * m, const battle::Unit * s) const
 {
 	return !isReceptive(m, s);
 }
 
-EffectTarget StackEffect::filterTarget(const Mechanics * m, const EffectTarget & target) const
+EffectTarget UnitEffect::filterTarget(const Mechanics * m, const EffectTarget & target) const
 {
 	EffectTarget res;
 	vstd::copy_if(target, std::back_inserter(res), [this, m](const Destination & d)
@@ -98,9 +100,9 @@ EffectTarget StackEffect::filterTarget(const Mechanics * m, const EffectTarget &
 	return res;
 }
 
-EffectTarget StackEffect::transformTarget(const Mechanics * m, const Target & aimPoint, const Target & spellTarget) const
+EffectTarget UnitEffect::transformTarget(const Mechanics * m, const Target & aimPoint, const Target & spellTarget) const
 {
-	auto mainFilter = std::bind(&StackEffect::getStackFilter, this, m, false, _1);
+	auto mainFilter = std::bind(&UnitEffect::getStackFilter, this, m, false, _1);
 
 	Target spellTargetCopy(spellTarget);
 
@@ -109,8 +111,6 @@ EffectTarget StackEffect::transformTarget(const Mechanics * m, const Target & ai
 	//also hackfix for banned creature massive spells
 	if(!aimPoint.empty())
 		spellTargetCopy.insert(spellTargetCopy.begin(), Destination(aimPoint.front()));
-
-	Destination mainDestination = spellTargetCopy.front();
 
 	std::set<const battle::Unit *> targets;
 
@@ -165,7 +165,7 @@ EffectTarget StackEffect::transformTarget(const Mechanics * m, const Target & ai
 		}
 	}
 
-	auto predicate = std::bind(&StackEffect::eraseByImmunityFilter, this, m, _1);
+	auto predicate = std::bind(&UnitEffect::eraseByImmunityFilter, this, m, _1);
 
 	vstd::erase_if(targets, predicate);
 
@@ -185,24 +185,45 @@ EffectTarget StackEffect::transformTarget(const Mechanics * m, const Target & ai
 	return effectTarget;
 }
 
-bool StackEffect::isValidTarget(const Mechanics * m, const battle::Unit * s) const
+bool UnitEffect::isValidTarget(const Mechanics * m, const battle::Unit * unit) const
 {
 	// TODO: override in rising effect
 	// TODO: check absolute immunity here
 
-	return s->isValidTarget(false);
+	return unit->isValidTarget(false);
 }
 
-bool StackEffect::isReceptive(const Mechanics * m, const battle::Unit * s) const
+bool UnitEffect::isReceptive(const Mechanics * m, const battle::Unit * unit) const
 {
-	return m->isReceptive(s);
+	if(ignoreImmunity)
+	{
+		//ignore all immunities, except specific absolute immunity(VCMI addition)
+
+		//SPELL_IMMUNITY absolute case
+		std::stringstream cachingStr;
+		cachingStr << "type_" << Bonus::SPELL_IMMUNITY << "subtype_" << m->getSpellIndex() << "addInfo_1";
+		if(unit->hasBonus(Selector::typeSubtypeInfo(Bonus::SPELL_IMMUNITY, m->getSpellIndex(), 1), cachingStr.str()))
+			return false;
+
+		return true;
+	}
+	else
+	{
+		return m->isReceptive(unit);
+	}
 }
 
-bool StackEffect::isSmartTarget(const Mechanics * m, const battle::Unit * s, bool alwaysSmart) const
+bool UnitEffect::isSmartTarget(const Mechanics * m, const battle::Unit * unit, bool alwaysSmart) const
 {
 	const bool smart = m->isSmart() || alwaysSmart;
 	const bool ignoreOwner = !smart;
-	return ignoreOwner || m->ownerMatches(s);
+	return ignoreOwner || m->ownerMatches(unit);
+}
+
+void UnitEffect::serializeJsonEffect(JsonSerializeFormat& handler)
+{
+	handler.serializeBool("ignoreImmunity", ignoreImmunity);
+	serializeJsonUnitEffect(handler);
 }
 
 

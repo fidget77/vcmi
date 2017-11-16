@@ -50,7 +50,7 @@ class DLL_LINKAGE IBattleCast
 {
 public:
 	using Value = int32_t;
-	using Value64 = int32_t;
+	using Value64 = int64_t;
 
 	using OptionalValue = boost::optional<Value>;
 	using OptionalValue64 = boost::optional<Value64>;

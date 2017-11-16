@@ -52,6 +52,8 @@ public:
 	bool automatic;
 	bool optional;
 
+	std::string name;
+
 	Effect(const int level);
 	virtual ~Effect();
 

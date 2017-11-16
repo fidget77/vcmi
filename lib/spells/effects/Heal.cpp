@@ -30,7 +30,7 @@ namespace effects
 VCMI_REGISTER_SPELL_EFFECT(Heal, EFFECT_NAME);
 
 Heal::Heal(const int level)
-	: StackEffect(level),
+	: UnitEffect(level),
 	healLevel(EHealLevel::HEAL),
 	healPower(EHealPower::PERMANENT),
 	minFullUnits(0)
@@ -42,19 +42,22 @@ Heal::~Heal() = default;
 
 void Heal::apply(const PacketSender * server, RNG & rng, const Mechanics * m, const EffectTarget & target) const
 {
-	BattleStacksChanged pack;
-	prepareEffects(pack, rng, m, target);
-	if(!pack.changedStacks.empty())
-		server->sendAndApply(&pack);
+	apply(m->getEffectValue(), server, rng, m, target);
 }
 
 void Heal::apply(IBattleState * battleState, RNG & rng, const Mechanics * m, const EffectTarget & target) const
 {
 	BattleStacksChanged pack;
-	prepareEffects(pack, rng, m, target);
+	prepareHealEffect(m->getEffectValue(), pack, rng, m, target);
+	pack.applyBattle(battleState);
+}
 
-	for(const auto & info : pack.changedStacks)
-		battleState->updateUnit(info);
+void Heal::apply(int64_t value, const PacketSender * server, RNG & rng, const Mechanics * m, const EffectTarget & target) const
+{
+	BattleStacksChanged pack;
+	prepareHealEffect(value, pack, rng, m, target);
+	if(!pack.changedStacks.empty())
+		server->sendAndApply(&pack);
 }
 
 bool Heal::isValidTarget(const Mechanics * m, const battle::Unit * unit) const
@@ -91,7 +94,7 @@ bool Heal::isValidTarget(const Mechanics * m, const battle::Unit * unit) const
 	return true;
 }
 
-void Heal::serializeJsonEffect(JsonSerializeFormat & handler)
+void Heal::serializeJsonUnitEffect(JsonSerializeFormat & handler)
 {
 	static const std::vector<std::string> HEAL_LEVEL_MAP =
 	{
@@ -109,19 +112,23 @@ void Heal::serializeJsonEffect(JsonSerializeFormat & handler)
 	handler.serializeEnum("healLevel", healLevel, EHealLevel::HEAL, HEAL_LEVEL_MAP);
 	handler.serializeEnum("healPower", healPower, EHealPower::PERMANENT, HEAL_POWER_MAP);
 	handler.serializeInt("minFullUnits", minFullUnits);
+
+	serializeJsonHealEffect(handler);
+}
+void Heal::serializeJsonHealEffect(JsonSerializeFormat & handler)
+{
+	UNUSED(handler);
 }
 
-void Heal::prepareEffects(BattleStacksChanged & pack, RNG & rng, const Mechanics * m, const EffectTarget & target) const
+void Heal::prepareHealEffect(int64_t value, BattleStacksChanged & pack, RNG & rng, const Mechanics * m, const EffectTarget & target) const
 {
-	auto hpGained = m->getEffectValue();
-
 	for(auto & oneTarget : target)
 	{
 		const battle::Unit * unit = oneTarget.unitValue;
 
 		if(unit)
 		{
-			auto unitHPgained = m->caster->getSpellBonus(m->owner, hpGained, unit);
+			auto unitHPgained = m->caster->getSpellBonus(m->owner, value, unit);
 
 			auto state = unit->asquire();
 			state->heal(unitHPgained, healLevel, healPower);

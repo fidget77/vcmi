@@ -833,49 +833,17 @@ void RegularSpellMechanics::prepareBattleLog(SpellCastContext & ctx) const
 
 	switch(getSpellIndex())
 	{
-	case SpellID::STONE_GAZE:
-		addLogLine(558, boost::logic::indeterminate);
-		break;
-	case SpellID::POISON:
-		addLogLine(561, boost::logic::indeterminate);
-		break;
-	case SpellID::BIND:
-		addLogLine(-560, true);//"Roots and vines bind the %s to the ground!"
-		break;
-	case SpellID::DISEASE:
-		addLogLine(553, boost::logic::indeterminate);
-		break;
-	case SpellID::PARALYZE:
-		addLogLine(563, boost::logic::indeterminate);
-		break;
-	case SpellID::AGE:
-		{
-			//"The %s shrivel with age, and lose %d hit points."
-			MetaString line;
-			attackedStack->addText(line, MetaString::GENERAL_TXT, 551);
-			attackedStack->addNameReplacement(line);
-
-			//todo: display effect from only this cast
-			TBonusListPtr bl = attackedStack->getBonuses(Selector::type(Bonus::STACK_HEALTH));
-			const int fullHP = bl->totalValue();
-			bl->remove_if(Selector::source(Bonus::SPELL_EFFECT, SpellID::AGE));
-			line.addReplacement(fullHP - bl->totalValue());
-			ctx.addBattleLog(std::move(line));
-		}
-		break;
 	case SpellID::THUNDERBOLT:
 		{
 			addLogLine(-367, true);
 			MetaString line;
 			//todo: handle newlines in metastring
-			std::string text = VLC->generaltexth->allTexts[343].substr(1, VLC->generaltexth->allTexts[343].size() - 1); //Does %d points of damage.
+			std::string text = VLC->generaltexth->allTexts.at(343); //Does %d points of damage.
+			boost::algorithm::trim(text);
 			line << text;
 			line.addReplacement(ctx.getDamageToDisplay()); //no more text afterwards
 			ctx.addBattleLog(std::move(line));
 		}
-		break;
-	case SpellID::DISPEL_HELPFUL_SPELLS:
-		addLogLine(-555, true);
 		break;
 	default:
 		displayDamage = true;

@@ -1384,52 +1384,16 @@ void BattleStackMoved::applyGs(CGameState *gs)
 	s->stackState.position = dest;
 }
 
-DLL_LINKAGE void BattleStackAttacked::applyGs(CGameState *gs)
+DLL_LINKAGE void BattleStackAttacked::applyGs(CGameState * gs)
 {
-	CStack * at = gs->curB->getStack(stackAttacked);
-	assert(at);
-	at->popBonuses(Bonus::UntilBeingAttacked);
-
-	at->stackState.fromInfo(newState);
-
-	if(killed() || willRebirth())
-	{
-		if(at->stackState.cloneID >= 0)
-		{
-			//remove clone as well
-			CStack * clone = gs->curB->getStack(at->stackState.cloneID);
-			if(clone)
-				clone->makeGhost();
-
-			at->stackState.cloneID = -1;
-		}
-	}
-
-	if(willRebirth())
-	{
-		//TODO: handle rebirth with BattleStacksChanged
-
-		//removing all spells effects
-		auto selector = [](const Bonus * b)
-		{
-			//Special case: DISRUPTING_RAY is "immune" to dispell
-			//Other even PERMANENT effects can be removed
-			if(b->source == Bonus::SPELL_EFFECT)
-				return b->sid != SpellID::DISRUPTING_RAY;
-			else
-				return false;
-		};
-		at->popBonuses(selector);
-	}
-	if(cloneKilled())
-	{
-		for(CStack * s : gs->curB->stacks)
-		{
-			if(s->stackState.cloneID == at->ID)
-				s->stackState.cloneID = -1;
-		}
-	}
+	applyBattle(gs->curB);
 }
+
+DLL_LINKAGE void BattleStackAttacked::applyBattle(IBattleState * battleState)
+{
+	battleState->updateUnit(newState);
+}
+
 
 DLL_LINKAGE void BattleAttack::applyGs(CGameState * gs)
 {
@@ -1506,26 +1470,42 @@ DLL_LINKAGE void BattleSpellCast::applyGs(CGameState *gs)
 
 DLL_LINKAGE void SetStackEffect::applyGs(CGameState *gs)
 {
+	applyBattle(gs->curB);
+}
+
+DLL_LINKAGE void SetStackEffect::applyBattle(IBattleState * battleState)
+{
 	for(const auto & stackData : toRemove)
-		gs->curB->removeUnitBonus(stackData.first, stackData.second);
+		battleState->removeUnitBonus(stackData.first, stackData.second);
 
 	for(const auto & stackData : toUpdate)
-		gs->curB->updateUnitBonus(stackData.first, stackData.second);
+		battleState->updateUnitBonus(stackData.first, stackData.second);
 
 	for(const auto & stackData : toAdd)
-		gs->curB->addUnitBonus(stackData.first, stackData.second);
+		battleState->addUnitBonus(stackData.first, stackData.second);
 }
+
 
 DLL_LINKAGE void StacksInjured::applyGs(CGameState *gs)
 {
+	applyBattle(gs->curB);
+}
+
+DLL_LINKAGE void StacksInjured::applyBattle(IBattleState * battleState)
+{
 	for(BattleStackAttacked stackAttacked : stacks)
-		stackAttacked.applyGs(gs);
+		stackAttacked.applyBattle(battleState);
 }
 
 DLL_LINKAGE void BattleStacksChanged::applyGs(CGameState *gs)
 {
+	applyBattle(gs->curB);
+}
+
+DLL_LINKAGE void BattleStacksChanged::applyBattle(IBattleState * battleState)
+{
 	for(auto & elem : changedStacks)
-		gs->curB->updateUnit(elem);
+		battleState->updateUnit(elem);
 }
 
 DLL_LINKAGE void ObstaclesRemoved::applyGs(CGameState *gs)
@@ -1563,7 +1543,7 @@ DLL_LINKAGE void CatapultAttack::applyGs(CGameState *gs)
 		for(const auto &it :attackedParts)
 		{
 			gs->curB->si.wallState[it.attackedPart] =
-			        SiegeInfo::applyDamage(EWallState::EWallState(gs->curB->si.wallState[it.attackedPart]), it.damageDealt);
+				SiegeInfo::applyDamage(EWallState::EWallState(gs->curB->si.wallState[it.attackedPart]), it.damageDealt);
 		}
 	}
 }

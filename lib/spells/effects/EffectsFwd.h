@@ -18,7 +18,7 @@ namespace effects
 class Effect;
 class GlobalEffect;
 class LocationEffect;
-class StackEffect;
+class UnitEffect;
 
 } // namespace effects
 } // namespace spells

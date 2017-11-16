@@ -91,6 +91,11 @@
 		"levels" : {
 			"base":{
 				"targetModifier":{"smart":true},
+				"specialEffects":{
+					"catapult":{
+						"type":"core:catapult"
+					}
+				},
 				"range" : "X"
 			}
 		},
@@ -111,7 +116,19 @@
 		},
 		"levels" : {
  			"base":{
-				"targetModifier":{"smart":true},
+				"targetModifier":{
+					"smart":true
+				},
+				"specialEffects":{
+					"dispel":{
+						"type":"core:dispel",
+						"optional":false,
+						"ignoreImmunity" : true,
+						"dispelNegative":true,
+						"dispelNeutral":true,
+						"dispelPositive":true
+					}
+				},
  				"range" : "0"
  			},
 			"advanced":{
@@ -119,6 +136,16 @@
 			},
  			"expert":{
 				"targetModifier":{"smart":false},
+				"specialEffects":{
+					"dispel":{
+						"optional":true,
+					},
+					"removeObstacle":{
+						"optional":true,
+						"type":"core:removeObstacle",
+						"removeAllSpells" : true
+					}
+				},
  				"range" : "X"
  			}
 		},
@@ -149,9 +176,9 @@
 					"cure":{
 						"type":"core:dispel",
 						"optional":true,
-						"negative":true,
-						"neutral":false,
-						"positive":false
+						"dispelNegative":true,
+						"dispelNeutral":false,
+						"dispelPositive":false
 					}
 				},
 				"range" : "0"
@@ -181,15 +208,16 @@
 					"heal":{
 						"type":"core:heal",
 						"healLevel":"resurrect",
-						"healPower":"oneBattle"
+						"healPower":"oneBattle",
+						"minFullUnits" : 1
 					},
 					"cure":{
 						"type":"core:dispel",
 						"automatic": false,
 						"optional":true,
-						"negative":true,
-						"neutral":false,
-						"positive":false
+						"dispelNegative":true,
+						"dispelNeutral":false,
+						"dispelPositive":false
 					}
 				},
 				"targetModifier":{"smart":true}
@@ -231,7 +259,8 @@
 					"heal":{
 						"type":"core:heal",
 						"healLevel":"resurrect",
-						"healPower":"permanent"
+						"healPower":"permanent",
+						"minFullUnits" : 1
 					}
 				},
 				"targetModifier":{"smart":true}
@@ -260,6 +289,14 @@
 		"levels" : {
 			"base":{
 				"range" : "0",
+				"specialEffects":{
+					"sacrifice":{
+						"type":"core:sacrifice",
+						"healLevel":"resurrect",
+						"healPower":"permanent",
+						"minFullUnits" : 0
+					}
+				},
 				"targetModifier":{"smart":true}
 			}
 		},
@@ -313,7 +350,28 @@
 		},
 		"levels" : {
 			"base":{
-				"range" : "0"
+				"range" : "0",
+				"specialEffects": {
+					"removeObstacle" : {
+						"optional":false,
+						"type":"core:removeObstacle",
+						"removeUsual" : true
+					}
+				}
+			},
+			"advanced" : {
+				"specialEffects": {
+					"removeObstacle" : {
+						"removeSpells" : ["fireWall"]
+					}
+				}
+			},
+			"expert" : {
+				"specialEffects": {
+					"removeObstacle" : {
+						"removeAllSpells" : true
+					}
+				}
 			}
 		},
 		"flags" : {

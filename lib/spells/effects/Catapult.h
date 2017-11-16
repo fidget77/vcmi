@@ -1,5 +1,5 @@
 /*
- * {file}.h, part of VCMI engine
+ * Catapult.h, part of VCMI engine
  *
  * Authors: listed in file AUTHORS in main folder
  *
@@ -10,27 +10,30 @@
 
 #pragma once
 
-#include "UnitEffect.h"
+#include "LocationEffect.h"
 
 namespace spells
 {
 namespace effects
 {
 
-class Clone : public UnitEffect
+
+class Catapult : public LocationEffect
 {
 public:
-	Clone(const int level);
-	virtual ~Clone();
+	Catapult(const int level);
+	virtual ~Catapult();
+
+	bool applicable(Problem & problem, const Mechanics * m) const override;
 
 	void apply(const PacketSender * server, RNG & rng, const Mechanics * m, const EffectTarget & target) const override;
-protected:
-	bool isReceptive(const Mechanics * m, const battle::Unit * s) const override;
-	bool isValidTarget(const Mechanics * m, const battle::Unit * s) const override;
 
-	void serializeJsonUnitEffect(JsonSerializeFormat & handler) override final;
+
+protected:
+	void serializeJsonEffect(JsonSerializeFormat & handler) override;
+
+
 private:
-	int maxTier;
 };
 
 } // namespace effects

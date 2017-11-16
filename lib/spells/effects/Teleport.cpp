@@ -28,7 +28,7 @@ namespace effects
 VCMI_REGISTER_SPELL_EFFECT(Teleport, EFFECT_NAME);
 
 Teleport::Teleport(const int level)
-	: StackEffect(level)
+	: UnitEffect(level)
 {
 }
 
@@ -42,7 +42,7 @@ bool Teleport::applicable(Problem & problem, const Mechanics * m) const
 		logGlobal->warn("Invalid spell cast attempt: spell %s, mode %d", m->getSpellName(), (int)mode); //should not even try to do it
 		return m->adaptProblem(ESpellCastProblem::INVALID, problem);
 	}
-	return StackEffect::applicable(problem, m);
+	return UnitEffect::applicable(problem, m);
 }
 
 void Teleport::apply(const PacketSender * server, RNG & rng, const Mechanics * m, const EffectTarget & target) const
@@ -85,12 +85,7 @@ void Teleport::apply(const PacketSender * server, RNG & rng, const Mechanics * m
 	}
 }
 
-void Teleport::apply(IBattleState * battleState, RNG & rng, const Mechanics * m, const EffectTarget & target) const
-{
-	//TODO: teleport effect evaluation
-}
-
-void Teleport::serializeJsonEffect(JsonSerializeFormat & handler)
+void Teleport::serializeJsonUnitEffect(JsonSerializeFormat & handler)
 {
 	//TODO: teleport options
 }
@@ -99,7 +94,7 @@ EffectTarget Teleport::transformTarget(const Mechanics * m, const Target & aimPo
 {
 	//first transformed destination is unit to teleport, let base class handle immunity etc.
 	//second spell destination is destination tile, use it directly
-	EffectTarget transformed = StackEffect::transformTarget(m, aimPoint, spellTarget);
+	EffectTarget transformed = UnitEffect::transformTarget(m, aimPoint, spellTarget);
 
 	EffectTarget ret;
 	if(!transformed.empty())

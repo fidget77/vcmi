@@ -10,7 +10,7 @@
 
 #pragma once
 
-#include "StackEffect.h"
+#include "UnitEffect.h"
 
 struct StacksInjured;
 
@@ -20,7 +20,7 @@ namespace effects
 {
 
 ///Direct (if automatic) or indirect damage
-class Damage : public StackEffect
+class Damage : public UnitEffect
 {
 public:
 	Damage(const int level);
@@ -30,10 +30,14 @@ public:
 	void apply(IBattleState * battleState, RNG & rng, const Mechanics * m, const EffectTarget & target) const override;
 
 protected:
-	void serializeJsonEffect(JsonSerializeFormat & handler) override final;
+	void serializeJsonUnitEffect(JsonSerializeFormat & handler) override final;
+	virtual void serializeJsonDamageEffect(JsonSerializeFormat & handler);
 
+	virtual int64_t damageForTarget(size_t targetIndex, const Mechanics * m, const battle::Unit * target) const;
+
+	virtual void describeEffect(std::vector<MetaString> & log, const Mechanics * m, const battle::Unit * firstTarget, uint32_t kills, int64_t damage, bool multiple) const;
 private:
-	void prepareEffects(StacksInjured & stacksInjured, RNG & rng, const Mechanics * m, const EffectTarget & target) const;
+	void prepareEffects(StacksInjured & stacksInjured, RNG & rng, const Mechanics * m, const EffectTarget & target, bool describe) const;
 };
 
 } // namespace effects

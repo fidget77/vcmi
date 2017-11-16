@@ -1393,7 +1393,7 @@ void CArtifactSet::serializeJsonHero(JsonSerializeFormat & handler, CMap * map)
 		for(const ArtSlotInfo & info : artifactsInBackpack)
 			backpackTemp.push_back(info.artifact->artType->id);
 	}
-	handler.serializeIdArray(NArtifactPosition::backpack, backpackTemp, &ArtifactID::decode, &ArtifactID::encode);
+	handler.serializeIdArray(NArtifactPosition::backpack, backpackTemp);
 	if(!handler.saving)
 	{
         for(const ArtifactID & artifactID : backpackTemp)

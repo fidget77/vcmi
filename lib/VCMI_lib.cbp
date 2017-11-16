@@ -402,6 +402,10 @@
 		<Unit filename="spells/TargetCondition.h" />
 		<Unit filename="spells/ViewSpellInt.cpp" />
 		<Unit filename="spells/ViewSpellInt.h" />
+		<Unit filename="spells/effects/Catapult.cpp" />
+		<Unit filename="spells/effects/Catapult.h" />
+		<Unit filename="spells/effects/ChainDamage.cpp" />
+		<Unit filename="spells/effects/ChainDamage.h" />
 		<Unit filename="spells/effects/Clone.cpp" />
 		<Unit filename="spells/effects/Clone.h" />
 		<Unit filename="spells/effects/Damage.cpp" />
@@ -421,14 +425,18 @@
 		<Unit filename="spells/effects/LocationEffect.h" />
 		<Unit filename="spells/effects/Registry.cpp" />
 		<Unit filename="spells/effects/Registry.h" />
-		<Unit filename="spells/effects/StackEffect.cpp" />
-		<Unit filename="spells/effects/StackEffect.h" />
+		<Unit filename="spells/effects/RemoveObstacle.cpp" />
+		<Unit filename="spells/effects/RemoveObstacle.h" />
+		<Unit filename="spells/effects/Sacrifice.cpp" />
+		<Unit filename="spells/effects/Sacrifice.h" />
 		<Unit filename="spells/effects/Summon.cpp" />
 		<Unit filename="spells/effects/Summon.h" />
 		<Unit filename="spells/effects/Teleport.cpp" />
 		<Unit filename="spells/effects/Teleport.h" />
 		<Unit filename="spells/effects/Timed.cpp" />
 		<Unit filename="spells/effects/Timed.h" />
+		<Unit filename="spells/effects/UnitEffect.cpp" />
+		<Unit filename="spells/effects/UnitEffect.h" />
 		<Unit filename="vcmi_endian.h" />
 		<Extensions>
 			<code_completion />

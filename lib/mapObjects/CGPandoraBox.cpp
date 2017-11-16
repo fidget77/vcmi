@@ -458,8 +458,8 @@ void CGPandoraBox::serializeJsonOptions(JsonSerializeFormat & handler)
 	}
 
 
-	handler.serializeIdArray("artifacts", artifacts,  &ArtifactID::decode, &ArtifactID::encode);
-	handler.serializeIdArray("spells", spells, &SpellID::decode, &SpellID::encode);
+	handler.serializeIdArray("artifacts", artifacts);
+	handler.serializeIdArray("spells", spells);
 
 	creatures.serializeJson(handler, "creatures");
 }

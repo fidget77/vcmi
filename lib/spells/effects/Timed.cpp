@@ -28,7 +28,7 @@ namespace effects
 VCMI_REGISTER_SPELL_EFFECT(Timed, EFFECT_NAME);
 
 Timed::Timed(const int level)
-	: StackEffect(level),
+	: UnitEffect(level),
 	cumulative(false),
 	bonus()
 {
@@ -36,6 +36,21 @@ Timed::Timed(const int level)
 
 Timed::~Timed() = default;
 
+void Timed::apply(const PacketSender * server, RNG & rng, const Mechanics * m, const EffectTarget & target) const
+{
+	SetStackEffect sse;
+	prepareEffects(sse, m, target, true);
+
+	if(!(sse.toAdd.empty() && sse.toUpdate.empty()))
+		server->sendAndApply(&sse);
+}
+
+void Timed::apply(IBattleState * battleState, RNG & rng, const Mechanics * m, const EffectTarget & target) const
+{
+	SetStackEffect sse;
+	prepareEffects(sse, m, target, false);
+	sse.applyBattle(battleState);
+}
 
 void Timed::convertBonus(const Mechanics * m, int32_t & duration, std::vector<Bonus> & converted) const
 {
@@ -67,33 +82,78 @@ void Timed::convertBonus(const Mechanics * m, int32_t & duration, std::vector<Bo
 	duration = maxDuration;
 }
 
-void Timed::apply(const PacketSender * server, RNG & rng, const Mechanics * m, const EffectTarget & target) const
+void Timed::describeEffect(std::vector<MetaString> & log, const Mechanics * m, const std::vector<Bonus> & bonuses, const battle::Unit * target) const
 {
-	SetStackEffect sse;
-	prepareEffects(sse, m, target);
+	auto addLogLine = [&](const int32_t baseTextID, const boost::logic::tribool & plural)
+	{
+		MetaString line;
+		target->addText(line, MetaString::GENERAL_TXT, baseTextID, plural);
+		target->addNameReplacement(line, plural);
+		log.push_back(std::move(line));
+	};
 
-	if(!(sse.toAdd.empty() && sse.toUpdate.empty()))
-		server->sendAndApply(&sse);
+	if(m->getSpellIndex() == SpellID::DISEASE)
+	{
+		addLogLine(553, boost::logic::indeterminate);
+		return;
+	}
+
+	for(const auto & bonus : bonuses)
+	{
+		switch(bonus.type)
+		{
+		case Bonus::NOT_ACTIVE:
+			{
+				switch(bonus.subtype)
+				{
+				case SpellID::STONE_GAZE:
+					addLogLine(558, boost::logic::indeterminate);
+					return;
+				case SpellID::PARALYZE:
+					addLogLine(563, boost::logic::indeterminate);
+					return;
+				default:
+					break;
+				}
+			}
+			break;
+		case Bonus::POISON:
+			addLogLine(561, boost::logic::indeterminate);
+			return;
+		case Bonus::BIND_EFFECT:
+			addLogLine(-560, true);
+			return;
+		case Bonus::STACK_HEALTH:
+			{
+				if(bonus.val < 0)
+				{
+					BonusList unitHealth = *target->getBonuses(Selector::type(Bonus::STACK_HEALTH));
+
+					auto oldHealth = unitHealth.totalValue();
+					unitHealth.push_back(std::make_shared<Bonus>(bonus));
+					auto newHealth = unitHealth.totalValue();
+
+					//"The %s shrivel with age, and lose %d hit points."
+					MetaString line;
+					target->addText(line, MetaString::GENERAL_TXT, 551);
+					target->addNameReplacement(line);
+
+					line.addReplacement(oldHealth - newHealth);
+					log.push_back(std::move(line));
+					return;
+				}
+			}
+			break;
+		default:
+			break;
+		}
+	}
+
 }
 
-void Timed::apply(IBattleState * battleState, RNG & rng, const Mechanics * m, const EffectTarget & target) const
+void Timed::prepareEffects(SetStackEffect & sse, const Mechanics * m, const EffectTarget & target, bool describe) const
 {
-	SetStackEffect sse;
-	prepareEffects(sse, m, target);
-
-	for(const auto & stackData : sse.toRemove)
-		battleState->removeUnitBonus(stackData.first, stackData.second);
-
-	for(const auto & stackData : sse.toUpdate)
-		battleState->updateUnitBonus(stackData.first, stackData.second);
-
-	for(const auto & stackData : sse.toAdd)
-		battleState->addUnitBonus(stackData.first, stackData.second);
-}
-
-void Timed::prepareEffects(SetStackEffect & sse, const Mechanics * m, const EffectTarget & target) const
-{
-//get default spell duration (spell power with bonuses for heroes)
+	//get default spell duration (spell power with bonuses for heroes)
 	int32_t duration = m->getEffectDuration();
 
 	std::vector<Bonus> converted;
@@ -103,7 +163,7 @@ void Timed::prepareEffects(SetStackEffect & sse, const Mechanics * m, const Effe
 	auto casterHero = dynamic_cast<const CGHeroInstance *>(m->caster);
 	if(casterHero)
 		bonus = casterHero->getBonusLocalFirst(Selector::typeSubtype(Bonus::SPECIAL_PECULIAR_ENCHANT, m->getSpellIndex()));
-	//TODO does hero specialty should affects his stack casting spells?
+	//TODO: does hero specialty should affects his stack casting spells?
 
 	for(auto & t : target)
 	{
@@ -119,6 +179,9 @@ void Timed::prepareEffects(SetStackEffect & sse, const Mechanics * m, const Effe
 
 		if(!affected->alive())
 			continue;
+
+		if(describe)
+			describeEffect(sse.battleLog, m, converted, affected);
 
 		si32 power = 0;
 
@@ -177,7 +240,7 @@ void Timed::prepareEffects(SetStackEffect & sse, const Mechanics * m, const Effe
 	}
 }
 
-void Timed::serializeJsonEffect(JsonSerializeFormat & handler)
+void Timed::serializeJsonUnitEffect(JsonSerializeFormat & handler)
 {
 	assert(!handler.saving);
 	handler.serializeBool("cumulative", cumulative, false);

@@ -766,10 +766,33 @@ void BattleInfo::updateUnit(const CStackStateInfo & changes)
 		return; //position is already occupied
 	}
 
+	bool killed = (-changes.healthDelta) >= changedStack->getAvailableHealth();//todo: check using alive state once rebirth will be handled separately
+
 	//applying changes
-	bool resurrected = !changedStack->alive(); //indicates if stack is resurrected or just healed
+	bool resurrected = !changedStack->alive() && changes.healthDelta > 0;
 
 	changedStack->stackState.fromInfo(changes);
+
+
+	if(changes.healthDelta < 0)
+	{
+		changedStack->popBonuses(Bonus::UntilBeingAttacked);
+	}
+
+	resurrected = resurrected || (killed && changedStack->alive());
+
+	if(killed)
+	{
+		if(changedStack->stackState.cloneID >= 0)
+		{
+			//remove clone as well
+			CStack * clone = getStack(changedStack->stackState.cloneID);
+			if(clone)
+				clone->makeGhost();
+
+			changedStack->stackState.cloneID = -1;
+		}
+	}
 
 	if(resurrected)
 	{
@@ -784,6 +807,15 @@ void BattleInfo::updateUnit(const CStackStateInfo & changes)
 				return false;
 		};
 		changedStack->popBonuses(selector);
+	}
+
+	if(!changedStack->alive() && changedStack->isClone())
+	{
+		for(CStack * s : stacks)
+		{
+			if(s->stackState.cloneID == changedStack->unitId())
+				s->stackState.cloneID = -1;
+		}
 	}
 }
 

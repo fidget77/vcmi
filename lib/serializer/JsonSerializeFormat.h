@@ -250,8 +250,8 @@ public:
 	}
 
 	///si32-convertible identifier vector <-> Json array of string
-	template <typename T>
-	void serializeIdArray(const std::string & fieldName, std::vector<T> & value, const TDecoder & decoder, const TEncoder & encoder)
+	template <typename T, typename U = T>
+	void serializeIdArray(const std::string & fieldName, std::vector<T> & value)
 	{
 		std::vector<si32> temp;
 
@@ -266,7 +266,7 @@ public:
 			}
 		}
 
-		serializeInternal(fieldName, temp, decoder, encoder);
+		serializeInternal(fieldName, temp, &U::decode, &U::encode);
 		if(!saving)
 		{
 			value.clear();
@@ -281,8 +281,8 @@ public:
 	}
 
 	///si32-convertible identifier set <-> Json array of string
-	template <typename T>
-	void serializeIdArray(const std::string & fieldName, std::set<T> & value, const TDecoder & decoder, const TEncoder & encoder)
+	template <typename T, typename U = T>
+	void serializeIdArray(const std::string & fieldName, std::set<T> & value)
 	{
 		std::vector<si32> temp;
 
@@ -297,7 +297,7 @@ public:
 			}
 		}
 
-		serializeInternal(fieldName, temp, decoder, encoder);
+		serializeInternal(fieldName, temp, &U::decode, &U::encode);
 		if(!saving)
 		{
 			value.clear();

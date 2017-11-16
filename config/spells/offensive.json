@@ -143,7 +143,28 @@
 		"levels" : {
 			"base":{
 				"range" : "0",
+				"specialEffects" : {
+					"directDamage" : {
+						"type" : "core:chainDamage",
+						"factor" : 0.5,
+						"length" : 4
+					}
+				},
 				"targetModifier":{"smart":true}
+			},
+			"advanced" : {
+				"specialEffects" : {
+					"directDamage" : {
+						"length" : 5
+					}
+				}
+			},
+			"expert" : {
+				"specialEffects" : {
+					"directDamage" : {
+						"length" : 5
+					}
+				}
 			}
 		},
 		"flags" : {

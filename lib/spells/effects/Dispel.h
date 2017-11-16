@@ -10,7 +10,7 @@
 
 #pragma once
 
-#include "StackEffect.h"
+#include "UnitEffect.h"
 
 struct Bonus;
 class CSelector;
@@ -22,7 +22,7 @@ namespace spells
 namespace effects
 {
 
-class Dispel : public StackEffect
+class Dispel : public UnitEffect
 {
 public:
 	Dispel(const int level);
@@ -32,9 +32,8 @@ public:
 	void apply(IBattleState * battleState, RNG & rng, const Mechanics * m, const EffectTarget & target) const override;
 
 protected:
-	bool isReceptive(const Mechanics * m, const battle::Unit * s) const override;
 	bool isValidTarget(const Mechanics * m, const battle::Unit * unit) const override;
-	void serializeJsonEffect(JsonSerializeFormat & handler) override final;
+	void serializeJsonUnitEffect(JsonSerializeFormat & handler) override final;
 
 private:
 	bool positive = false;
@@ -44,7 +43,7 @@ private:
 	std::shared_ptr<BonusList> getBonuses(const Mechanics * m, const battle::Unit * unit) const;
 
 	static bool mainSelector(const Bonus * bonus);
-	void prepareEffects(SetStackEffect & pack, RNG & rng, const Mechanics * m, const EffectTarget & target) const;
+	void prepareEffects(SetStackEffect & pack, RNG & rng, const Mechanics * m, const EffectTarget & target, bool describe) const;
 };
 
 } // namespace effects

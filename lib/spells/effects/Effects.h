@@ -24,14 +24,15 @@ public:
 	using TargetFilter = std::function<bool(const Destination & dest)>;
 	using EffectsToApply = std::vector<std::pair<const Effect *, EffectTarget>>;
 
-	using EffectVector = std::array<std::vector<std::shared_ptr<Effect>>, GameConstants::SPELL_SCHOOL_LEVELS>;
+	using EffectsMap = std::map<std::string, std::shared_ptr<Effect>>;
+	using EffectData = std::array<EffectsMap, GameConstants::SPELL_SCHOOL_LEVELS>;
 
-	EffectVector data;
+	EffectData data;
 
 	Effects();
 	virtual ~Effects();
 
-	void add(std::shared_ptr<Effect> effect, const int level);
+	void add(const std::string & name, std::shared_ptr<Effect> effect, const int level);
 
 	bool applicable(Problem & problem, const Mechanics * m) const;
 	bool applicable(Problem & problem, const Mechanics * m, const Target & aimPoint, const Target & spellTarget) const;

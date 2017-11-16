@@ -29,7 +29,7 @@ namespace effects
 VCMI_REGISTER_SPELL_EFFECT(Dispel, EFFECT_NAME);
 
 Dispel::Dispel(const int level)
-	: StackEffect(level)
+	: UnitEffect(level)
 {
 
 }
@@ -39,7 +39,8 @@ Dispel::~Dispel() = default;
 void Dispel::apply(const PacketSender * server, RNG & rng, const Mechanics * m, const EffectTarget & target) const
 {
 	SetStackEffect sse;
-	prepareEffects(sse, rng, m, target);
+	prepareEffects(sse, rng, m, target, true);
+
 	if(!sse.toRemove.empty())
 		server->sendAndApply(&sse);
 }
@@ -47,23 +48,8 @@ void Dispel::apply(const PacketSender * server, RNG & rng, const Mechanics * m, 
 void Dispel::apply(IBattleState * battleState, RNG & rng, const Mechanics * m, const EffectTarget & target) const
 {
 	SetStackEffect sse;
-	prepareEffects(sse, rng, m, target);
-
-	for(const auto & idAndBonus : sse.toRemove)
-		battleState->removeUnitBonus(idAndBonus.first, idAndBonus.second);
-}
-
-bool Dispel::isReceptive(const Mechanics * m, const battle::Unit * unit) const
-{
-	//ignore all immunities, except specific absolute immunity(VCMI addition)
-
-	//SPELL_IMMUNITY absolute case
-	std::stringstream cachingStr;
-	cachingStr << "type_" << Bonus::SPELL_IMMUNITY << "subtype_" << m->getSpellIndex() << "addInfo_1";
-	if(unit->hasBonus(Selector::typeSubtypeInfo(Bonus::SPELL_IMMUNITY, m->getSpellIndex(), 1), cachingStr.str()))
-		return false;
-
-	return true;
+	prepareEffects(sse, rng, m, target, false);
+	sse.applyBattle(battleState);
 }
 
 bool Dispel::isValidTarget(const Mechanics * m, const battle::Unit * unit) const
@@ -77,11 +63,11 @@ bool Dispel::isValidTarget(const Mechanics * m, const battle::Unit * unit) const
 	return true;
 }
 
-void Dispel::serializeJsonEffect(JsonSerializeFormat & handler)
+void Dispel::serializeJsonUnitEffect(JsonSerializeFormat & handler)
 {
-	handler.serializeBool("positive", positive);
-	handler.serializeBool("negative", negative);
-	handler.serializeBool("neutral", neutral);
+	handler.serializeBool("dispelPositive", positive);
+	handler.serializeBool("dispelNegative", negative);
+	handler.serializeBool("dispelNeutral", neutral);
 }
 
 std::shared_ptr<BonusList> Dispel::getBonuses(const Mechanics * m, const battle::Unit * unit) const
@@ -134,13 +120,22 @@ bool Dispel::mainSelector(const Bonus * bonus)
 	return false;
 }
 
-void Dispel::prepareEffects(SetStackEffect & pack, RNG & rng, const Mechanics * m, const EffectTarget & target) const
+void Dispel::prepareEffects(SetStackEffect & pack, RNG & rng, const Mechanics * m, const EffectTarget & target, bool describe) const
 {
 	for(auto & t : target)
 	{
 		const battle::Unit * unit = t.unitValue;
 		if(unit)
 		{
+			//special case for DISPEL_HELPFUL_SPELLS
+			if(describe && positive && !negative && !neutral)
+			{
+				MetaString line;
+				unit->addText(line, MetaString::GENERAL_TXT, -555, true);
+				unit->addNameReplacement(line, true);
+				pack.battleLog.push_back(std::move(line));
+			}
+
 			std::vector<Bonus> buffer;
 			auto bl = getBonuses(m, unit);
 

@@ -32,6 +32,7 @@ struct ArtSlotInfo;
 struct QuestInfo;
 class CMapInfo;
 struct StartInfo;
+class IBattleState;
 
 struct Query : public CPackForClient
 {
@@ -1415,6 +1416,7 @@ struct BattleStacksChanged : public CPackForClient
 	BattleStacksChanged(){}
 
 	DLL_LINKAGE void applyGs(CGameState *gs);
+	DLL_LINKAGE void applyBattle(IBattleState * battleState);
 	void applyCl(CClient *cl);
 
 	std::vector<CStackStateInfo> changedStacks;
@@ -1439,6 +1441,7 @@ struct BattleStackAttacked
 	{};
 
 	DLL_LINKAGE void applyGs(CGameState *gs);
+	DLL_LINKAGE void applyBattle(IBattleState * battleState);
 
 	ui32 stackAttacked, attackerID;
 	ui32 killedAmount;
@@ -1619,6 +1622,7 @@ struct SetStackEffect : public CPackForClient
 {
 	SetStackEffect(){};
 	DLL_LINKAGE void applyGs(CGameState * gs);
+	DLL_LINKAGE void applyBattle(IBattleState * battleState);
 	void applyCl(CClient * cl);
 
 	std::vector<std::pair<ui32, std::vector<Bonus>>> toAdd;
@@ -1638,6 +1642,8 @@ struct StacksInjured : public CPackForClient
 {
 	StacksInjured(){}
 	DLL_LINKAGE void applyGs(CGameState * gs);
+	DLL_LINKAGE void applyBattle(IBattleState * battleState);
+
 	void applyCl(CClient * cl);
 
 	std::vector<BattleStackAttacked> stacks;

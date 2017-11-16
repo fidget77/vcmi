@@ -93,6 +93,39 @@ TStacks CBattleInfoEssentials::battleGetStacksIf(TStackFilter predicate) const
 	return getBattle()->getStacksIf(predicate);
 }
 
+battle::Units CBattleInfoEssentials::battleGetUnitsIf(battle::UnitFilter predicate)  const
+{
+	RETURN_IF_NOT_BATTLE(battle::Units());
+	return getBattle()->getUnitsIf(predicate);
+}
+
+const battle::Unit * CBattleInfoEssentials::battleGetUnitByID(uint32_t ID) const
+{
+	RETURN_IF_NOT_BATTLE(nullptr);
+
+	//TODO: consider using map ID -> Unit
+
+	auto ret = battleGetUnitsIf([=](const battle::Unit * unit)
+	{
+		return unit->unitId() == ID;
+	});
+
+	if(ret.empty())
+		return nullptr;
+	else
+		return ret[0];
+}
+
+const battle::Unit * CBattleInfoEssentials::battleActiveUnit() const
+{
+	RETURN_IF_NOT_BATTLE(nullptr);
+	auto id = getBattle()->getActiveStackID();
+	if(id >= 0)
+		return battleGetUnitByID(static_cast<uint32_t>(id));
+	else
+		return nullptr;
+}
+
 TStacks CBattleInfoEssentials::battleAliveStacks() const
 {
 	return battleGetStacksIf([](const CStack * s)
@@ -349,19 +382,19 @@ EGateState CBattleInfoEssentials::battleGetGateState() const
 	return getBattle()->getGateState();
 }
 
-PlayerColor CBattleInfoEssentials::battleGetOwner(const IStackState * stack) const
+PlayerColor CBattleInfoEssentials::battleGetOwner(const battle::Unit * stack) const
 {
 	RETURN_IF_NOT_BATTLE(PlayerColor::CANNOT_DETERMINE);
 
 	PlayerColor initialOwner = getBattle()->getSidePlayer(stack->unitSide());
 
-	if(stack->unitAsBearer()->hasBonusOfType(Bonus::HYPNOTIZED))
+	if(stack->hasBonusOfType(Bonus::HYPNOTIZED))
 		return otherPlayer(initialOwner);
 	else
 		return initialOwner;
 }
 
-const CGHeroInstance * CBattleInfoEssentials::battleGetOwnerHero(const IStackState * stack) const
+const CGHeroInstance * CBattleInfoEssentials::battleGetOwnerHero(const battle::Unit * stack) const
 {
 	RETURN_IF_NOT_BATTLE(nullptr);
 	const auto side = playerToSide(battleGetOwner(stack));
@@ -370,7 +403,7 @@ const CGHeroInstance * CBattleInfoEssentials::battleGetOwnerHero(const IStackSta
 	return getBattle()->getSideHero(side.get());
 }
 
-bool CBattleInfoEssentials::battleMatchOwner(const IStackState * attacker, const IStackState * defender, const boost::logic::tribool positivness) const
+bool CBattleInfoEssentials::battleMatchOwner(const battle::Unit * attacker, const battle::Unit * defender, const boost::logic::tribool positivness) const
 {
 	RETURN_IF_NOT_BATTLE(false);
 	if(boost::logic::indeterminate(positivness))
@@ -381,7 +414,7 @@ bool CBattleInfoEssentials::battleMatchOwner(const IStackState * attacker, const
 		return battleMatchOwner(battleGetOwner(attacker), defender, positivness);
 }
 
-bool CBattleInfoEssentials::battleMatchOwner(const PlayerColor & attacker, const IStackState * defender, const boost::logic::tribool positivness) const
+bool CBattleInfoEssentials::battleMatchOwner(const PlayerColor & attacker, const battle::Unit * defender, const boost::logic::tribool positivness) const
 {
 	RETURN_IF_NOT_BATTLE(false);
 

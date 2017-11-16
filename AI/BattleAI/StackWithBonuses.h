@@ -14,29 +14,45 @@
 
 class HypotheticBattle;
 
-class StackWithBonuses : public IBonusBearer, public IUnitBonus
+class StackWithBonuses : public IBonusBearer, public battle::IUnitEnvironment
 {
 public:
-	CStackState state;
+	battle::CUnitState state;
 
-	mutable std::vector<Bonus> bonusesToAdd;
-	mutable std::vector<Bonus> bonusesToUpdate;
+	std::vector<Bonus> bonusesToAdd;
+	std::vector<Bonus> bonusesToUpdate;
+	std::set<std::shared_ptr<Bonus>> bonusesToRemove;
 
-	StackWithBonuses(const CStackState * Stack);
+	StackWithBonuses(const battle::CUnitState * Stack);
+	virtual ~StackWithBonuses();
 
 	///IBonusBearer
 	const TBonusListPtr getAllBonuses(const CSelector & selector, const CSelector & limit,
 		const CBonusSystemNode * root = nullptr, const std::string & cachingStr = "") const override;
 
-	const IBonusBearer * unitAsBearer() const override;
 	bool unitHasAmmoCart() const override;
-};
 
+	void addUnitBonus(const std::vector<Bonus> & bonus);
+	void updateUnitBonus(const std::vector<Bonus> & bonus);
+	void removeUnitBonus(const std::vector<Bonus> & bonus);
+private:
+	const IBonusBearer * origBearer;
+};
 
 class HypotheticBattle : public BattleProxy
 {
 public:
+	std::map<uint32_t, std::shared_ptr<StackWithBonuses>> stackStates;
+
 	HypotheticBattle(Subject realBattle);
 
-	std::map<uint32_t, std::shared_ptr<StackWithBonuses>> stackStates;
+	std::shared_ptr<StackWithBonuses> getForUpdate(uint32_t id);
+
+	battle::Units getUnitsIf(battle::UnitFilter predicate) const override;
+
+	void updateUnit(const CStackStateInfo & changes) override;
+
+	void addUnitBonus(uint32_t id, const std::vector<Bonus> & bonus) override;
+	void updateUnitBonus(uint32_t id, const std::vector<Bonus> & bonus) override;
+	void removeUnitBonus(uint32_t id, const std::vector<Bonus> & bonus) override;
 };

@@ -14,10 +14,10 @@ class PotentialTargets
 {
 public:
 	std::vector<AttackPossibility> possibleAttacks;
-	std::vector<const CStack *> unreachableEnemies;
+	std::vector<const battle::Unit *> unreachableEnemies;
 
 	PotentialTargets(){};
-	PotentialTargets(const CStack * attacker, const HypotheticBattle & state = HypotheticBattle(getCbc()));
+	PotentialTargets(const battle::Unit * attacker, const HypotheticBattle * state);
 
 	AttackPossibility bestAction() const;
 	int bestActionValue() const;

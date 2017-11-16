@@ -16,9 +16,13 @@ set(lib_SRCS
 		battle/CCallbackBase.cpp
 		battle/CObstacleInstance.cpp
 		battle/CPlayerBattleCallback.cpp
+		battle/CUnitState.cpp
+		battle/Destination.cpp
+		battle/IUnitInfo.cpp
 		battle/ReachabilityInfo.cpp
 		battle/SideInBattle.cpp
 		battle/SiegeInfo.cpp
+		battle/Unit.cpp
 
 		filesystem/AdapterLoaders.cpp
 		filesystem/CArchiveLoader.cpp
@@ -100,13 +104,16 @@ set(lib_SRCS
 		spells/CSpellHandler.cpp
 		spells/ISpellMechanics.cpp
 		spells/Problem.cpp
+		spells/TargetCondition.cpp
 		spells/ViewSpellInt.cpp
 
 		spells/effects/Clone.cpp
 		spells/effects/Damage.cpp
+		spells/effects/Dispel.cpp
 		spells/effects/Effect.cpp
 		spells/effects/Effects.cpp
 		spells/effects/GlobalEffect.cpp
+		spells/effects/Heal.cpp
 		spells/effects/LocationEffect.cpp
 		spells/effects/Registry.cpp
 		spells/effects/StackEffect.cpp
@@ -164,10 +171,14 @@ set(lib_HEADERS
 		battle/CCallbackBase.h
 		battle/CObstacleInstance.h
 		battle/CPlayerBattleCallback.h
+		battle/CUnitState.h
+		battle/Destination.h
 		battle/IBattleState.h
+		battle/IUnitInfo.h
 		battle/ReachabilityInfo.h
 		battle/SideInBattle.h
 		battle/SiegeInfo.h
+		battle/Unit.h
 
 		filesystem/AdapterLoaders.h
 		filesystem/CArchiveLoader.h
@@ -251,14 +262,17 @@ set(lib_HEADERS
 		spells/Magic.h
 		spells/SpellMechanics.h
 		spells/Problem.h
+		spells/TargetCondition.h
 		spells/ViewSpellInt.h
 
 		spells/effects/Clone.h
 		spells/effects/Damage.h
+		spells/effects/Dispel.h
 		spells/effects/Effect.h
 		spells/effects/Effects.h
 		spells/effects/EffectsFwd.h
 		spells/effects/GlobalEffect.h
+		spells/effects/Heal.h
 		spells/effects/LocationEffect.h
 		spells/effects/Registry.h
 		spells/effects/StackEffect.h

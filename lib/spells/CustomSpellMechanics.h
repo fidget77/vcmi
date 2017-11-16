@@ -21,7 +21,7 @@ namespace spells
 class CustomSpellMechanics : public DefaultSpellMechanics
 {
 public:
-	CustomSpellMechanics(const CSpell * s, const CBattleInfoCallback * Cb, const Caster * caster_, std::shared_ptr<effects::Effects> e);
+	CustomSpellMechanics(const IBattleCast * event, std::shared_ptr<effects::Effects> e);
 	virtual ~CustomSpellMechanics();
 
 	void applyEffects(const SpellCastEnvironment * env, const BattleCast & parameters) const override;
@@ -33,14 +33,16 @@ public:
 	bool requiresCreatureTarget() const	override;
 
 	void cast(const SpellCastEnvironment * env, const BattleCast & parameters, SpellCastContext & ctx, std::vector <const CStack*> & reflected) const override;
-	void cast(IBattleState * battleState, const BattleCast & parameters) const override;
+	void cast(IBattleState * battleState, vstd::RNG & rng, const BattleCast & parameters) const override;
 
-	std::vector<const CStack *> getAffectedStacks(int spellLvl, BattleHex destination) const override final;
+	std::vector<const CStack *> getAffectedStacks(BattleHex destination) const override final;
 
 private:
 	std::shared_ptr<effects::Effects> effects;
 
-	Target transformSpellTarget(const Target & aimPoint, const int spellLevel) const;
+	std::set<const battle::Unit *> collectTargets(const effects::Effects::EffectsToApply & from) const;
+
+	Target transformSpellTarget(const Target & aimPoint) const;
 };
 
 } //namespace spells

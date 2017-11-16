@@ -14,7 +14,6 @@
 class CGTownInstance;
 class CGHeroInstance;
 class IUnitInfo;
-class IStackState;
 class CStack;
 struct CObstacleInstance;
 class IBonusBearer;
@@ -23,6 +22,13 @@ class CArmedInstance;
 
 typedef std::vector<const CStack *> TStacks;
 typedef std::function<bool(const CStack *)> TStackFilter;
+
+namespace battle
+{
+	class Unit;
+	using Units = std::vector<const Unit *>;
+	using UnitFilter = std::function<bool(const Unit *)>;
+}
 
 namespace BattlePerspective
 {
@@ -61,7 +67,11 @@ public:
 	 * @return filtered stacks
 	 *
 	 */
-	TStacks battleGetStacksIf(TStackFilter predicate) const;
+	TStacks battleGetStacksIf(TStackFilter predicate) const; //deprecated
+	battle::Units battleGetUnitsIf(battle::UnitFilter predicate) const;
+
+	const battle::Unit * battleGetUnitByID(uint32_t ID) const;
+	const battle::Unit * battleActiveUnit() const;
 
 	bool battleHasNativeStack(ui8 side) const;
 	const CGTownInstance * battleGetDefendedTown() const; //returns defended town if current battle is a siege, nullptr instead
@@ -101,13 +111,13 @@ public:
 	bool battleIsObstacleVisibleForSide(const CObstacleInstance & coi, BattlePerspective::BattlePerspective side) const;
 
 	///returns player that controls given stack; mind control included
-	PlayerColor battleGetOwner(const IStackState * stack) const;
+	PlayerColor battleGetOwner(const battle::Unit * stack) const;
 
 	///returns hero that controls given stack; nullptr if none; mind control included
-	const CGHeroInstance * battleGetOwnerHero(const IStackState * stack) const;
+	const CGHeroInstance * battleGetOwnerHero(const battle::Unit * stack) const;
 
 	///check that stacks are controlled by same|other player(s) depending on positiveness
 	///mind control included
-	bool battleMatchOwner(const IStackState * attacker, const IStackState * defender, const boost::logic::tribool positivness = false) const;
-	bool battleMatchOwner(const PlayerColor & attacker, const IStackState * defender, const boost::logic::tribool positivness = false) const;
+	bool battleMatchOwner(const battle::Unit * attacker, const battle::Unit * defender, const boost::logic::tribool positivness = false) const;
+	bool battleMatchOwner(const PlayerColor & attacker, const battle::Unit * defender, const boost::logic::tribool positivness = false) const;
 };

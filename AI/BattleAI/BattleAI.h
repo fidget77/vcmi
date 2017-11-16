@@ -45,13 +45,6 @@ struct CurrentOffensivePotential
 };
 */ // These lines may be usefull but they are't used in the code.
 
-struct PossibleSpellcast
-{
-	const CSpell *spell;
-	BattleHex dest;
-	float value;
-};
-
 class CBattleAI : public CBattleGameInterface
 {
 	int side;

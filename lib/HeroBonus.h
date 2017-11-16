@@ -619,7 +619,7 @@ public:
 	int getPrimSkillLevel(PrimarySkill::PrimarySkill id) const;
 };
 
-class DLL_LINKAGE CBonusSystemNode : public IBonusBearer, public boost::noncopyable
+class DLL_LINKAGE CBonusSystemNode : public virtual IBonusBearer, public boost::noncopyable
 {
 public:
 	enum ENodeTypes

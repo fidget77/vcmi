@@ -32,7 +32,7 @@ struct Bonus;
 class IMarket;
 struct SetObjectProperty;
 struct PackageApplied;
-struct BattleAction;
+class BattleAction;
 struct BattleStackAttacked;
 struct BattleResult;
 struct BattleSpellCast;

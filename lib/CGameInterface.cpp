@@ -134,7 +134,7 @@ std::shared_ptr<CScriptingModule> CDynLibHandler::getNewScriptingModule(std::str
 BattleAction CGlobalAI::activeStack(const CStack * stack)
 {
 	BattleAction ba;
-	ba.actionType = Battle::DEFEND;
+	ba.actionType = EActionType::DEFEND;
 	ba.stackNumber = stack->ID;
 	return ba;
 }

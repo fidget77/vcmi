@@ -120,7 +120,7 @@ BattleAction CStupidAI::activeStack( const CStack * stack )
 		static const std::vector<int> wallHexes = {50, 183, 182, 130, 78, 29, 12, 95};
 
 		attack.destinationTile = *RandomGeneratorUtil::nextItem(wallHexes, CRandomGenerator::getDefault());
-		attack.actionType = Battle::CATAPULT;
+		attack.actionType = EActionType::CATAPULT;
 		attack.additionalInfo = 0;
 		attack.side = side;
 		attack.stackNumber = stack->ID;

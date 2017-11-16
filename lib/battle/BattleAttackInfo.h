@@ -15,8 +15,8 @@ class IBonusBearer;
 
 struct DLL_LINKAGE BattleAttackInfo
 {
-	CStackState attacker;
-	CStackState defender;
+	std::shared_ptr<battle::CUnitState> attacker;
+	std::shared_ptr<battle::CUnitState> defender;
 
 	bool shooting;
 	int chargedFields;
@@ -26,6 +26,6 @@ struct DLL_LINKAGE BattleAttackInfo
 	bool deathBlow;
 	bool ballistaDoubleDamage;
 
-	BattleAttackInfo(const CStackState & Attacker, const CStackState & Defender, bool Shooting = false);
+	BattleAttackInfo(const battle::Unit * Attacker, const battle::Unit * Defender, bool Shooting = false);
 	BattleAttackInfo reverse() const;
 };

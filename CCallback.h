@@ -17,7 +17,7 @@ class CGameState;
 struct CPath;
 class CGObjectInstance;
 class CArmedInstance;
-struct BattleAction;
+class BattleAction;
 class CGTownInstance;
 struct lua_State;
 class CClient;

@@ -73,7 +73,7 @@ public:
 	int getHeroCount(PlayerColor player, bool includeGarrisoned) const;
 	bool getHeroInfo(const CGObjectInstance * hero, InfoAboutHero & dest, const CGObjectInstance * selectedObject = nullptr) const;
 	int getSpellCost(const CSpell * sp, const CGHeroInstance * caster) const; //when called during battle, takes into account creatures' spell cost reduction
-	int estimateSpellDamage(const CSpell * sp, const CGHeroInstance * hero) const; //estimates damage of given spell; returns 0 if spell causes no dmg
+	int64_t estimateSpellDamage(const CSpell * sp, const CGHeroInstance * hero) const; //estimates damage of given spell; returns 0 if spell causes no dmg
 	const CArtifactInstance * getArtInstance(ArtifactInstanceID aid) const;
 	const CGObjectInstance * getObjInstance(ObjectInstanceID oid) const;
 

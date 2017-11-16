@@ -316,7 +316,7 @@ void CIdentifierStorage::finalize()
 	state = FINISHED;
 }
 
-CContentHandler::ContentTypeHandler::ContentTypeHandler(IHandlerBase * handler, std::string objectName):
+ContentTypeHandler::ContentTypeHandler(IHandlerBase * handler, std::string objectName):
 	handler(handler),
 	objectName(objectName),
 	originalData(handler->loadLegacyData(VLC->modh->settings.data["textData"][objectName].Float()))
@@ -327,7 +327,7 @@ CContentHandler::ContentTypeHandler::ContentTypeHandler(IHandlerBase * handler, 
 	}
 }
 
-bool CContentHandler::ContentTypeHandler::preloadModData(std::string modName, std::vector<std::string> fileList, bool validate)
+bool ContentTypeHandler::preloadModData(std::string modName, std::vector<std::string> fileList, bool validate)
 {
 	bool result;
 	JsonNode data = JsonUtils::assembleFromFiles(fileList, result);
@@ -362,7 +362,7 @@ bool CContentHandler::ContentTypeHandler::preloadModData(std::string modName, st
 	return result;
 }
 
-bool CContentHandler::ContentTypeHandler::loadMod(std::string modName, bool validate)
+bool ContentTypeHandler::loadMod(std::string modName, bool validate)
 {
 	ModInfo & modInfo = modData[modName];
 	bool result = true;
@@ -387,42 +387,47 @@ bool CContentHandler::ContentTypeHandler::loadMod(std::string modName, bool vali
 			// try to add H3 object data
 			size_t index = data["index"].Float();
 
-			if (originalData.size() > index)
+			if(originalData.size() > index)
 			{
 				logMod->trace("found original data in loadMod(%s) at index %d", name, index);
 				JsonUtils::merge(originalData[index], data);
-				performValidate(originalData[index],name);
-				handler->loadObject(modName, name, originalData[index], index);
+				std::swap(originalData[index], data);
 				originalData[index].clear(); // do not use same data twice (same ID)
 			}
 			else
 			{
-				logMod->debug("no original data in loadMod(%s) at index %d", name, index);
-				performValidate(data, name);
-				handler->loadObject(modName, name, data, index);
+				logMod->warn("no original data in loadMod(%s) at index %d", name, index);
 			}
-			continue;
+			performValidate(data, name);
+			handler->loadObject(modName, name, data, index);
 		}
-		// normal new object
-		logMod->trace("no index in loadMod(%s)", name);
-		performValidate(data,name);
-		handler->loadObject(modName, name, data);
+		else
+		{
+			// normal new object
+			logMod->trace("no index in loadMod(%s)", name);
+			performValidate(data,name);
+			handler->loadObject(modName, name, data);
+		}
 	}
 	return result;
 }
 
 
-void CContentHandler::ContentTypeHandler::loadCustom()
+void ContentTypeHandler::loadCustom()
 {
 	handler->loadCustom();
 }
 
-void CContentHandler::ContentTypeHandler::afterLoadFinalization()
+void ContentTypeHandler::afterLoadFinalization()
 {
 	handler->afterLoadFinalization();
 }
 
 CContentHandler::CContentHandler()
+{
+}
+
+void CContentHandler::init()
 {
  	handlers.insert(std::make_pair("heroClasses", ContentTypeHandler(&VLC->heroh->classes, "heroClass")));
 	handlers.insert(std::make_pair("artifacts", ContentTypeHandler(VLC->arth, "artifact")));
@@ -505,6 +510,11 @@ void CContentHandler::load(CModInfo & mod)
 	}
 	else
 		logMod->info("\t\t[SKIP] %s", mod.name);
+}
+
+const ContentTypeHandler & CContentHandler::operator[](const std::string & name) const
+{
+	return handlers.at(name);
 }
 
 static JsonNode loadModSettings(std::string path)
@@ -952,8 +962,9 @@ void CModHandler::load()
 {
 	CStopWatch totalTime, timer;
 
-	CContentHandler content;
 	logMod->info("\tInitializing content handler: %d ms", timer.getDiff());
+
+	content.init();
 
 	for(const TModID & modName : activeMods)
 	{

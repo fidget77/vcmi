@@ -21,6 +21,7 @@
 namespace spells
 {
 	class ISpellMechanicsFactory;
+	class IBattleCast;
 }
 
 class CGObjectInstance;
@@ -28,7 +29,6 @@ class CSpell;
 class IAdventureSpellMechanics;
 class CLegacyConfigParser;
 class CGHeroInstance;
-class IStackState;
 class CStack;
 class CBattleInfoCallback;
 class BattleInfo;
@@ -225,6 +225,8 @@ public:
 		TargetInfo(const CSpell * spell, const int level, spells::Mode mode);
 	};
 
+	using BTVector = std::vector<Bonus::BonusType>;
+
 	SpellID id;
 	std::string identifier;
 	std::string name;
@@ -273,7 +275,7 @@ public:
 
 	bool hasSpecialEffects() const;
 	///calculate spell damage on stack taking caster`s secondary skills and affectedCreature`s bonuses into account
-	ui32 calculateDamage(const spells::Caster * caster, const CStack * affectedCreature, int spellSchoolLevel, int usedSpellPower) const;
+	int64_t calculateDamage(const spells::Caster * caster, const CStack * affectedCreature, int spellSchoolLevel, int usedSpellPower) const;
 
 	///selects from allStacks actually affected stacks
 	std::vector<const CStack *> getAffectedStacks(const CBattleInfoCallback * cb, spells::Mode mode, const spells::Caster * caster, int spellLvl, BattleHex destination) const;
@@ -319,19 +321,24 @@ public:
 		h & isOffensive;
 		h & targetType;
 
-		//TODO: convert to custom condition
-		h & immunities;
-		h & limiters;
-		h & absoluteImmunities;
-		h & absoluteLimiters;
-
 		if(version >= 780)
 		{
 			h & targetCondition;
 		}
-		else if(!h.saving)
+		else
 		{
-			targetCondition = convertTargetCondition(immunities, absoluteImmunities, limiters, absoluteLimiters);
+			BTVector immunities;
+			BTVector absoluteImmunities;
+			BTVector limiters;
+			BTVector absoluteLimiters;
+
+			h & immunities;
+			h & limiters;
+			h & absoluteImmunities;
+			h & absoluteLimiters;
+
+			if(!h.saving)
+				targetCondition = convertTargetCondition(immunities, absoluteImmunities, limiters, absoluteLimiters);
 		}
 
 		h & iconImmune;
@@ -346,10 +353,6 @@ public:
 		h & school;
 		h & animationInfo;
 
-		if(!h.saving)
-		{
-			setupMechanics();
-		}
 		//backward compatibility
 		//can not be added to level structure as level structure does not know spell id
 		if(!h.saving && version < 773)
@@ -358,6 +361,7 @@ public:
 				for(auto & level : levels)
 					std::swap(level.effects, level.cumulativeEffects);
 		}
+
 	}
 	friend class CSpellHandler;
 	friend class Graphics;
@@ -378,20 +382,15 @@ public:
 
 public://internal, for use only by Mechanics classes
 	///applies caster`s secondary skills and affectedCreature`s to raw damage
-	int adjustRawDamage(const spells::Caster * caster, const IStackState * affectedCreature, int rawDamage) const;
+	int64_t adjustRawDamage(const spells::Caster * caster, const battle::Unit * affectedCreature, int64_t rawDamage) const;
 
 	///returns raw damage or healed HP
-	int calculateRawEffectValue(int effectLevel, int basePowerMultiplier, int levelPowerMultiplier) const;
+	int64_t calculateRawEffectValue(int32_t effectLevel, int32_t basePowerMultiplier, int32_t levelPowerMultiplier) const;
 
-	///generic immunity calculation
-	bool internalIsImmune(const CBattleInfoCallback * cb, const spells::Caster * caster, const IStackState * unit) const;
-
-	std::unique_ptr<spells::Mechanics> battleMechanics(const CBattleInfoCallback * cb, spells::Mode mode, const spells::Caster * caster) const;
+	std::unique_ptr<spells::Mechanics> battleMechanics(const spells::IBattleCast * event) const;
 private:
 	void setIsOffensive(const bool val);
 	void setIsRising(const bool val);
-
-	using BTVector = std::vector<Bonus::BonusType>;
 
 	JsonNode convertTargetCondition(const BTVector & immunity, const BTVector & absImmunity, const BTVector & limit, const BTVector & absLimit) const;
 
@@ -408,11 +407,6 @@ private:
 	std::string attributes; //reference only attributes //todo: remove or include in configuration format, currently unused
 
 	ETargetType targetType;
-
-	BTVector immunities; //any of these grants immunity
-	BTVector absoluteImmunities; //any of these grants immunity, can't be negated
-	BTVector limiters; //all of them are required to be affected
-	BTVector absoluteLimiters; //all of them are required to be affected, can't be negated
 
 	///graphics related stuff
 	std::string iconImmune;
@@ -446,17 +440,27 @@ public:
 	/**
 	 * Gets a list of default allowed spells. OH3 spells are all allowed by default.
 	 *
-	 * @return a list of allowed spells, the index is the spell id and the value either 0 for not allowed or 1 for allowed
 	 */
 	std::vector<bool> getDefaultAllowed() const override;
 
 	const std::string getTypeName() const override;
 
-	template <typename Handler> void serialize(Handler &h, const int version)
+	template <typename Handler> void serialize(Handler & h, const int version)
 	{
-		h & objects ;
+		h & objects;
+		if(!h.saving && version < 780)
+		{
+			update780();
+		}
+
+		if(!h.saving)
+		{
+			afterLoadFinalization();
+		}
 	}
 
 protected:
 	CSpell * loadFromJson(const JsonNode & json, const std::string & identifier, size_t index) override;
+private:
+	void update780();
 };

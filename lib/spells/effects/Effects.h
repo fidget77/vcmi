@@ -33,12 +33,12 @@ public:
 
 	void add(std::shared_ptr<Effect> effect, const int level);
 
-	bool applicable(Problem & problem, const Mechanics * m, const int level) const;
-	bool applicable(Problem & problem, const Mechanics * m, const int level, const Target & aimPoint, const Target & spellTarget) const;
+	bool applicable(Problem & problem, const Mechanics * m) const;
+	bool applicable(Problem & problem, const Mechanics * m, const Target & aimPoint, const Target & spellTarget) const;
 
 	void forEachEffect(const int level, const std::function<void(const Effect *, bool &)> & callback) const;
 
-	EffectsToApply prepare(const Mechanics * m, const BattleCast & p, const Target & spellTarget) const;
+	EffectsToApply prepare(const Mechanics * m, const Target & aimPoint, const Target & spellTarget) const;
 
 	void serializeJson(JsonSerializeFormat & handler, const int level);
 };

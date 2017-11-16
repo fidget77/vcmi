@@ -10,40 +10,44 @@
 #include "StdInc.h"
 #include "PotentialTargets.h"
 
-PotentialTargets::PotentialTargets(const CStack * attacker, const HypotheticBattle & state)
+PotentialTargets::PotentialTargets(const battle::Unit * attacker, const HypotheticBattle * state)
 {
-	auto attackerInfo = getValOr(state.stackStates, attacker->unitId(), std::make_shared<StackWithBonuses>(&attacker->stackState));
+	auto attIter = state->stackStates.find(attacker->unitId());
+	const battle::Unit * attackerInfo = (attIter == state->stackStates.end()) ? attacker : (battle::Unit *)&attIter->second->state;
 
-	auto dists = getCbc()->battleGetDistances(&attackerInfo->state, attackerInfo->state.position);
-	auto avHexes = getCbc()->battleGetAvailableHexes(&attackerInfo->state, attackerInfo->state.position);
+	auto dists = state->battleGetDistances(attackerInfo, attackerInfo->getPosition());
+	auto avHexes = state->battleGetAvailableHexes(attackerInfo, attackerInfo->getPosition());
 
 	//FIXME: this should part of battleGetAvailableHexes
-	bool forcedTarget = false;
-	const CStack * forcedStack = nullptr;
+	bool forceTarget = false;
+	const battle::Unit * forcedTarget = nullptr;
 	BattleHex forcedHex;
 
 	if(attackerInfo->hasBonusOfType(Bonus::ATTACKS_NEAREST_CREATURE))
 	{
-		forcedTarget = true;
-		auto nearest = getCbc()->getNearestStack(attacker, boost::none);
+		forceTarget = true;
+		auto nearest = state->getNearestStack(attackerInfo);
 
 		if(nearest.first != nullptr)
 		{
-			forcedStack = nearest.first;
+			forcedTarget = nearest.first;
 			forcedHex = nearest.second;
 		}
 	}
 
-	for(const CStack * defender : getCbc()->battleGetStacks())
+	auto aliveUnits = state->battleGetUnitsIf([=](const battle::Unit * unit)
 	{
-		auto defenderInfo = getValOr(state.stackStates, defender->unitId(), std::make_shared<StackWithBonuses>(&defender->stackState));
+		return unit->isValidTarget() && unit->unitId() != attackerInfo->unitId();
+	});
 
-		if(!forcedTarget && !getCbc()->battleMatchOwner(&attackerInfo->state, &defenderInfo->state))
+	for(auto defender : aliveUnits)
+	{
+		if(!forceTarget && !state->battleMatchOwner(attackerInfo, defender))
 			continue;
 
 		auto GenerateAttackInfo = [&](bool shooting, BattleHex hex) -> AttackPossibility
 		{
-			auto bai = BattleAttackInfo(attackerInfo->state, defenderInfo->state, shooting);
+			auto bai = BattleAttackInfo(attackerInfo, defender, shooting);
 
 			if(hex.isValid() && !shooting)
 				bai.chargedFields = dists[hex];
@@ -51,24 +55,24 @@ PotentialTargets::PotentialTargets(const CStack * attacker, const HypotheticBatt
 			return AttackPossibility::evaluate(bai, hex);
 		};
 
-		if(forcedTarget)
+		if(forceTarget)
 		{
-			if(forcedStack && defender->ID == forcedStack->ID)
+			if(forcedTarget && defender->unitId() == forcedTarget->unitId())
 				possibleAttacks.push_back(GenerateAttackInfo(false, forcedHex));
 			else
 				unreachableEnemies.push_back(defender);
 		}
-		else if(getCbc()->battleCanShoot(attacker, defenderInfo->state.position))
+		else if(state->battleCanShoot(attackerInfo, defender->getPosition()))
 		{
 			possibleAttacks.push_back(GenerateAttackInfo(true, BattleHex::INVALID));
 		}
 		else
 		{
 			for(BattleHex hex : avHexes)
-				if(CStack::isMeleeAttackPossible(attacker, defender, hex))
+				if(CStack::isMeleeAttackPossible(attackerInfo, defender, hex))
 					possibleAttacks.push_back(GenerateAttackInfo(false, hex));
 
-			if(!vstd::contains_if(possibleAttacks, [=](const AttackPossibility &pa) { return pa.enemy.unitId() == defender->unitId(); }))
+			if(!vstd::contains_if(possibleAttacks, [=](const AttackPossibility & pa) { return pa.enemy->unitId() == defender->unitId(); }))
 				unreachableEnemies.push_back(defender);
 		}
 	}

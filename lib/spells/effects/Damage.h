@@ -12,6 +12,8 @@
 
 #include "StackEffect.h"
 
+struct StacksInjured;
+
 namespace spells
 {
 namespace effects
@@ -24,12 +26,14 @@ public:
 	Damage(const int level);
 	virtual ~Damage();
 
-	void apply(const PacketSender * server, RNG & rng, const Mechanics * m, const BattleCast & p, const EffectTarget & target) const override;
+	void apply(const PacketSender * server, RNG & rng, const Mechanics * m, const EffectTarget & target) const override;
+	void apply(IBattleState * battleState, RNG & rng, const Mechanics * m, const EffectTarget & target) const override;
 
 protected:
 	void serializeJsonEffect(JsonSerializeFormat & handler) override final;
 
 private:
+	void prepareEffects(StacksInjured & stacksInjured, RNG & rng, const Mechanics * m, const EffectTarget & target) const;
 };
 
 } // namespace effects

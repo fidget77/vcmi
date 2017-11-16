@@ -47,7 +47,7 @@ bool Summon::applicable(Problem & problem, const Mechanics * m) const
 		//should not even try to do it
 		MetaString text;
 		text.addReplacement("Invalid spell cast attempt: spell %s, mode %d");
-		text.addReplacement(m->owner->name);
+		text.addReplacement(MetaString::SPELL_NAME, m->getSpellIndex());
 		text.addReplacement2(int(mode));
 		problem.add(std::move(text), Problem::CRITICAL);
 		return false;
@@ -93,10 +93,10 @@ bool Summon::applicable(Problem & problem, const Mechanics * m) const
 	return true;
 }
 
-void Summon::apply(const PacketSender * server, RNG & rng, const Mechanics * m, const BattleCast & p, const EffectTarget & target) const
+void Summon::apply(const PacketSender * server, RNG & rng, const Mechanics * m, const EffectTarget & target) const
 {
 	//new feature - percentage bonus
-	auto amount = m->owner->calculateRawEffectValue(p.effectLevel, 0, m->caster->getSpecificSpellBonus(m->owner, p.effectPower));
+	auto amount = m->owner->calculateRawEffectValue(m->getEffectLevel(), 0, m->caster->getSpecificSpellBonus(m->owner, m->getEffectPower()));
 	if(amount < 1)
 	{
 		server->complain("Summoning didn't summon any!");
@@ -130,8 +130,6 @@ EffectTarget Summon::transformTarget(const Mechanics * m, const Target & aimPoin
 		logGlobal->error("No free space to summon creature!");
 	else
 		effectTarget.push_back(Destination(hex));
-
-	effectTarget.push_back(Destination(hex));
 
 	return effectTarget;
 }

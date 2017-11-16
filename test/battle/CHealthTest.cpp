@@ -10,9 +10,10 @@
 
 #include "StdInc.h"
 #include "mock/mock_UnitHealthInfo.h"
-#include "../../lib/CStack.h"
+#include "../../lib/battle/CUnitState.h"
 
 using namespace testing;
+using namespace battle;
 
 static const int32_t UNIT_HEALTH = 123;
 static const int32_t UNIT_AMOUNT = 300;
@@ -55,26 +56,26 @@ static void checkFullHealth(const CHealth & health, const UnitHealthInfoMock & m
 	EXPECT_EQ(health.available(), mock.unitMaxHealth() * mock.unitBaseAmount());
 }
 
-static void checkDamage(CHealth & health, const int32_t initialDamage, const int32_t expectedDamage)
+static void checkDamage(CHealth & health, const int64_t initialDamage, const int64_t expectedDamage)
 {
-	int32_t damage = initialDamage;
+	int64_t damage = initialDamage;
 	health.damage(damage);
 	EXPECT_EQ(damage, expectedDamage);
 }
 
-static void checkNormalDamage(CHealth & health, const int32_t initialDamage)
+static void checkNormalDamage(CHealth & health, const int64_t initialDamage)
 {
 	checkDamage(health, initialDamage, initialDamage);
 }
 
-static void checkNoDamage(CHealth & health, const int32_t initialDamage)
+static void checkNoDamage(CHealth & health, const int64_t initialDamage)
 {
 	checkDamage(health, initialDamage, 0);
 }
 
-static void checkHeal(CHealth & health, EHealLevel level, EHealPower power, const int32_t initialHeal, const int32_t expectedHeal)
+static void checkHeal(CHealth & health, EHealLevel level, EHealPower power, const int64_t initialHeal, const int64_t expectedHeal)
 {
-	int32_t heal = initialHeal;
+	int64_t heal = initialHeal;
 	health.heal(heal, level, power);
 	EXPECT_EQ(heal, expectedHeal);
 }

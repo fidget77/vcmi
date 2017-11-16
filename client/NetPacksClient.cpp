@@ -681,13 +681,6 @@ void BattleStackMoved::applyFirstCl(CClient *cl)
 void BattleAttack::applyFirstCl(CClient *cl)
 {
 	BATTLE_INTERFACE_CALL_IF_PRESENT_FOR_BOTH_SIDES(battleAttack,this);
-	for (auto & elem : bsa)
-	{
-		for (int z=0; z<elem.healedStacks.size(); ++z)
-		{
-			elem.healedStacks[z].applyCl(cl);
-		}
-	}
 }
 
 void BattleAttack::applyCl(CClient *cl)

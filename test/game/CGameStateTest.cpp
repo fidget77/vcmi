@@ -209,8 +209,7 @@ TEST_F(CGameStateTest, issue2765)
 		//here tested ballista, but this applied to all war machines
 		spells::BattleCast cast(battle, att, spells::Mode::AFTER_ATTACK, age);
 		cast.aimToStack(def);
-		cast.spellLvl = 3;
-		cast.effectLevel = 3;
+		cast.setSpellLevel(3);
 
 		EXPECT_FALSE(age->canBeCastAt(battle, spells::Mode::AFTER_ATTACK, att, def->getPosition()));
 

@@ -31,8 +31,10 @@
 			"damage": true,
 			"indifferent": true
 		},
-		"immunity" : {
-			"DIRECT_DAMAGE_IMMUNITY": true
+		"targetCondition" : {
+			"noneOf" : {
+				"bonus.DIRECT_DAMAGE_IMMUNITY" : "normal"
+			}
 		}
 	},
 	"forceField" : {
@@ -73,8 +75,10 @@
 			"damage": true,
 			"indifferent": true
 		},
-		"immunity" : {
-			"DIRECT_DAMAGE_IMMUNITY": true
+		"targetCondition" : {
+			"noneOf" : {
+				"bonus.DIRECT_DAMAGE_IMMUNITY" : "normal"
+			}
 		}
 	},
 	"earthquake" : {
@@ -135,6 +139,21 @@
 		"levels" : {
 			"base":{
 				"targetModifier":{"smart":true},
+				"specialEffects":{
+					"heal":{
+						"type":"core:heal",
+						"healLevel":"heal",
+						"healPower":"permanent",
+						"optional":true
+					},
+					"cure":{
+						"type":"core:dispel",
+						"optional":true,
+						"negative":true,
+						"neutral":false,
+						"positive":false
+					}
+				},
 				"range" : "0"
 			},
 			"expert":{
@@ -158,17 +177,41 @@
 		"levels" : {
 			"base":{
 				"range" : "0",
+				"specialEffects":{
+					"heal":{
+						"type":"core:heal",
+						"healLevel":"resurrect",
+						"healPower":"oneBattle"
+					},
+					"cure":{
+						"type":"core:dispel",
+						"automatic": false,
+						"optional":true,
+						"negative":true,
+						"neutral":false,
+						"positive":false
+					}
+				},
 				"targetModifier":{"smart":true}
+			},
+			"advanced":{
+				"specialEffects":{
+					"heal":{
+						"healPower":"permanent"
+					}
+				}
 			}
 		},
 		"flags" : {
 			"rising": true,
 			"positive": true
 		},
-		"absoluteImmunity" : {
-			"UNDEAD": true,
-			"SIEGE_WEAPON": true,
-			"NON_LIVING": true
+		"targetCondition" : {
+			"noneOf" : {
+				"bonus.NON_LIVING" : "absolute",
+				"bonus.SIEGE_WEAPON" : "absolute",
+				"bonus.UNDEAD" : "absolute"
+			}
 		}
 	},
 	"animateDead" : {
@@ -184,6 +227,13 @@
 		"levels" : {
 			"base":{
 				"range" : "0",
+				"specialEffects":{
+					"heal":{
+						"type":"core:heal",
+						"healLevel":"resurrect",
+						"healPower":"permanent"
+					}
+				},
 				"targetModifier":{"smart":true}
 			}
 		},
@@ -191,8 +241,10 @@
 			"rising": true,
 			"positive": true
 		},
-		"absoluteLimit" : {
-			"UNDEAD": true
+		"targetCondition" : {
+			"allOf" : {
+				"bonus.UNDEAD" : "absolute"
+			}
 		}
 	},
 	"sacrifice" : {
@@ -215,10 +267,12 @@
 			"rising": true,
 			"positive": true
 		},
-		"absoluteImmunity" : {
-			"SIEGE_WEAPON": true,
-			"UNDEAD": true,
-			"NON_LIVING": true
+		"targetCondition" : {
+			"noneOf" : {
+				"bonus.NON_LIVING" : "absolute",
+				"bonus.SIEGE_WEAPON" : "absolute",
+				"bonus.UNDEAD" : "absolute"
+			}
 		}
 	},
 	"teleport" : {
@@ -231,14 +285,21 @@
 		"levels" : {
 			"base":{
 				"range" : "0",
+				"specialEffects":{
+					"teleport":{
+						"type":"core:teleport"
+					}
+				},
 				"targetModifier":{"smart":true}
 			}
 		},
-		"absoluteImmunity" : {
-			"SIEGE_WEAPON": true
-		},
 		"flags" : {
 			"positive": true
+		},
+		"targetCondition" : {
+			"noneOf" : {
+				"bonus.SIEGE_WEAPON" : "absolute"
+			}
 		}
 	},
 	"removeObstacle" : {
@@ -271,14 +332,36 @@
 		"levels" : {
 			"base":{
 				"range" : "0",
+				"specialEffects":{
+					"clone":{
+						"maxTier":5,
+						"type":"core:clone"
+					}
+				},
 				"targetModifier":{"smart":true}
+			},
+			"advanced":{
+				"specialEffects":{
+					"clone":{
+						"maxTier":6
+					}
+				}
+			},
+			"expert":{
+				"specialEffects":{
+					"clone":{
+						"maxTier":1000
+					}
+				}
 			}
-		},
-		"absoluteImmunity" : {
-			"SIEGE_WEAPON": true
 		},
 		"flags" : {
 			"positive": true
+		},
+		"targetCondition" : {
+			"noneOf" : {
+				"bonus.SIEGE_WEAPON" : "absolute"
+			}
 		}
 	},
 	"fireElemental" : {
@@ -292,7 +375,15 @@
 		},
 		"levels" : {
 			"base":{
-				"range" : "X"
+				"range" : "X",
+				"specialEffects":{
+					"summon":{
+						"exclusive":true,
+						"id":"fireElemental",
+						"permanent":false,
+						"type":"core:summon"
+					}
+				}
 			}
 		},
 		"flags" : {
@@ -310,7 +401,15 @@
 		},
 		"levels" : {
 			"base":{
-				"range" : "X"
+				"range" : "X",
+				"specialEffects":{
+					"summon":{
+						"exclusive":true,
+						"id":"earthElemental",
+						"permanent":false,
+						"type":"core:summon"
+					}
+				}
 			}
 		},
 		"flags" : {
@@ -328,7 +427,15 @@
 		},
 		"levels" : {
 			"base":{
-				"range" : "X"
+				"range" : "X",
+				"specialEffects":{
+					"summon":{
+						"exclusive":true,
+						"id":"waterElemental",
+						"permanent":false,
+						"type":"core:summon"
+					}
+				}
 			}
 		},
 		"flags" : {
@@ -346,7 +453,15 @@
 		},
 		"levels" : {
 			"base":{
-				"range" : "X"
+				"range" : "X",
+				"specialEffects":{
+					"summon":{
+						"exclusive":true,
+						"id":"airElemental",
+						"permanent":false,
+						"type":"core:summon"
+					}
+				}
 			}
 		},
 		"flags" : {

@@ -9,3 +9,11 @@
  */
 #include "StdInc.h"
 #include "EnemyInfo.h"
+
+#include "../../lib/CStack.h"
+
+bool EnemyInfo::operator==(const EnemyInfo & ei) const
+{
+	return s->unitId() == ei.s->unitId();
+}
+

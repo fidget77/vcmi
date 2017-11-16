@@ -10,14 +10,19 @@
 
 #pragma once
 
+class JsonNode;
 class JsonSerializeFormat;
-class IStackState;
-class CSpell;
+class CBattleInfoCallback;
+
+namespace battle
+{
+	class Unit;
+}
 
 namespace spells
 {
-
-class Destination;
+class Caster;
+class Mechanics;
 
 class TargetCondition
 {
@@ -31,9 +36,9 @@ public:
 		Item();
 		virtual ~Item();
 
-		virtual bool isReceptive(const CSpell * spell, const IStackState * target) const;
+		virtual bool isReceptive(const Mechanics * m, const battle::Unit * target) const;
 	protected:
-		virtual bool check(const CSpell * spell, const IStackState * target) const = 0;
+		virtual bool check(const Mechanics * m, const battle::Unit * target) const = 0;
 	};
 
 	using ItemVector = std::vector<std::shared_ptr<Item>>;
@@ -44,13 +49,15 @@ public:
 	TargetCondition();
 	virtual ~TargetCondition();
 
-	bool isReceptive(const CSpell * spell, const IStackState * target) const;
+	bool isReceptive(const CBattleInfoCallback * cb, const Caster * caster, const Mechanics * m, const battle::Unit * target) const;
 
 	void serializeJson(JsonSerializeFormat & handler);
 protected:
 
 private:
-	bool check(const ItemVector & condition, const CSpell * spell, const IStackState * target) const;
+	bool check(const ItemVector & condition, const Mechanics * m, const battle::Unit * target) const;
+
+	void loadConditions(const JsonNode & source, bool exclusive, bool inverted);
 };
 
 } // namespace spells

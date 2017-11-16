@@ -23,7 +23,7 @@ public:
 	GlobalEffect(const int level);
 	virtual ~GlobalEffect();
 
-	EffectTarget filterTarget(const Mechanics * m, const BattleCast & p, const EffectTarget & target) const override;
+	EffectTarget filterTarget(const Mechanics * m, const EffectTarget & target) const override;
 
 	EffectTarget transformTarget(const Mechanics * m,  const Target & aimPoint, const Target & spellTarget) const override;
 protected:

@@ -17,17 +17,6 @@
 #include "../CGeneralTextHandler.h"
 
 ///BattleInfo
-const CStack * BattleInfo::getNextStack() const
-{
-	std::vector<const CStack *> hlp;
-	battleGetStackQueue(hlp, 1, -1);
-
-	if(hlp.size())
-		return hlp[0];
-	else
-		return nullptr;
-}
-
 std::pair< std::vector<BattleHex>, int > BattleInfo::getPath(BattleHex start, BattleHex dest, const CStack * stack)
 {
 	auto reachability = getReachability(stack);
@@ -47,31 +36,6 @@ std::pair< std::vector<BattleHex>, int > BattleInfo::getPath(BattleHex start, Ba
 	}
 
 	return std::make_pair(path, reachability.distances[dest]);
-}
-
-ui32 BattleInfo::calculateDmg(const CStack * attacker, const CStack * defender,
-	bool shooting, ui8 charge, bool lucky, bool unlucky, bool deathBlow, bool ballistaDoubleDmg, CRandomGenerator & rand)
-{
-	BattleAttackInfo bai(attacker->stackState, defender->stackState, shooting);
-	bai.chargedFields = charge;
-	bai.luckyHit = lucky;
-	bai.unluckyHit = unlucky;
-	bai.deathBlow = deathBlow;
-	bai.ballistaDoubleDamage = ballistaDoubleDmg;
-
-	TDmgRange range = calculateDmgRange(bai);
-
-	if(range.first != range.second)
-	{
-		ui32 sum = 0;
-		ui32 howManyToAv = std::min<ui32>(10, attacker->getCount());
-		for(int g=0; g<howManyToAv; ++g)
-			sum += (ui32)rand.nextInt(range.first, range.second);
-
-		return sum / howManyToAv;
-	}
-	else
-		return range.first;
 }
 
 void BattleInfo::calculateCasualties(std::map<ui32,si32> * casualties) const
@@ -704,6 +668,14 @@ TStacks BattleInfo::getStacksIf(TStackFilter predicate) const
 	return ret;
 }
 
+battle::Units BattleInfo::getUnitsIf(battle::UnitFilter predicate) const
+{
+	battle::Units ret;
+	vstd::copy_if(stacks, std::back_inserter(ret), predicate);
+	return ret;
+}
+
+
 BFieldType BattleInfo::getBattlefieldType() const
 {
 	return battlefieldType;
@@ -779,6 +751,123 @@ const IBonusBearer * BattleInfo::asBearer() const
 	return this;
 }
 
+void BattleInfo::updateUnit(const CStackStateInfo & changes)
+{
+	CStack * changedStack = getStack(changes.stackId, false);
+	if(!changedStack)
+		throw std::runtime_error("Invalid stack id in BattleInfo update");
+
+	//checking if we resurrect a stack that is under a living stack
+	auto accessibility = getAccesibility();
+
+	if(!changedStack->alive() && !accessibility.accessible(changedStack->getPosition(), changedStack))
+	{
+		logNetwork->error("Cannot resurrect %s because hex %d is occupied!", changedStack->nodeName(), changedStack->getPosition().hex);
+		return; //position is already occupied
+	}
+
+	//applying changes
+	bool resurrected = !changedStack->alive(); //indicates if stack is resurrected or just healed
+
+	changedStack->stackState.fromInfo(changes);
+
+	if(resurrected)
+	{
+		//removing all spells effects
+		auto selector = [](const Bonus * b)
+		{
+			//Special case: DISRUPTING_RAY is "immune" to dispell
+			//Other even PERMANENT effects can be removed
+			if(b->source == Bonus::SPELL_EFFECT)
+				return b->sid != SpellID::DISRUPTING_RAY;
+			else
+				return false;
+		};
+		changedStack->popBonuses(selector);
+	}
+}
+
+void BattleInfo::addUnitBonus(uint32_t id, const std::vector<Bonus> & bonus)
+{
+	CStack * sta = getStack(id, false);
+
+	if(!sta)
+	{
+		logGlobal->error("Cannot find stack %d", id);
+		return;
+	}
+
+	for(const Bonus & b : bonus)
+		addOrUpdateUnitBonus(sta, b, true);
+}
+
+void BattleInfo::updateUnitBonus(uint32_t id, const std::vector<Bonus> & bonus)
+{
+	CStack * sta = getStack(id, false);
+
+	if(!sta)
+	{
+		logGlobal->error("Cannot find stack %d", id);
+		return;
+	}
+
+	for(const Bonus & b : bonus)
+		addOrUpdateUnitBonus(sta, b, false);
+}
+
+void BattleInfo::removeUnitBonus(uint32_t id, const std::vector<Bonus> & bonus)
+{
+	CStack * sta = getStack(id, false);
+
+	if(!sta)
+	{
+		logGlobal->error("Cannot find stack %d", id);
+		return;
+	}
+
+	for(const Bonus & one : bonus)
+	{
+		auto selector = [one](const Bonus * b)
+		{
+			//compare everything but turnsRemain, limiter and propagator
+			return one.duration == b->duration
+			&& one.type == b->type
+			&& one.subtype == b->subtype
+			&& one.source == b->source
+			&& one.val == b->val
+			&& one.sid == b->sid
+			&& one.valType == b->valType
+			&& one.additionalInfo == b->additionalInfo
+			&& one.effectRange == b->effectRange
+			&& one.description == b->description;
+		};
+		sta->popBonuses(selector);
+	}
+}
+
+void BattleInfo::addOrUpdateUnitBonus(CStack * sta, const Bonus & value, bool forceAdd)
+{
+	if(forceAdd || !sta->hasBonus(Selector::source(Bonus::SPELL_EFFECT, value.sid).And(Selector::typeSubtype(value.type, value.subtype))))
+	{
+		//no such effect or cumulative - add new
+		logBonus->trace("%s receives a new bonus: %s", sta->nodeName(), value.Description());
+		sta->addNewBonus(std::make_shared<Bonus>(value));
+	}
+	else
+	{
+		logBonus->trace("%s updated bonus: %s", sta->nodeName(), value.Description());
+
+		for(auto stackBonus : sta->getExportedBonusList()) //TODO: optimize
+		{
+			if(stackBonus->source == value.source && stackBonus->sid == value.sid && stackBonus->type == value.type && stackBonus->subtype == value.subtype)
+			{
+				stackBonus->turnsRemain = std::max(stackBonus->turnsRemain, value.turnsRemain);
+			}
+		}
+		CBonusSystemNode::treeHasChanged();
+	}
+}
+
 CArmedInstance * BattleInfo::battleGetArmyObject(ui8 side) const
 {
 	return const_cast<CArmedInstance*>(CBattleInfoEssentials::battleGetArmyObject(side));
@@ -790,7 +879,7 @@ CGHeroInstance * BattleInfo::battleGetFightingHero(ui8 side) const
 }
 
 
-bool CMP_stack::operator()(const IStackState * a, const IStackState * b)
+bool CMP_stack::operator()(const battle::Unit * a, const battle::Unit * b)
 {
 	switch(phase)
 	{
@@ -798,7 +887,7 @@ bool CMP_stack::operator()(const IStackState * a, const IStackState * b)
 		return a->creatureIndex() > b->creatureIndex(); //catapult is 145 and turrets are 149
 	case 1: //fastest first, upper slot first
 		{
-			int as = a->unitAsBearer()->Speed(turn), bs = b->unitAsBearer()->Speed(turn);
+			int as = a->getInitiative(turn), bs = b->getInitiative(turn);
 			if(as != bs)
 				return as > bs;
 			else
@@ -808,7 +897,7 @@ bool CMP_stack::operator()(const IStackState * a, const IStackState * b)
 		//TODO: should be replaced with order of receiving morale!
 	case 3: //fastest last, upper slot first
 		{
-			int as = a->unitAsBearer()->Speed(turn), bs = b->unitAsBearer()->Speed(turn);
+			int as = a->getInitiative(turn), bs = b->getInitiative(turn);
 			if(as != bs)
 				return as < bs;
 			else

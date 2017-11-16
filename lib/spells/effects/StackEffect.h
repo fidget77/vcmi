@@ -26,17 +26,17 @@ public:
 	bool applicable(Problem & problem, const Mechanics * m) const override;
 	bool applicable(Problem & problem, const Mechanics * m, const Target & aimPoint, const EffectTarget & target) const override;
 
-	EffectTarget filterTarget(const Mechanics * m, const BattleCast & p, const EffectTarget & target) const override;
+	EffectTarget filterTarget(const Mechanics * m, const EffectTarget & target) const override;
 
 	virtual EffectTarget transformTarget(const Mechanics * m, const Target & aimPoint, const Target & spellTarget) const;
 
-    bool getStackFilter(const Mechanics * m, bool alwaysSmart, const IStackState * s) const;
+    bool getStackFilter(const Mechanics * m, bool alwaysSmart, const battle::Unit * s) const;
 
-    virtual bool eraseByImmunityFilter(const Mechanics * m, const IStackState * s) const;
+    virtual bool eraseByImmunityFilter(const Mechanics * m, const battle::Unit * s) const;
 protected:
-	virtual bool isReceptive(const Mechanics * m, const IStackState * s) const;
-	virtual bool isSmartTarget(const Mechanics * m, const IStackState * s, bool alwaysSmart) const;
-	virtual bool isValidTarget(const Mechanics * m, const IStackState * s) const;
+	virtual bool isReceptive(const Mechanics * m, const battle::Unit * s) const;
+	virtual bool isSmartTarget(const Mechanics * m, const battle::Unit * s, bool alwaysSmart) const;
+	virtual bool isValidTarget(const Mechanics * m, const battle::Unit * s) const;
 private:
 };
 

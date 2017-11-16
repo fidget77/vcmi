@@ -17,6 +17,7 @@
 					<Add option="-Og" />
 					<Add option="-Wextra" />
 					<Add option="-g" />
+					<Add directory="mock" />
 				</Compiler>
 				<Linker>
 					<Add directory="$(#boost.lib32)" />
@@ -32,6 +33,7 @@
 					<Add option="-Og" />
 					<Add option="-Wextra" />
 					<Add option="-g" />
+					<Add directory="mock" />
 				</Compiler>
 				<Linker>
 					<Add directory="$(#boost.lib64)" />
@@ -76,6 +78,7 @@
 		</Unit>
 		<Unit filename="battle/BattleHexTest.cpp" />
 		<Unit filename="battle/CHealthTest.cpp" />
+		<Unit filename="battle/CUnitStateTest.cpp" />
 		<Unit filename="game/CGameStateTest.cpp" />
 		<Unit filename="googletest/googlemock/src/gmock-all.cc" />
 		<Unit filename="googletest/googletest/src/gtest-all.cc" />
@@ -84,11 +87,15 @@
 		<Unit filename="map/CMapFormatTest.cpp" />
 		<Unit filename="map/MapComparer.cpp" />
 		<Unit filename="map/MapComparer.h" />
+		<Unit filename="mock/mock_BonusBearer.cpp" />
+		<Unit filename="mock/mock_BonusBearer.h" />
 		<Unit filename="mock/mock_IGameCallback.cpp" />
 		<Unit filename="mock/mock_IGameCallback.h" />
 		<Unit filename="mock/mock_MapService.cpp" />
 		<Unit filename="mock/mock_MapService.h" />
+		<Unit filename="mock/mock_UnitEnvironment.h" />
 		<Unit filename="mock/mock_UnitHealthInfo.h" />
+		<Unit filename="mock/mock_UnitInfo.h" />
 		<Extensions>
 			<code_completion />
 			<envvars />

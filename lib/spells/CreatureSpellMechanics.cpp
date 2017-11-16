@@ -19,22 +19,22 @@
 namespace spells
 {
 
-AcidBreathDamageMechanics::AcidBreathDamageMechanics(const CSpell * s, const CBattleInfoCallback * Cb, const Caster * caster_):
-	RegularSpellMechanics(s, Cb, caster_)
+AcidBreathDamageMechanics::AcidBreathDamageMechanics(const IBattleCast * event):
+	RegularSpellMechanics(event)
 {
 }
 
 void AcidBreathDamageMechanics::applyBattleEffects(const SpellCastEnvironment * env, const BattleCast & parameters, SpellCastContext & ctx) const
 {
 	//todo: this should be effectValue
-	ctx.setDamageToDisplay(parameters.effectPower);
+	ctx.setDamageToDisplay(getEffectPower());
 
 	for(auto & attackedCre : ctx.attackedCres)
 	{
 		BattleStackAttacked bsa;
 		bsa.flags |= BattleStackAttacked::SPELL_EFFECT;
-		bsa.spellID = owner->id;
-		bsa.damageAmount = parameters.effectPower; //damage times the number of attackers
+		bsa.spellID = getSpellId();
+		bsa.damageAmount = getEffectPower(); //damage times the number of attackers
 		bsa.stackAttacked = (attackedCre)->ID;
 		bsa.attackerID = -1;
 		(attackedCre)->prepareAttacked(bsa, env->getRandomGenerator());
@@ -42,7 +42,7 @@ void AcidBreathDamageMechanics::applyBattleEffects(const SpellCastEnvironment * 
 	}
 }
 
-bool AcidBreathDamageMechanics::isImmuneByStack(const IStackState * obj) const
+bool AcidBreathDamageMechanics::isImmuneByStack(const battle::Unit * obj) const
 {
 	//just in case
 	if(!obj->alive())
@@ -55,23 +55,23 @@ bool AcidBreathDamageMechanics::isImmuneByStack(const IStackState * obj) const
 	{
 		//SPELL_IMMUNITY absolute case
 		std::stringstream cachingStr;
-		cachingStr << "type_" << Bonus::SPELL_IMMUNITY << "subtype_" << owner->id.toEnum() << "addInfo_1";
-		if(obj->unitAsBearer()->hasBonus(Selector::typeSubtypeInfo(Bonus::SPELL_IMMUNITY, owner->id.toEnum(), 1), cachingStr.str()))
+		cachingStr << "type_" << Bonus::SPELL_IMMUNITY << "subtype_" << getSpellIndex() << "addInfo_1";
+		if(obj->hasBonus(Selector::typeSubtypeInfo(Bonus::SPELL_IMMUNITY, getSpellIndex(), 1), cachingStr.str()))
 			return true;
 	}
 	return false;
 }
 
 ///DeathStareMechanics
-DeathStareMechanics::DeathStareMechanics(const CSpell * s, const CBattleInfoCallback * Cb, const Caster * caster_)
-	: RegularSpellMechanics(s, Cb, caster_)
+DeathStareMechanics::DeathStareMechanics(const IBattleCast * event)
+	: RegularSpellMechanics(event)
 {
 }
 
 void DeathStareMechanics::applyBattleEffects(const SpellCastEnvironment * env, const BattleCast & parameters, SpellCastContext & ctx) const
 {
 	//calculating dmg to display
-	si32 damageToDisplay = parameters.effectPower;
+	si32 damageToDisplay = getEffectPower();
 
 	if(!ctx.attackedCres.empty())
 		vstd::amin(damageToDisplay, (*ctx.attackedCres.begin())->getCount()); //stack is already reduced after attack
@@ -82,11 +82,11 @@ void DeathStareMechanics::applyBattleEffects(const SpellCastEnvironment * env, c
 	{
 		BattleStackAttacked bsa;
 		bsa.flags |= BattleStackAttacked::SPELL_EFFECT;
-		bsa.spellID = owner->id;
-		bsa.damageAmount = parameters.effectPower * (attackedCre)->MaxHealth();//todo: move here all DeathStare calculation
-		bsa.stackAttacked = (attackedCre)->ID;
+		bsa.spellID = getSpellId();
+		bsa.damageAmount = getEffectPower() * attackedCre->MaxHealth();//todo: move here all DeathStare calculation
+		bsa.stackAttacked = attackedCre->ID;
 		bsa.attackerID = -1;
-		(attackedCre)->prepareAttacked(bsa, env->getRandomGenerator());
+		attackedCre->prepareAttacked(bsa, env->getRandomGenerator());
 		ctx.si.stacks.push_back(bsa);
 	}
 
@@ -111,8 +111,8 @@ void DeathStareMechanics::applyBattleEffects(const SpellCastEnvironment * env, c
 }
 
 ///DispellHelpfulMechanics
-DispellHelpfulMechanics::DispellHelpfulMechanics(const CSpell * s, const CBattleInfoCallback * Cb, const Caster * caster_)
-	: RegularSpellMechanics(s, Cb, caster_)
+DispellHelpfulMechanics::DispellHelpfulMechanics(const IBattleCast * event)
+	: RegularSpellMechanics(event)
 {
 }
 
@@ -122,9 +122,9 @@ void DispellHelpfulMechanics::applyBattleEffects(const SpellCastEnvironment * en
 	doDispell(env, ctx, positiveSpellEffects);
 }
 
-bool DispellHelpfulMechanics::isImmuneByStack(const IStackState * obj) const
+bool DispellHelpfulMechanics::isImmuneByStack(const battle::Unit * obj) const
 {
-	if(!canDispell(obj->unitAsBearer(), positiveSpellEffects, "DispellHelpfulMechanics::positiveSpellEffects"))
+	if(!canDispell(obj, positiveSpellEffects, "DispellHelpfulMechanics::positiveSpellEffects"))
 		return true;
 
 	//use default algorithm only if there is no mechanics-related problem

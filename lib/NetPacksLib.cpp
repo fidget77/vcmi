@@ -1286,7 +1286,7 @@ DLL_LINKAGE void BattleTriggerEffect::applyGs(CGameState *gs)
 	{
 	case Bonus::HP_REGENERATION:
 	{
-		int32_t toHeal = val;
+		int64_t toHeal = val;
 		st->stackState.heal(toHeal, EHealLevel::HEAL, EHealPower::PERMANENT);
 		break;
 	}
@@ -1404,9 +1404,6 @@ DLL_LINKAGE void BattleStackAttacked::applyGs(CGameState *gs)
 			at->stackState.cloneID = -1;
 		}
 	}
-	//life drain handling
-	for(auto & elem : healedStacks)
-		elem.applyGs(gs);
 
 	if(willRebirth())
 	{
@@ -1439,11 +1436,7 @@ DLL_LINKAGE void BattleAttack::applyGs(CGameState * gs)
 	CStack * attacker = gs->curB->getStack(stackAttacking);
 	assert(attacker);
 
-	if(counter())
-		attacker->stackState.counterAttacks.use();
-
-	if(shot())
-		attacker->stackState.shots.use();
+	attackerChanges.applyGs(gs);
 
 	for(BattleStackAttacked & stackAttacked : bsa)
 		stackAttacked.applyGs(gs);
@@ -1455,7 +1448,7 @@ DLL_LINKAGE void StartAction::applyGs(CGameState *gs)
 {
 	CStack *st = gs->curB->getStack(ba.stackNumber);
 
-	if(ba.actionType == Battle::END_TACTIC_PHASE)
+	if(ba.actionType == EActionType::END_TACTIC_PHASE)
 	{
 		gs->curB->tacticDistance = 0;
 		return;
@@ -1468,7 +1461,7 @@ DLL_LINKAGE void StartAction::applyGs(CGameState *gs)
 		return;
 	}
 
-	if(ba.actionType != Battle::HERO_SPELL) //don't check for stack if it's custom action by hero
+	if(ba.actionType != EActionType::HERO_SPELL) //don't check for stack if it's custom action by hero
 	{
 		assert(st);
 	}
@@ -1479,16 +1472,16 @@ DLL_LINKAGE void StartAction::applyGs(CGameState *gs)
 
 	switch(ba.actionType)
 	{
-	case Battle::DEFEND:
+	case EActionType::DEFEND:
 		st->stackState.waiting = false;
 		st->stackState.defending = true;
 		st->stackState.defendingAnim = true;
 		break;
-	case Battle::WAIT:
+	case EActionType::WAIT:
 		st->stackState.defendingAnim = false;
 		st->stackState.waiting = true;
 		break;
-	case Battle::HERO_SPELL: //no change in current stack state
+	case EActionType::HERO_SPELL: //no change in current stack state
 		break;
 	default: //any active stack action - attack, catapult, heal, spell...
 		st->stackState.waiting = false;
@@ -1511,95 +1504,16 @@ DLL_LINKAGE void BattleSpellCast::applyGs(CGameState *gs)
 	}
 }
 
-void actualizeEffect(CStack * s, const Bonus & ef)
-{
-	for(auto stackBonus : s->getBonusList()) //TODO: optimize
-	{
-		if(stackBonus->source == Bonus::SPELL_EFFECT && stackBonus->type == ef.type && stackBonus->subtype == ef.subtype)
-		{
-			stackBonus->turnsRemain = std::max(stackBonus->turnsRemain, ef.turnsRemain);
-		}
-	}
-	CBonusSystemNode::treeHasChanged();
-}
-
 DLL_LINKAGE void SetStackEffect::applyGs(CGameState *gs)
 {
-	for(auto stackData : toRemove)
-	{
-		CStack * s = gs->curB->getStack(stackData.first);
-		if(!s)
-		{
-			logNetwork->error("Cannot find stack %d", stackData.first);
-			continue;
-		}
+	for(const auto & stackData : toRemove)
+		gs->curB->removeUnitBonus(stackData.first, stackData.second);
 
-		for(const Bonus & bonus : stackData.second)
-		{
-			auto selector = [bonus](const Bonus * b)
-			{
-				//compare everything but turnsRemain, limiter and propagator
-				return bonus.duration == b->duration
-				&& bonus.type == b->type
-				&& bonus.subtype == b->subtype
-				&& bonus.source == b->source
-				&& bonus.val == b->val
-				&& bonus.sid == b->sid
-				&& bonus.valType == b->valType
-				&& bonus.additionalInfo == b->additionalInfo
-				&& bonus.effectRange == b->effectRange
-				&& bonus.description == b->description;
-			};
-			s->popBonuses(selector);
-		}
-	}
+	for(const auto & stackData : toUpdate)
+		gs->curB->updateUnitBonus(stackData.first, stackData.second);
 
-	auto processEffect = [this](CStack * sta, const Bonus & effect, bool cumulative)
-	{
-		if(cumulative || !sta->hasBonus(Selector::source(Bonus::SPELL_EFFECT, effect.sid).And(Selector::typeSubtype(effect.type, effect.subtype))))
-		{
-			//no such effect or cumulative - add new
-			logBonus->trace("%s receives a new bonus: %s", sta->nodeName(), effect.Description());
-			sta->addNewBonus(std::make_shared<Bonus>(effect));
-		}
-		else
-		{
-			logBonus->trace("%s updated bonus: %s", sta->nodeName(), effect.Description());
-			actualizeEffect(sta, effect);
-		}
-	};
-
-	for(ui32 id : stacks)
-	{
-		CStack *s = gs->curB->getStack(id);
-		if(s)
-		{
-			for(const Bonus & fromEffect : effect)
-				processEffect(s, fromEffect, false);
-			for(const Bonus & fromEffect : cumulativeEffects)
-				processEffect(s, fromEffect, true);
-		}
-		else
-			logNetwork->error("Cannot find stack %d", id);
-	}
-
-	for(auto & para : uniqueBonuses)
-	{
-		CStack *s = gs->curB->getStack(para.first);
-		if(s)
-			processEffect(s, para.second, false);
-		else
-			logNetwork->error("Cannot find stack %d", para.first);
-	}
-
-	for(auto & para : cumulativeUniqueBonuses)
-	{
-		CStack *s = gs->curB->getStack(para.first);
-		if(s)
-			processEffect(s, para.second, true);
-		else
-			logNetwork->error("Cannot find stack %d", para.first);
-	}
+	for(const auto & stackData : toAdd)
+		gs->curB->addUnitBonus(stackData.first, stackData.second);
 }
 
 DLL_LINKAGE void StacksInjured::applyGs(CGameState *gs)
@@ -1611,39 +1525,7 @@ DLL_LINKAGE void StacksInjured::applyGs(CGameState *gs)
 DLL_LINKAGE void BattleStacksChanged::applyGs(CGameState *gs)
 {
 	for(auto & elem : changedStacks)
-	{
-		CStack * changedStack = gs->curB->getStack(elem.stackId, false);
-		assert(changedStack);
-
-		//checking if we resurrect a stack that is under a living stack
-		auto accessibility = gs->curB->getAccesibility();
-
-		if(!changedStack->alive() && !accessibility.accessible(changedStack->getPosition(), changedStack))
-		{
-			logNetwork->error("Cannot resurrect %s because hex %d is occupied!", changedStack->nodeName(), changedStack->getPosition().hex);
-			return; //position is already occupied
-		}
-
-		//applying changes
-		bool resurrected = !changedStack->alive(); //indicates if stack is resurrected or just healed
-
-		changedStack->stackState.fromInfo(elem);
-
-		if(resurrected)
-		{
-			//removing all spells effects
-			auto selector = [](const Bonus * b)
-			{
-				//Special case: DISRUPTING_RAY is "immune" to dispell
-				//Other even PERMANENT effects can be removed
-				if(b->source == Bonus::SPELL_EFFECT)
-					return b->sid != SpellID::DISRUPTING_RAY;
-				else
-					return false;
-			};
-			changedStack->popBonuses(selector);
-		}
-	}
+		gs->curB->updateUnit(elem);
 }
 
 DLL_LINKAGE void ObstaclesRemoved::applyGs(CGameState *gs)

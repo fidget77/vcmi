@@ -1442,13 +1442,12 @@ struct BattleStackAttacked
 
 	ui32 stackAttacked, attackerID;
 	ui32 killedAmount;
-	si32 damageAmount;
+	int64_t damageAmount;
 	CStackStateInfo newState;
 	enum EFlags {KILLED = 1, EFFECT = 2/*deprecated */, SECONDARY = 4, REBIRTH = 8, CLONE_KILLED = 16, SPELL_EFFECT = 32 /*, BONUS_EFFECT = 64 */};
 	ui32 flags; //uses EFlags (above)
 	ui32 effect; //set only if flag EFFECT is set
 	SpellID spellID; //only if flag SPELL_EFFECT is set
-	std::vector<BattleStacksChanged> healedStacks; //used when life drain
 
 	bool killed() const//if target stack was killed
 	{
@@ -1484,7 +1483,6 @@ struct BattleStackAttacked
 		h & killedAmount;
 		h & damageAmount;
 		h & effect;
-		h & healedStacks;
 		h & spellID;
 	}
 	bool operator<(const BattleStackAttacked &b) const
@@ -1501,6 +1499,8 @@ struct BattleAttack : public CPackForClient
 	void applyFirstCl(CClient *cl);
 	DLL_LINKAGE void applyGs(CGameState *gs);
 	void applyCl(CClient *cl);
+
+	BattleStacksChanged attackerChanges;
 
 	std::vector<BattleStackAttacked> bsa;
 	ui32 stackAttacking;
@@ -1548,6 +1548,7 @@ struct BattleAttack : public CPackForClient
 		h & spellID;
 		h & battleLog;
 		h & customEffects;
+		h & attackerChanges;
 	}
 };
 
@@ -1580,7 +1581,6 @@ struct BattleSpellCast : public CPackForClient
 	BattleSpellCast()
 	{
 		side = 0;
-		skill = 0;
 		manaGained = 0;
 		casterStack = -1;
 		castByHero = true;
@@ -1592,7 +1592,6 @@ struct BattleSpellCast : public CPackForClient
 	bool activeCast;
 	ui8 side; //which hero did cast spell: 0 - attacker, 1 - defender
 	SpellID spellID; //id of spell
-	ui8 skill; //caster's skill level
 	ui8 manaGained; //mana channeling ability
 	BattleHex tile; //destination tile (may not be set in some global/mass spells
 	std::vector<CustomEffectInfo> customEffects;
@@ -1605,7 +1604,6 @@ struct BattleSpellCast : public CPackForClient
 	{
 		h & side;
 		h & spellID;
-		h & skill;
 		h & manaGained;
 		h & tile;
 		h & customEffects;
@@ -1623,28 +1621,16 @@ struct SetStackEffect : public CPackForClient
 	DLL_LINKAGE void applyGs(CGameState * gs);
 	void applyCl(CClient * cl);
 
-	std::vector<ui32> stacks; //affected stacks (IDs)
-
-	//regular effects
-	std::vector<Bonus> effect; //bonuses to apply
-	std::vector<std::pair<ui32, Bonus> > uniqueBonuses; //bonuses per single stack
-
-	//cumulative effects
-	std::vector<Bonus> cumulativeEffects; //bonuses to apply
-	std::vector<std::pair<ui32, Bonus> > cumulativeUniqueBonuses; //bonuses per single stack
-
+	std::vector<std::pair<ui32, std::vector<Bonus>>> toAdd;
+	std::vector<std::pair<ui32, std::vector<Bonus>>> toUpdate;
 	std::vector<std::pair<ui32, std::vector<Bonus>>> toRemove;
 
 	std::vector<MetaString> battleLog;
 	template <typename Handler> void serialize(Handler & h, const int version)
 	{
-		h & stacks;
-		h & effect;
-		h & uniqueBonuses;
-		h & cumulativeEffects;
-		h & cumulativeUniqueBonuses;
+		h & toAdd;
+		h & toUpdate;
 		h & toRemove;
-		h & battleLog;
 	}
 };
 

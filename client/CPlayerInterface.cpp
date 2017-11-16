@@ -830,9 +830,9 @@ BattleAction CPlayerInterface::activeStack(const CStack * stack) //called when i
 	BattleAction ret = *(CBattleInterface::givenCommand.data);
 	vstd::clear_pointer(CBattleInterface::givenCommand.data);
 
-	if (ret.actionType == Battle::CANCEL)
+	if(ret.actionType == EActionType::CANCEL)
 	{
-		if (stackId != ret.stackNumber)
+		if(stackId != ret.stackNumber)
 			logGlobal->error("Not current active stack action canceled");
 		logGlobal->trace("Canceled command for %s", stackName);
 	}
@@ -922,7 +922,7 @@ void CPlayerInterface::battleStacksAttacked(const std::vector<BattleStackAttacke
 		bool remoteAttack = false;
 
 		if(LOCPLINT->curAction)
-			remoteAttack |= LOCPLINT->curAction->actionType != Battle::WALK_AND_ATTACK;
+			remoteAttack |= LOCPLINT->curAction->actionType != EActionType::WALK_AND_ATTACK;
 
 		StackAttackedInfo to_put = {defender, elem.damageAmount, elem.killedAmount, attacker, remoteAttack, elem.killed(), elem.willRebirth(), elem.cloneKilled()};
 		arg.push_back(to_put);

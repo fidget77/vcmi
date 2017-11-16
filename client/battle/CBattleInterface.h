@@ -30,7 +30,7 @@ struct BattleSpellCast;
 struct CObstacleInstance;
 template <typename T> struct CondSh;
 struct SetStackEffect;
-struct BattleAction;
+class BattleAction;
 class CGTownInstance;
 struct CatapultAttack;
 struct CatapultProjectileInfo;
@@ -46,7 +46,6 @@ struct ProjectileInfo;
 class CClickableHex;
 struct BattleHex;
 struct InfoAboutHero;
-struct BattleAction;
 class CBattleGameInterface;
 struct CustomEffectInfo;
 class CAnimation;
@@ -55,7 +54,7 @@ class CAnimation;
 struct StackAttackedInfo
 {
 	const CStack *defender; //attacked stack
-	int32_t dmg; //damage dealt
+	int64_t dmg; //damage dealt
 	unsigned int amountKilled; //how many creatures in stack has been killed
 	const CStack *attacker; //attacking stack
 	bool indirectAttack; //if true, stack was attacked indirectly - spell or ranged attack
@@ -186,7 +185,9 @@ private:
 	void printConsoleAttacked(const CStack *defender, int dmg, int killed, const CStack *attacker, bool Multiple);
 
 	std::list<ProjectileInfo> projectiles; //projectiles flying on battlefield
-	void giveCommand(Battle::ActionType action, BattleHex tile, ui32 stackID, si32 additional=-1, si32 selectedStack = -1);
+	void giveCommand(EActionType action, BattleHex tile = BattleHex(), si32 additional = -1);
+	void sendCommand(BattleAction *& command, const CStack * actor = nullptr);
+
 	bool isTileAttackable(const BattleHex & number) const; //returns true if tile 'number' is neighboring any tile from active stack's range or is one of these tiles
 	bool isCatapultAttackable(BattleHex hex) const; //returns true if given tile can be attacked by catapult
 

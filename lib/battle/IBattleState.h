@@ -11,6 +11,9 @@
 #pragma once
 #include "CBattleInfoEssentials.h"
 
+class CStackStateInfo;
+struct Bonus;
+
 class DLL_LINKAGE IBattleInfo
 {
 public:
@@ -21,6 +24,8 @@ public:
 	virtual int32_t getActiveStackID() const = 0;
 
 	virtual TStacks getStacksIf(TStackFilter predicate) const = 0;
+
+	virtual battle::Units getUnitsIf(battle::UnitFilter predicate) const = 0;
 
 	virtual BFieldType getBattlefieldType() const = 0;
 	virtual ETerrainType getTerrainType() const = 0;
@@ -45,7 +50,14 @@ public:
 };
 
 
-class IBattleState : public IBattleInfo
+class DLL_LINKAGE IBattleState : public IBattleInfo
 {
+public:
 	//TODO: add non-const API and use in game state
+
+	virtual void updateUnit(const CStackStateInfo & changes) = 0;
+
+	virtual void addUnitBonus(uint32_t id, const std::vector<Bonus> & bonus) = 0;
+	virtual void updateUnitBonus(uint32_t id, const std::vector<Bonus> & bonus) = 0;
+	virtual void removeUnitBonus(uint32_t id, const std::vector<Bonus> & bonus) = 0;
 };

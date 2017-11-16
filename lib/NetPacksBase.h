@@ -257,7 +257,7 @@ class CStackStateInfo
 public:
 	uint32_t stackId;
 	//TODO: remove and use f.e. MetaString in Client to display changes
-	int32_t healthDelta;
+	int64_t healthDelta;
 	JsonNode data;
 
 	CStackStateInfo()

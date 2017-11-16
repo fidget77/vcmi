@@ -189,7 +189,7 @@ int CGameInfoCallback::getSpellCost(const CSpell * sp, const CGHeroInstance * ca
 	return caster->getSpellCost(sp);
 }
 
-int CGameInfoCallback::estimateSpellDamage(const CSpell * sp, const CGHeroInstance * hero) const
+int64_t CGameInfoCallback::estimateSpellDamage(const CSpell * sp, const CGHeroInstance * hero) const
 {
 	//boost::shared_lock<boost::shared_mutex> lock(*gs->mx);
 

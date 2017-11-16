@@ -154,7 +154,7 @@ void CClient::waitForMoveAndSend(PlayerColor color)
 		setThreadName("CClient::waitForMoveAndSend");
 		assert(vstd::contains(battleints, color));
 		BattleAction ba = battleints[color]->activeStack(gs->curB->battleGetStackByID(gs->curB->activeStack, false));
-		if(ba.actionType != Battle::CANCEL)
+		if(ba.actionType != EActionType::CANCEL)
 		{
 			logNetwork->trace("Send battle action to server: %s", ba.toString());
 			MakeAction temp_action(ba);

@@ -9,12 +9,38 @@
  */
 #include "StdInc.h"
 #include "BattleAI.h"
+
+#include <vstd/RNG.h>
+
 #include "StackWithBonuses.h"
 #include "EnemyInfo.h"
+#include "PossibleSpellcast.h"
+#include "../../lib/CThreadHelper.h"
 #include "../../lib/spells/CSpellHandler.h"
+#include "../../lib/spells/ISpellMechanics.h"
 
 #define LOGL(text) print(text)
 #define LOGFL(text, formattingEl) print(boost::str(boost::format(text) % formattingEl))
+
+class RNGStub : public vstd::RNG
+{
+public:
+	vstd::TRandI64 getInt64Range(int64_t lower, int64_t upper) override
+	{
+		return [=]()->int64_t
+		{
+			return (lower + upper)/2;
+		};
+	}
+
+	vstd::TRand getDoubleRange(double lower, double upper) override
+	{
+		return [=]()->double
+		{
+			return (lower + upper)/2;
+		};
+	}
+};
 
 CBattleAI::CBattleAI(void)
 	: side(-1), wasWaitingForRealize(false), wasUnlockingGs(false)
@@ -70,21 +96,24 @@ BattleAction CBattleAI::activeStack( const CStack * stack )
 			//spellcast may finish battle
 			//send special preudo-action
 			BattleAction cancel;
-			cancel.actionType = Battle::CANCEL;
+			cancel.actionType = EActionType::CANCEL;
 			return cancel;
 		}
 
 		if(auto action = considerFleeingOrSurrendering())
 			return *action;
 		//best action is from effective owner PoV, we are effective owner as we received "activeStack"
-		PotentialTargets targets(stack);
+
+		HypotheticBattle hb(getCbc());
+
+		PotentialTargets targets(stack, &hb);
 		if(targets.possibleAttacks.size())
 		{
 			auto hlp = targets.bestAction();
 			if(hlp.attack.shooting)
-				return BattleAction::makeShotAttack(stack, &hlp.enemy);
+				return BattleAction::makeShotAttack(stack, hlp.enemy.get());
 			else
-				return BattleAction::makeMeleeAttack(stack, &hlp.enemy, hlp.tile);
+				return BattleAction::makeMeleeAttack(stack, hlp.enemy.get(), hlp.tile);
 		}
 		else
 		{
@@ -180,7 +209,7 @@ SpellTypes spellType(const CSpell *spell)
 {
 	if (spell->isOffensiveSpell())
 		return OFFENSIVE_SPELL;
-	if (spell->hasEffects())
+	if (spell->hasEffects() || spell->hasSpecialEffects())
 		return TIMED_EFFECT;
 	return OTHER;
 }
@@ -214,7 +243,9 @@ void CBattleAI::attemptCastingSpell()
 	{
 		for(auto hex : getTargetsToConsider(spell, hero))
 		{
-			PossibleSpellcast ps = {spell, hex, 0};
+			PossibleSpellcast ps;
+			ps.dest = hex;
+			ps.spell = spell;
 			possibleCasts.push_back(ps);
 		}
 	}
@@ -222,45 +253,43 @@ void CBattleAI::attemptCastingSpell()
 	if(possibleCasts.empty())
 		return;
 
-	using ValueMap = std::map<const CStack *, int>;
+	using ValueMap = PossibleSpellcast::ValueMap;
 
-	auto evaluateQueue = [&](ValueMap & values, const TStacks & queue, HypotheticBattle & state)
+	auto evaluateQueue = [&](ValueMap & values, const std::vector<battle::Units> & queue, HypotheticBattle * state)
 	{
-		for(const CStack * stack : queue)
+		for(auto & turn : queue)
 		{
-			if(vstd::contains(values, stack))
-				break;
-
-			PotentialTargets pt(stack, state);
-
-			if(!pt.possibleAttacks.empty())
+			for(auto unit : turn)
 			{
-				AttackPossibility ap = pt.bestAction();
+				if(vstd::contains(values, unit->unitId()))
+					continue;
 
-				auto swb = getValOr(state.stackStates, stack->unitId(), std::make_shared<StackWithBonuses>(&stack->stackState));
-				swb->state = ap.attack.attacker;
-				swb->state.position = ap.tile;
-				state.stackStates[stack->unitId()] = swb;
+				PotentialTargets pt(unit, state);
 
-				swb = getValOr(state.stackStates, ap.attack.defender.unitId(), std::make_shared<StackWithBonuses>(&ap.attack.defender));
-				swb->state = ap.attack.defender;
-				state.stackStates[ap.attack.defender.unitId()] = swb;
+				if(!pt.possibleAttacks.empty())
+				{
+					AttackPossibility ap = pt.bestAction();
+
+					auto swb = state->getForUpdate(unit->unitId());
+					swb->state = *ap.attack.attacker;
+					swb->state.position = ap.tile;
+
+
+					swb = state->getForUpdate(ap.attack.defender->unitId());
+					swb->state = *ap.attack.defender;
+				}
+
+				auto bav = pt.bestActionValue();
+
+				//best action is from effective owner PoV, we need to convert to our PoV
+				if(state->battleGetOwner(unit) != playerID)
+					bav = -bav;
+				values[unit->unitId()] = bav;
 			}
-
-			auto bav = pt.bestActionValue();
-			const IStackState * info = stack;
-
-			//was stack actually changed?
-			auto iter = state.stackStates.find(stack->unitId());
-			if(iter != state.stackStates.end())
-				info = &iter->second->state;
-
-			//best action is from effective owner PoV, we need to convert to our PoV
-			if(getCbc()->battleGetOwner(info) != playerID)
-				bav = -bav;
-			values[stack] = bav;
 		}
 	};
+
+	RNGStub rngStub;
 
 	ValueMap valueOfStack;
 
@@ -268,105 +297,66 @@ void CBattleAI::attemptCastingSpell()
 
 	auto amount = all.size();
 
-	TStacks queue;
-	cb->battleGetStackQueue(queue, amount);
+	std::vector<battle::Units> turnOrder;
+
+	cb->battleGetTurnOrder(turnOrder, amount, 2); //no more than 1 turn after current, each unit at least once
 
 	{
 		HypotheticBattle state(cb);
-		evaluateQueue(valueOfStack, queue, state);
+		evaluateQueue(valueOfStack, turnOrder, &state);
 	}
 
-	auto evaluateSpellcast = [&] (const PossibleSpellcast &ps) -> double
+	auto evaluateSpellcast = [&] (PossibleSpellcast * ps)
 	{
-		const int skillLevel = hero->getSpellSchoolLevel(spells::Mode::HERO, ps.spell);
-		const int spellPower = hero->getPrimSkillLevel(PrimarySkill::SPELL_POWER);
-
-		int totalGain = 0;
-		int32_t damageDiff = 0;
-
-		//TODO: calculate stack state changes inside spell susbsystem
+		int64_t totalGain = 0;
 
 		HypotheticBattle state(cb);
 
-		auto stacksAffected = ps.spell->getAffectedStacks(cb.get(), spells::Mode::HERO, hero, skillLevel, ps.dest);
+		spells::BattleCast cast(&state, hero, spells::Mode::HERO, ps->spell);
+		cast.aimToHex(ps->dest);
+		cast.cast(&state, rngStub);
 
-		if(stacksAffected.empty())
-			return -1;
-
-		for(const CStack * sta : stacksAffected)
-		{
-			auto swb = std::make_shared<StackWithBonuses>(&sta->stackState);
-
-			switch(spellType(ps.spell))
-			{
-			case OFFENSIVE_SPELL:
-				{
-					int32_t dmg = ps.spell->calculateDamage(hero, sta, skillLevel, spellPower);
-					if(sta->owner == playerID)
-						dmg *= 10;
-
-					swb->state.damage(dmg);
-
-					//we try to avoid damage to our stacks even if they are mind-controlled
-					if(sta->owner == playerID)
-						damageDiff -= dmg;
-					else
-						damageDiff += dmg;
-
-					//TODO tactic effect too
-				}
-				break;
-			case TIMED_EFFECT:
-				{
-					ps.spell->getEffects(swb->bonusesToUpdate, skillLevel, false, hero->getEnchantPower(spells::Mode::HERO, ps.spell));
-					ps.spell->getEffects(swb->bonusesToAdd, skillLevel, true, hero->getEnchantPower(spells::Mode::HERO, ps.spell));
-				}
-				break;
-			default:
-				return -1;
-			}
-
-			state.stackStates[sta->unitId()] = swb;
-		}
+		std::vector<battle::Units> newTurnOrder;
+		state.battleGetTurnOrder(newTurnOrder, amount, 2);
 
 		ValueMap newValueOfStack;
 
-		//FIXME: calculate new queue on hypothetic states
-		evaluateQueue(newValueOfStack, queue, state);
+		evaluateQueue(newValueOfStack, newTurnOrder, &state);
 
 		for(auto sta : all)
 		{
-			auto newValue = getValOr(newValueOfStack, sta, 0);
-			auto oldValue = getValOr(valueOfStack, sta, 0);
+			auto newValue = getValOr(newValueOfStack, sta->unitId(), 0);
+			auto oldValue = getValOr(valueOfStack, sta->unitId(), 0);
 
 			auto gain = newValue - oldValue;
 
 			if(gain != 0)
 			{
-				LOGFL("%s would change %s by %d points (from %d to %d)",
-					  ps.spell->name % sta->nodeName() % (gain) % (oldValue) % (newValue));
+//				LOGFL("%s would change %s by %d points (from %d to %d)",
+//					  ps->spell->name % sta->nodeName() % (gain) % (oldValue) % (newValue));
 				totalGain += gain;
 			}
 		}
 
-		if(totalGain != 0)
-			LOGFL("Total gain of cast %s at hex %d is %d", ps.spell->name % (ps.dest.hex) % (totalGain));
+//		if(totalGain != 0)
+//			LOGFL("Total gain of cast %s at hex %d is %d", ps->spell->name % (ps->dest.hex) % (totalGain));
 
-		if(damageDiff < 0)
-		{
-			//ignore gain if we receiving more damage than giving
-			return (float)-1;//a bit worse than nothing
-		}
-		else
-		{
-			//return gain, but add damage diff as fractional part
-			return (float)totalGain + atan((float)damageDiff)/M_PI;
-		}
+		ps->value = totalGain;
 	};
 
+	std::vector<std::function<void()>> tasks;
+
 	for(PossibleSpellcast & psc : possibleCasts)
-		psc.value = evaluateSpellcast(psc);
-	auto pscValue = [] (const PossibleSpellcast &ps) -> float
+	{
+		tasks.push_back(std::bind(evaluateSpellcast, &psc));
+
+		//evaluateSpellcast(&psc);
+	}
+
+	CThreadHelper threadHelper(&tasks, std::max<uint32_t>(boost::thread::hardware_concurrency(), 1));
+	threadHelper.run();
+
+	auto pscValue = [] (const PossibleSpellcast &ps) -> int64_t
 	{
 		return ps.value;
 	};
@@ -376,16 +366,16 @@ void CBattleAI::attemptCastingSpell()
 	{
 		LOGFL("Best spell is %s. Will cast.", castToPerform.spell->name);
 		BattleAction spellcast;
-		spellcast.actionType = Battle::HERO_SPELL;
+		spellcast.actionType = EActionType::HERO_SPELL;
 		spellcast.additionalInfo = castToPerform.spell->id;
-		spellcast.destinationTile = castToPerform.dest;
+		spellcast.aimToHex(castToPerform.dest);//TODO: allow multiple destinations (f.e. Teleport & Sacrifice)
 		spellcast.side = side;
 		spellcast.stackNumber = (!side) ? -1 : -2;
 		cb->battleMakeAction(&spellcast);
 	}
 	else
 	{
-		LOGFL("Best spell is %s. But it is actually useless (value %f).", castToPerform.spell->name % castToPerform.value);
+		LOGFL("Best spell is %s. But it is actually useless (value %d).", castToPerform.spell->name % castToPerform.value);
 	}
 }
 

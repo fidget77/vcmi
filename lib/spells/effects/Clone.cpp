@@ -27,17 +27,18 @@ namespace effects
 VCMI_REGISTER_SPELL_EFFECT(Clone, EFFECT_NAME);
 
 Clone::Clone(const int level)
-	: StackEffect(level), maxTier(0)
+	: StackEffect(level),
+	maxTier(0)
 {
 }
 
 Clone::~Clone() = default;
 
-void Clone::apply(const PacketSender * server, RNG & rng, const Mechanics * m, const BattleCast & p, const EffectTarget & target) const
+void Clone::apply(const PacketSender * server, RNG & rng, const Mechanics * m, const EffectTarget & target) const
 {
 	for(const Destination & dest : target)
 	{
-		const IStackState * clonedStack = dest.stackValue;
+		const battle::Unit * clonedStack = dest.unitValue;
 
 		//we shall have all targets to be stacks
 		if(!clonedStack)
@@ -82,15 +83,16 @@ void Clone::apply(const PacketSender * server, RNG & rng, const Mechanics * m, c
 		server->sendAndApply(&ssp);
 
 		SetStackEffect sse;
-		sse.stacks.push_back(bsa.newStackID);
-		Bonus lifeTimeMarker(Bonus::N_TURNS, Bonus::NONE, Bonus::SPELL_EFFECT, 0, m->owner->id.num);
-		lifeTimeMarker.turnsRemain = p.effectDuration;
-		sse.effect.push_back(lifeTimeMarker);
+		Bonus lifeTimeMarker(Bonus::N_TURNS, Bonus::NONE, Bonus::SPELL_EFFECT, 0, m->getSpellIndex());
+		lifeTimeMarker.turnsRemain = m->getEffectDuration();
+		std::vector<Bonus> buffer;
+		buffer.push_back(lifeTimeMarker);
+		sse.toAdd.push_back(std::make_pair(bsa.newStackID, buffer));
 		server->sendAndApply(&sse);
 	}
 }
 
-bool Clone::isReceptive(const Mechanics * m, const IStackState * s) const
+bool Clone::isReceptive(const Mechanics * m, const battle::Unit * s) const
 {
 	int creLevel = s->creatureLevel();
 	if(creLevel > maxTier)
@@ -100,7 +102,7 @@ bool Clone::isReceptive(const Mechanics * m, const IStackState * s) const
 	return StackEffect::isReceptive(m, s);
 }
 
-bool Clone::isValidTarget(const Mechanics * m, const IStackState * s) const
+bool Clone::isValidTarget(const Mechanics * m, const battle::Unit * s) const
 {
 	//can't clone already cloned creature
 	if(s->isClone())

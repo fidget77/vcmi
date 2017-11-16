@@ -108,40 +108,38 @@ public:
 	}
 };
 
+/// internal type to handle loading of one data type (e.g. artifacts, creatures)
+class ContentTypeHandler
+{
+public:
+	struct ModInfo
+	{
+		/// mod data from this mod and for this mod
+		JsonNode modData;
+		/// mod data for this mod from other mods (patches)
+		JsonNode patches;
+	};
+	/// handler to which all data will be loaded
+	IHandlerBase * handler;
+	std::string objectName;
+
+	/// contains all loaded H3 data
+	std::vector<JsonNode> originalData;
+	std::map<std::string, ModInfo> modData;
+
+	ContentTypeHandler(IHandlerBase * handler, std::string objectName);
+
+	/// local version of methods in ContentHandler
+	/// returns true if loading was successful
+	bool preloadModData(std::string modName, std::vector<std::string> fileList, bool validate);
+	bool loadMod(std::string modName, bool validate);
+	void loadCustom();
+	void afterLoadFinalization();
+};
+
 /// class used to load all game data into handlers. Used only during loading
 class CContentHandler
 {
-	/// internal type to handle loading of one data type (e.g. artifacts, creatures)
-	class ContentTypeHandler
-	{
-		struct ModInfo
-		{
-			/// mod data from this mod and for this mod
-			JsonNode modData;
-			/// mod data for this mod from other mods (patches)
-			JsonNode patches;
-		};
-
-		/// handler to which all data will be loaded
-		IHandlerBase * handler;
-
-		std::string objectName;
-
-		/// contains all loaded H3 data
-		std::vector<JsonNode> originalData;
-		std::map<std::string, ModInfo> modData;
-
-	public:
-		ContentTypeHandler(IHandlerBase * handler, std::string objectName);
-
-		/// local version of methods in ContentHandler
-		/// returns true if loading was successful
-		bool preloadModData(std::string modName, std::vector<std::string> fileList, bool validate);
-		bool loadMod(std::string modName, bool validate);
-		void loadCustom();
-		void afterLoadFinalization();
-	};
-
 	/// preloads all data from fileList as data from modName.
 	bool preloadModData(std::string modName, JsonNode modConfig, bool validate);
 
@@ -150,8 +148,9 @@ class CContentHandler
 
 	std::map<std::string, ContentTypeHandler> handlers;
 public:
-	/// fully initialize object. Will cause reading of H3 config files
 	CContentHandler();
+
+	void init();
 
 	/// preloads all data from fileList as data from modName.
 	void preloadData(CModInfo & mod);
@@ -163,6 +162,8 @@ public:
 
 	/// all data was loaded, time for final validation / integration
 	void afterLoadFinalization();
+
+	const ContentTypeHandler & operator[] (const std::string & name) const;
 };
 
 typedef std::string TModID;
@@ -251,6 +252,8 @@ class DLL_LINKAGE CModHandler
 public:
 
 	CIdentifierStorage identifiers;
+
+	CContentHandler content; //(!)Do not serialize
 
 	/// receives list of available mods and trying to load mod.json from all of them
 	void initializeConfig();

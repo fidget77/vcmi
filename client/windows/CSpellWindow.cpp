@@ -596,7 +596,7 @@ void CSpellWindow::SpellArea::clickRight(tribool down, bool previousState)
 	if(mySpell && down)
 	{
 		std::string dmgInfo;
-		int causedDmg = owner->myInt->cb->estimateSpellDamage(mySpell, owner->myHero);
+		auto causedDmg = owner->myInt->cb->estimateSpellDamage(mySpell, owner->myHero);
 		if(causedDmg == 0 || mySpell->id == SpellID::TITANS_LIGHTNING_BOLT) //Titan's Lightning Bolt already has damage info included
 			dmgInfo = "";
 		else

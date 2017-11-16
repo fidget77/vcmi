@@ -919,7 +919,7 @@ CCastAnimation::CCastAnimation(CBattleInterface * owner_, const CStack * attacke
 	: CRangedAttackAnimation(owner_, attacker, dest_, defender)
 {
 	if(!dest_.isValid() && defender)
-		dest = defender->position;
+		dest = defender->getPosition();
 }
 
 bool CCastAnimation::init()
@@ -936,17 +936,17 @@ bool CCastAnimation::init()
 	//reverse unit if necessary
 	if(attackedStack)
 	{
-        if(owner->getCurrentPlayerInterface()->cb->isToReverse(attackingStack->position, attackedStack->position, owner->creDir[attackingStack->ID], attackingStack->doubleWide(), owner->creDir[attackedStack->ID]))
+        if(owner->getCurrentPlayerInterface()->cb->isToReverse(attackingStack->getPosition(), attackedStack->getPosition(), owner->creDir[attackingStack->ID], attackingStack->doubleWide(), owner->creDir[attackedStack->ID]))
 		{
-			owner->addNewAnim(new CReverseAnimation(owner, attackingStack, attackingStack->position, true));
+			owner->addNewAnim(new CReverseAnimation(owner, attackingStack, attackingStack->getPosition(), true));
 			return false;
 		}
 	}
 	else
 	{
-        if(dest.isValid() && owner->getCurrentPlayerInterface()->cb->isToReverse(attackingStack->position, dest, owner->creDir[attackingStack->ID], false, false))
+        if(dest.isValid() && owner->getCurrentPlayerInterface()->cb->isToReverse(attackingStack->getPosition(), dest, owner->creDir[attackingStack->ID], false, false))
 		{
-			owner->addNewAnim(new CReverseAnimation(owner, attackingStack, attackingStack->position, true));
+			owner->addNewAnim(new CReverseAnimation(owner, attackingStack, attackingStack->getPosition(), true));
 			return false;
 		}
 	}
@@ -961,13 +961,13 @@ bool CCastAnimation::init()
 
 	// NOTE: two lines below return different positions (very notable with 2-hex creatures). Obtaining via creanims seems to be more precise
 	fromPos = owner->creAnims[attackingStack->ID]->pos.topLeft();
-	//xycoord = CClickableHex::getXYUnitAnim(shooter->position, true, shooter, owner);
+	//xycoord = CClickableHex::getXYUnitAnim(shooter->getPosition(), true, shooter, owner);
 
 	destPos = CClickableHex::getXYUnitAnim(dest, attackedStack, owner);
 
 
 	double projectileAngle = atan2(fabs((double)destPos.y - fromPos.y), fabs((double)destPos.x - fromPos.x));
-	if(attackingStack->position < dest)
+	if(attackingStack->getPosition() < dest)
 		projectileAngle = -projectileAngle;
 
 

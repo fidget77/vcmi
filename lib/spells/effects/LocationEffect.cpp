@@ -24,12 +24,12 @@ LocationEffect::LocationEffect(const int level)
 
 LocationEffect::~LocationEffect() = default;
 
-EffectTarget LocationEffect::filterTarget(const Mechanics * m, const BattleCast & p, const EffectTarget & target) const
+EffectTarget LocationEffect::filterTarget(const Mechanics * m, const EffectTarget & target) const
 {
 	EffectTarget res;
 	vstd::copy_if(target, std::back_inserter(res), [](const Destination & d)
 	{
-		return !d.stackValue && (d.hexValue.isValid());
+		return !d.unitValue && (d.hexValue.isValid());
 	});
 	return res;
 }

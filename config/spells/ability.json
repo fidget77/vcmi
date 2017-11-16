@@ -43,11 +43,13 @@
 				}
 			}
 		},
-		"absoluteImmunity":{
-			"SIEGE_WEAPON": true
-		},
 		"flags" : {
 			"indifferent": true
+		},
+		"targetCondition" : {
+			"noneOf" : {
+				"bonus.SIEGE_WEAPON" : "absolute"
+			}
 		}
 	},
 	"poison" : {
@@ -80,15 +82,15 @@
 				}
 			}
 		},
-		"absoluteImmunity":{
-			"SIEGE_WEAPON": true
-		},
-		"immunity" : {
-			"UNDEAD": true,
-			"NON_LIVING": true
-		},
 		"flags" : {
 			"negative": true
+		},
+		"targetCondition" : {
+			"noneOf" : {
+				"bonus.NON_LIVING" : "normal",
+				"bonus.SIEGE_WEAPON" : "absolute",
+				"bonus.UNDEAD" : "normal"
+			}
 		}
 	},
 	"bind" : {
@@ -149,15 +151,15 @@
 				}
 			}
 		},
-		"absoluteImmunity":{
-			"SIEGE_WEAPON": true
-		},
-		"immunity" : {
-			"UNDEAD": true,
-			"NON_LIVING": true
-		},
 		"flags" : {
 			"negative": true
+		},
+		"targetCondition" : {
+			"noneOf" : {
+				"bonus.NON_LIVING" : "normal",
+				"bonus.SIEGE_WEAPON" : "absolute",
+				"bonus.UNDEAD" : "normal"
+			}
 		}
 	},
 	"paralyze" : {
@@ -195,11 +197,13 @@
 				}
 			}
 		},
-		"absoluteImmunity":{
-			"SIEGE_WEAPON": true
-		},
 		"flags" : {
 			"negative": true
+		},
+		"targetCondition" : {
+			"noneOf" : {
+				"bonus.SIEGE_WEAPON" : "absolute"
+			}
 		}
 	},
 	"age" : {
@@ -226,15 +230,15 @@
 				}
 			}
 		},
-		"absoluteImmunity":{
-			"SIEGE_WEAPON": true
-		},
-		"immunity" : {
-			"UNDEAD": true,
-			"NON_LIVING": true
-		},
 		"flags" : {
 			"negative": true
+		},
+		"targetCondition" : {
+			"noneOf" : {
+				"bonus.NON_LIVING" : "normal",
+				"bonus.SIEGE_WEAPON" : "absolute",
+				"bonus.UNDEAD" : "normal"
+			}
 		}
 	},
 	"deathCloud" : {
@@ -252,15 +256,15 @@
 				"range" : "0-1"
 			}
 		},
-		"absoluteImmunity":{
-			"SIEGE_WEAPON": true
-		},
-		"immunity" : {
-			"UNDEAD": true,
-			"NON_LIVING": true
-		},
 		"flags" : {
 			"indifferent": true
+		},
+		"targetCondition" : {
+			"noneOf" : {
+				"bonus.NON_LIVING" : "normal",
+				"bonus.SIEGE_WEAPON" : "absolute",
+				"bonus.UNDEAD" : "normal"
+			}
 		}
 	},
 	"thunderbolt" : {
@@ -319,13 +323,15 @@
 				"range" : "0"
 			}
 		},
-		"absoluteImmunity" : {
-			"UNDEAD": true,
-			"SIEGE_WEAPON": true,
-			"NON_LIVING": true
-		},
 		"flags" : {
 			"indifferent": true
+		},
+		"targetCondition" : {
+			"noneOf" : {
+				"bonus.NON_LIVING" : "absolute",
+				"bonus.SIEGE_WEAPON" : "absolute",
+				"bonus.UNDEAD" : "absolute"
+			}
 		}
 	},
 	"acidBreath" : {
@@ -376,8 +382,10 @@
 			"damage": true,
 			"indifferent": true
 		},
-		"immunity" : {
-			"DIRECT_DAMAGE_IMMUNITY": true
+		"targetCondition" : {
+			"noneOf" : {
+				"bonus.DIRECT_DAMAGE_IMMUNITY" : "normal"
+			}
 		}
 	}
 }

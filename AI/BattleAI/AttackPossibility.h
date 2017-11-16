@@ -17,28 +17,28 @@ class Priorities
 {
 public:
 	std::vector<double> resourceTypeBaseValues;
-	std::function<double(const IStackState *)> stackEvaluator;
+	std::function<double(const battle::Unit *)> stackEvaluator;
 	Priorities()
 	{
 		//        range::copy(VLC->objh->resVals, std::back_inserter(resourceTypeBaseValues));
-		stackEvaluator = [](const IStackState *){ return 1.0; };
+		stackEvaluator = [](const battle::Unit *){ return 1.0; };
 	}
 };
 
 class AttackPossibility
 {
 public:
-	CStackState enemy; //redundant (to attack.defender) but looks nice
+	std::shared_ptr<battle::CUnitState> enemy; //redundant (to attack.defender) but looks nice
 	BattleHex tile; //tile from which we attack
 	BattleAttackInfo attack;
 
-	int damageDealt;
-	int damageReceived; //usually by counter-attack
+	int64_t damageDealt;
+	int64_t damageReceived; //usually by counter-attack
 	int tacticImpact;
 
 	int damageDiff() const;
 	int attackValue() const;
 
-	static AttackPossibility evaluate(const BattleAttackInfo &AttackInfo, BattleHex hex);
+	static AttackPossibility evaluate(const BattleAttackInfo & AttackInfo, BattleHex hex);
 	static Priorities * priorities;
 };

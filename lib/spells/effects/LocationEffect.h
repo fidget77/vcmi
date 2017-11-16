@@ -23,7 +23,7 @@ public:
 	LocationEffect(const int level);
 	virtual ~LocationEffect();
 
-	EffectTarget filterTarget(const Mechanics * m, const BattleCast & p, const EffectTarget & target) const override;
+	EffectTarget filterTarget(const Mechanics * m, const EffectTarget & target) const override;
 
 	virtual EffectTarget transformTarget(const Mechanics * m, const Target & aimPoint, const Target & spellTarget) const;
 protected:

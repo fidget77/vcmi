@@ -10,74 +10,76 @@
 
 #include "StdInc.h"
 #include "BattleAction.h"
-#include "../CStack.h"
+#include "Unit.h"
+#include "CBattleInfoCallback.h"
 
-using namespace Battle;
+static const int32_t INVALID_UNIT_ID = -1000;
 
 BattleAction::BattleAction():
 	side(-1),
 	stackNumber(-1),
-	actionType(INVALID),
+	actionType(EActionType::INVALID),
 	destinationTile(-1),
-	additionalInfo(-1),
-	selectedStack(-1)
+	additionalInfo(-1)
 {
 }
 
-BattleAction BattleAction::makeHeal(const IStackState * healer, const IStackState * healed)
+BattleAction BattleAction::makeHeal(const battle::Unit * healer, const battle::Unit * healed)
 {
 	BattleAction ba;
 	ba.side = healer->unitSide();
-	ba.actionType = STACK_HEAL;
+	ba.actionType = EActionType::STACK_HEAL;
 	ba.stackNumber = healer->unitId();
 	ba.destinationTile = healed->getPosition();
 	return ba;
 }
 
-BattleAction BattleAction::makeDefend(const IStackState * stack)
+BattleAction BattleAction::makeDefend(const battle::Unit * stack)
 {
 	BattleAction ba;
 	ba.side = stack->unitSide();
-	ba.actionType = DEFEND;
+	ba.actionType = EActionType::DEFEND;
 	ba.stackNumber = stack->unitId();
 	return ba;
 }
 
-BattleAction BattleAction::makeMeleeAttack(const IStackState * stack, const IStackState * attacked, BattleHex attackFrom)
+BattleAction BattleAction::makeMeleeAttack(const battle::Unit * stack, const battle::Unit * attacked, BattleHex attackFrom, bool returnAfterAttack)
 {
 	BattleAction ba;
 	ba.side = stack->unitSide(); //FIXME: will it fail if stack mind controlled?
-	ba.actionType = WALK_AND_ATTACK;
+	ba.actionType = EActionType::WALK_AND_ATTACK;
 	ba.stackNumber = stack->unitId();
-	ba.destinationTile = attackFrom;
-	ba.additionalInfo = attacked->getPosition();
+	ba.aimToHex(attackFrom);
+	ba.aimToUnit(attacked);
+	if(returnAfterAttack && stack->hasBonusOfType(Bonus::RETURN_AFTER_STRIKE))
+		ba.aimToHex(stack->getPosition());
 	return ba;
 }
 
-BattleAction BattleAction::makeWait(const IStackState * stack)
+BattleAction BattleAction::makeWait(const battle::Unit * stack)
 {
 	BattleAction ba;
 	ba.side = stack->unitSide();
-	ba.actionType = WAIT;
+	ba.actionType = EActionType::WAIT;
 	ba.stackNumber = stack->unitId();
 	return ba;
 }
 
-BattleAction BattleAction::makeShotAttack(const IStackState * shooter, const IStackState * target)
+BattleAction BattleAction::makeShotAttack(const battle::Unit * shooter, const battle::Unit * target)
 {
 	BattleAction ba;
 	ba.side = shooter->unitSide();
-	ba.actionType = SHOOT;
+	ba.actionType = EActionType::SHOOT;
 	ba.stackNumber = shooter->unitId();
 	ba.destinationTile = target->getPosition();
 	return ba;
 }
 
-BattleAction BattleAction::makeMove(const IStackState * stack, BattleHex dest)
+BattleAction BattleAction::makeMove(const battle::Unit * stack, BattleHex dest)
 {
 	BattleAction ba;
 	ba.side = stack->unitSide();
-	ba.actionType = WALK;
+	ba.actionType = EActionType::WALK;
 	ba.stackNumber = stack->unitId();
 	ba.destinationTile = dest;
 	return ba;
@@ -87,7 +89,7 @@ BattleAction BattleAction::makeEndOFTacticPhase(ui8 side)
 {
 	BattleAction ba;
 	ba.side = side;
-	ba.actionType = END_TACTIC_PHASE;
+	ba.actionType = EActionType::END_TACTIC_PHASE;
 	return ba;
 }
 
@@ -96,10 +98,48 @@ std::string BattleAction::toString() const
 	std::stringstream actionTypeStream;
 	actionTypeStream << actionType;
 
-	boost::format fmt("{BattleAction: side '%d', stackNumber '%d', actionType '%s', destinationTile '%s', additionalInfo '%d', selectedStack '%d'}");
-	fmt % static_cast<int>(side) % stackNumber % actionTypeStream.str() % destinationTile % additionalInfo % selectedStack;
+	boost::format fmt("{BattleAction: side '%d', stackNumber '%d', actionType '%s', destinationTile '%s', additionalInfo '%d'}");
+	fmt % static_cast<int>(side) % stackNumber % actionTypeStream.str() % destinationTile % additionalInfo;
 	return fmt.str();
 }
+
+void BattleAction::aimToHex(const BattleHex & destination)
+{
+	DestinationInfo info;
+	info.hexValue = destination;
+	info.unitValue = INVALID_UNIT_ID;
+
+	target.push_back(info);
+}
+
+void BattleAction::aimToUnit(const battle::Unit * destination)
+{
+	DestinationInfo info;
+	info.hexValue = destination->getPosition();
+	info.unitValue = destination->unitId();
+
+	target.push_back(info);
+}
+
+battle::Target BattleAction::getTarget(const CBattleInfoCallback * cb) const
+{
+	battle::Target ret;
+
+	//todo: remove
+	if(target.empty())
+		ret.emplace_back(destinationTile);
+
+	for(auto & destination : target)
+	{
+		if(destination.unitValue == INVALID_UNIT_ID)
+			ret.emplace_back(destination.hexValue);
+		else
+			ret.emplace_back(cb->battleGetUnitByID(destination.unitValue));
+	}
+
+	return ret;
+}
+
 
 std::ostream & operator<<(std::ostream & os, const BattleAction & ba)
 {

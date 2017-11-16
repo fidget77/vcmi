@@ -28,7 +28,7 @@ public:
 
 	bool applicable(Problem & problem, const Mechanics * m) const override;
 
-	void apply(const PacketSender * server, RNG & rng, const Mechanics * m, const BattleCast & p, const EffectTarget & target) const override;
+	void apply(const PacketSender * server, RNG & rng, const Mechanics * m, const EffectTarget & target) const override;
 
 	EffectTarget transformTarget(const Mechanics * m, const Target & aimPoint, const Target & spellTarget) const override;
 

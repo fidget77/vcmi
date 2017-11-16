@@ -744,30 +744,27 @@ namespace Date
 	};
 }
 
-namespace Battle
+enum class EActionType : int32_t
 {
-	enum ActionType
-	{
-		CANCEL = -3,
-		END_TACTIC_PHASE = -2,
-		INVALID = -1,
-		NO_ACTION = 0,
-		HERO_SPELL,
-		WALK, DEFEND,
-		RETREAT,
-		SURRENDER,
-		WALK_AND_ATTACK,
-		SHOOT,
-		WAIT,
-		CATAPULT,
-		MONSTER_SPELL,
-		BAD_MORALE,
-		STACK_HEAL,
-		DAEMON_SUMMONING
-	};
-}
+	CANCEL = -3,
+	END_TACTIC_PHASE = -2,
+	INVALID = -1,
+	NO_ACTION = 0,
+	HERO_SPELL,
+	WALK, DEFEND,
+	RETREAT,
+	SURRENDER,
+	WALK_AND_ATTACK,
+	SHOOT,
+	WAIT,
+	CATAPULT,
+	MONSTER_SPELL,
+	BAD_MORALE,
+	STACK_HEAL,
+	DAEMON_SUMMONING
+};
 
-std::ostream & operator<<(std::ostream & os, const Battle::ActionType actionType);
+DLL_LINKAGE std::ostream & operator<<(std::ostream & os, const EActionType actionType);
 
 class DLL_LINKAGE ETerrainType
 {
@@ -1086,7 +1083,7 @@ enum class EHealPower : ui8
 // Typedef declarations
 typedef ui8 TFaction;
 typedef si64 TExpType;
-typedef std::pair<ui32, ui32> TDmgRange;
+typedef std::pair<si64, si64> TDmgRange;
 typedef si32 TBonusSubtype;
 typedef si32 TQuantity;
 

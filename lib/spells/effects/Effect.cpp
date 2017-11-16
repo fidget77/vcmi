@@ -38,10 +38,15 @@ bool Effect::applicable(Problem & problem, const Mechanics * m, const Target & a
 	return true;
 }
 
+void Effect::apply(IBattleState * battleState, RNG & rng, const Mechanics * m, const EffectTarget & target) const
+{
+	//todo: make this pure virtual
+}
+
 void Effect::serializeJson(JsonSerializeFormat & handler)
 {
 	handler.serializeBool("automatic", automatic, true);
-	handler.serializeBool("optional", automatic, false);
+	handler.serializeBool("optional", optional, false);
 	serializeJsonEffect(handler);
 }
 

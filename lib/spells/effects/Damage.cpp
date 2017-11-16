@@ -15,6 +15,9 @@
 
 #include "../../NetPacks.h"
 #include "../../CStack.h"
+#include "../../battle/IBattleState.h"
+#include "../../battle/CBattleInfoCallback.h"
+
 
 static const std::string EFFECT_NAME = "core:damage";
 
@@ -32,34 +35,19 @@ Damage::Damage(const int level)
 
 Damage::~Damage() = default;
 
-void Damage::apply(const PacketSender * server, RNG & rng, const Mechanics * m, const BattleCast & p, const EffectTarget & target) const
+void Damage::apply(const PacketSender * server, RNG & rng, const Mechanics * m, const EffectTarget & target) const
 {
 	StacksInjured stacksInjured;
+
+	prepareEffects(stacksInjured, rng, m, target);
+
 	int64_t damageToDisplay = 0;
 	uint32_t killed = 0;
 
-	const int rawDamage = p.getEffectValue();
-
-	const CStack * firstTarget = nullptr;
-
-	for(auto & t : target)
+	for(auto & bsa : stacksInjured.stacks)
 	{
-		auto s = t.stackValue;
-		if(s && s->alive())
-		{
-			BattleStackAttacked bsa;
-			bsa.damageAmount = m->owner->adjustRawDamage(m->caster, s, rawDamage);
-			damageToDisplay += bsa.damageAmount;
-			bsa.stackAttacked = s->unitId();
-			bsa.attackerID = -1;
-			s->prepareAttacked(bsa, rng);
-			killed += bsa.killedAmount;
-
-			stacksInjured.stacks.push_back(bsa);
-
-			if(!firstTarget)
-				firstTarget = s;
-		}
+		damageToDisplay += bsa.damageAmount;
+		killed += bsa.killedAmount;
 	}
 
 	if(!stacksInjured.stacks.empty())
@@ -68,7 +56,7 @@ void Damage::apply(const PacketSender * server, RNG & rng, const Mechanics * m, 
 			MetaString line;
 
 			line.addTxt(MetaString::GENERAL_TXT, 376);
-			line.addReplacement(MetaString::SPELL_NAME, m->owner->id.toEnum());
+			line.addReplacement(MetaString::SPELL_NAME, m->getSpellIndex());
 			line.addReplacement(damageToDisplay);
 
 			stacksInjured.battleLog.push_back(line);
@@ -79,6 +67,10 @@ void Damage::apply(const PacketSender * server, RNG & rng, const Mechanics * m, 
 			const int textId = (killed > 1) ? 379 : 378;
 			line.addTxt(MetaString::GENERAL_TXT, textId);
 			const bool multiple = stacksInjured.stacks.size() > 1;
+
+			const battle::Unit * firstTarget = nullptr;
+			if(!multiple)
+				firstTarget = m->cb->battleGetUnitByID(stacksInjured.stacks.at(0).newState.stackId);
 
 			if(killed > 1)
 				line.addReplacement(killed);
@@ -101,11 +93,40 @@ void Damage::apply(const PacketSender * server, RNG & rng, const Mechanics * m, 
 	}
 }
 
+void Damage::apply(IBattleState * battleState, RNG & rng, const Mechanics * m, const EffectTarget & target) const
+{
+	StacksInjured stacksInjured;
+	prepareEffects(stacksInjured, rng, m, target);
+
+	for(auto & bsa : stacksInjured.stacks)
+		battleState->updateUnit(bsa.newState);
+
+}
+
 void Damage::serializeJsonEffect(JsonSerializeFormat & handler)
 {
 	//TODO: Damage::serializeJsonEffect
 }
 
+void Damage::prepareEffects(StacksInjured & stacksInjured, RNG & rng, const Mechanics * m, const EffectTarget & target) const
+{
+	const auto rawDamage = m->getEffectValue();
+
+	for(auto & t : target)
+	{
+		const battle::Unit * unit = t.unitValue;
+		if(unit && unit->alive())
+		{
+			BattleStackAttacked bsa;
+			bsa.damageAmount = m->owner->adjustRawDamage(m->caster, unit, rawDamage);
+			bsa.stackAttacked = unit->unitId();
+			bsa.attackerID = -1;
+			auto newState = unit->asquire();
+			CStack::prepareAttacked(bsa, rng, newState);
+			stacksInjured.stacks.push_back(bsa);
+		}
+	}
+}
 
 } // namespace effects
 } // namespace spells

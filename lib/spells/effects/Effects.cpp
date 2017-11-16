@@ -31,46 +31,57 @@ void Effects::add(std::shared_ptr<Effect> effect, const int level)
 	data.at(level).push_back(effect);
 }
 
-bool Effects::applicable(Problem & problem, const Mechanics * m, const int level) const
+bool Effects::applicable(Problem & problem, const Mechanics * m) const
 {
 	//stop on first problem
 	//require all not optional effects to be applicable
 
 	bool res = true;
-	auto callback = [&res, &problem, m](const Effect * e, bool & stop)
+	bool res2 = false;
+
+	auto callback = [&res, &res2, &problem, m](const Effect * e, bool & stop)
 	{
-		if(!e->optional && !e->applicable(problem, m))
+		if(e->applicable(problem, m))
+		{
+			res2 = true;
+		}
+		else if(!e->optional)
 		{
 			res = false;
 			stop = true;
 		}
 	};
 
-	forEachEffect(level, callback);
+	forEachEffect(m->getEffectLevel(), callback);
 
-	return res;
+	return res && res2;
 }
 
-bool Effects::applicable(Problem & problem, const Mechanics * m, const int level, const Target & aimPoint, const Target & spellTarget) const
+bool Effects::applicable(Problem & problem, const Mechanics * m, const Target & aimPoint, const Target & spellTarget) const
 {
 	//stop on first problem
 	//require all not optional effects to be applicable
 
 	bool res = true;
-	auto callback = [&res, &problem, &aimPoint, &spellTarget, m](const Effect * e, bool & stop)
+	bool res2 = false;
+	auto callback = [&res, &res2, &problem, &aimPoint, &spellTarget, m](const Effect * e, bool & stop)
 	{
 		EffectTarget target = e->transformTarget(m, aimPoint, spellTarget);
 
-		if(!e->optional && !e->applicable(problem, m, aimPoint, target))
+		if(e->applicable(problem, m, aimPoint, target))
+		{
+			res2 = true;
+		}
+		else if(!e->optional)
 		{
 			res = false;
 			stop = true;
 		}
 	};
 
-	forEachEffect(level, callback);
+	forEachEffect(m->getEffectLevel(), callback);
 
-	return res;
+	return res && res2;
 }
 
 void Effects::forEachEffect(const int level, const std::function<void(const Effect *, bool &)> & callback) const
@@ -84,7 +95,7 @@ void Effects::forEachEffect(const int level, const std::function<void(const Effe
 	}
 }
 
-Effects::EffectsToApply Effects::prepare(const Mechanics * m, const BattleCast & p, const Target & spellTarget) const
+Effects::EffectsToApply Effects::prepare(const Mechanics * m, const Target & aimPoint, const Target & spellTarget) const
 {
 	EffectsToApply effectsToApply;
 
@@ -92,12 +103,12 @@ Effects::EffectsToApply Effects::prepare(const Mechanics * m, const BattleCast &
 	{
 		if(e->automatic)
 		{
-			EffectTarget target = e->transformTarget(m, p.target, spellTarget);
+			EffectTarget target = e->transformTarget(m, aimPoint, spellTarget);
 			effectsToApply.push_back(std::make_pair(e, target));
 		}
 	};
 
-	forEachEffect(p.effectLevel, callback);
+	forEachEffect(m->getEffectLevel(), callback);
 
 	return effectsToApply;
 }

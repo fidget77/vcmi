@@ -125,10 +125,9 @@ SpellCastContext::SpellCastContext(const Mechanics * mechanics_, const SpellCast
 	mechanics(mechanics_), env(env_), attackedCres(), sc(), si(), parameters(parameters_), otherHero(nullptr), spellCost(0), damageToDisplay(0)
 {
 	sc.side = mechanics->casterSide;
-	sc.spellID = mechanics->owner->id;
-	sc.skill = parameters.spellLvl;
+	sc.spellID = mechanics->getSpellId();
 	sc.tile = parameters.getFirstDestinationHex();
-	sc.castByHero = parameters.mode == Mode::HERO;
+	sc.castByHero = mechanics->mode == Mode::HERO;
 	sc.casterStack = (mechanics->casterStack ? mechanics->casterStack->ID : -1);
 	sc.manaGained = 0;
 
@@ -138,12 +137,12 @@ SpellCastContext::SpellCastContext(const Mechanics * mechanics_, const SpellCast
 	if(mechanics->cb->battleHasHero(otherSide))
 		otherHero = mechanics->cb->battleGetFightingHero(otherSide);
 
-	logGlobal->debug("Started spell cast. Spell: %s; mode: %d", mechanics->owner->name, static_cast<int>(parameters.mode));
+	logGlobal->debug("Started spell cast. Spell: %s; mode: %d", mechanics->getSpellName(), static_cast<int>(mechanics->mode));
 }
 
 SpellCastContext::~SpellCastContext()
 {
-	logGlobal->debug("Finished spell cast. Spell: %s; mode: %d", mechanics->owner->name, static_cast<int>(parameters.mode));
+	logGlobal->debug("Finished spell cast. Spell: %s; mode: %d", mechanics->getSpellName(), static_cast<int>(mechanics->mode));
 }
 
 void SpellCastContext::addDamageToDisplay(const si32 value)
@@ -166,7 +165,7 @@ void SpellCastContext::addBattleLog(MetaString && line)
 	sc.battleLog.push_back(line);
 }
 
-void SpellCastContext::addCustomEffect(const IStackState * target, ui32 effect)
+void SpellCastContext::addCustomEffect(const battle::Unit * target, ui32 effect)
 {
 	CustomEffectInfo customEffect;
 	customEffect.effect = effect;
@@ -196,14 +195,14 @@ void SpellCastContext::beforeCast()
 		}
 	}
 
-	sc.activeCast = parameters.mode == ECastingMode::HERO_CASTING ||
-		parameters.mode == ECastingMode::CREATURE_ACTIVE_CASTING ||
-		parameters.mode == ECastingMode::ENCHANTER_CASTING;
+	sc.activeCast = mechanics->mode == Mode::HERO ||
+		mechanics->mode == Mode::CREATURE_ACTIVE ||
+		mechanics->mode == Mode::ENCHANTER;
 }
 
 void SpellCastContext::cast()
 {
-	DefaultSpellMechanics::doRemoveEffects(env, *this, std::bind(&SpellCastContext::counteringSelector, this, _1));
+	DefaultSpellMechanics::doRemoveEffects(env, *this, std::bind(&Mechanics::counteringSelector, mechanics, _1));
 
 	for(auto sta : attackedCres)
 		sc.affectedCres.insert(sta->ID);
@@ -235,24 +234,9 @@ void SpellCastContext::afterCast()
 	}
 }
 
-bool SpellCastContext::counteringSelector(const Bonus * bonus) const
-{
-	if(bonus->source != Bonus::SPELL_EFFECT)
-		return false;
-
-	for(const SpellID & id : mechanics->owner->counteredSpells)
-	{
-		if(bonus->sid == id.toEnum())
-			return true;
-	}
-
-	return false;
-}
-
-
 ///DefaultSpellMechanics
-DefaultSpellMechanics::DefaultSpellMechanics(const CSpell * s, const CBattleInfoCallback * Cb, const Caster * caster_)
-	: BaseMechanics(s, Cb, caster_)
+DefaultSpellMechanics::DefaultSpellMechanics(const IBattleCast * event)
+	: BaseMechanics(event)
 {
 };
 
@@ -262,9 +246,9 @@ void DefaultSpellMechanics::applyEffects(const SpellCastEnvironment * env, const
 
 	for(const Destination & dest : parameters.target)
 	{
-		if(dest.stackValue)
+		if(dest.unitValue)
 		{
-			if(!isImmuneByStack(dest.stackValue))
+			if(!isImmuneByStack(dest.unitValue))
 				targets.push_back(dest);
 		}
 		else
@@ -283,11 +267,11 @@ void DefaultSpellMechanics::applyEffectsForced(const SpellCastEnvironment * env,
 
 void DefaultSpellMechanics::applyEffectsForced(const SpellCastEnvironment * env, const BattleCast & parameters, const Target & targets) const
 {
-	std::vector<const IStackState *> stacks;
+	std::vector<const battle::Unit *> stacks;
 	for(auto & dest : targets)
 	{
-		if(dest.stackValue)
-			stacks.push_back(dest.stackValue);
+		if(dest.unitValue)
+			stacks.push_back(dest.unitValue);
 	}
 
 	if(owner->isDamageSpell())
@@ -302,16 +286,16 @@ void DefaultSpellMechanics::applyEffectsForced(const SpellCastEnvironment * env,
 	{
 		SetStackEffect sse;
 		defaultTimedEffect(env, parameters, sse, stacks);
-		if(!sse.stacks.empty())
+		if(!(sse.toAdd.empty() && sse.toUpdate.empty()))
 			env->sendAndApply(&sse);
 	}
 }
 
-int DefaultSpellMechanics::defaultDamageEffect(const SpellCastEnvironment * env, const BattleCast & parameters, StacksInjured & si, const std::vector<const IStackState *> & target) const
+int DefaultSpellMechanics::defaultDamageEffect(const SpellCastEnvironment * env, const BattleCast & parameters, StacksInjured & si, const std::vector<const battle::Unit *> & target) const
 {
 	int totalDamage = 0;
-	const int rawDamage = parameters.getEffectValue();
-	for(const IStackState * affected : target)
+	const auto rawDamage = getEffectValue();
+	for(const battle::Unit * affected : target)
 	{
 		BattleStackAttacked bsa;
 		bsa.damageAmount = owner->adjustRawDamage(caster, affected, rawDamage);
@@ -319,7 +303,7 @@ int DefaultSpellMechanics::defaultDamageEffect(const SpellCastEnvironment * env,
 
 		bsa.stackAttacked = affected->unitId();
 		bsa.attackerID = -1;
-		CStackState state = affected->asquire();
+		auto state = affected->asquire();
 		CStack::prepareAttacked(bsa, env->getRandomGenerator(), state);
 		si.stacks.push_back(bsa);
 	}
@@ -327,36 +311,47 @@ int DefaultSpellMechanics::defaultDamageEffect(const SpellCastEnvironment * env,
 	return totalDamage;
 }
 
-void DefaultSpellMechanics::defaultTimedEffect(const SpellCastEnvironment * env, const BattleCast & parameters, SetStackEffect & sse, const std::vector<const IStackState *> & target) const
+void DefaultSpellMechanics::defaultTimedEffect(const SpellCastEnvironment * env, const BattleCast & parameters, SetStackEffect & sse, const std::vector<const battle::Unit *> & target) const
 {
 	//get default spell duration (spell power with bonuses for heroes)
-	int duration = parameters.effectDuration;
+	auto duration = getEffectDuration();
+
+	std::vector<Bonus> normal;
+	std::vector<Bonus> cumulative;
+
 	//generate actual stack bonuses
 	{
-		si32 maxDuration = 0;
+		decltype(duration) maxDuration = 0;
 
-		owner->getEffects(sse.effect, parameters.effectLevel, false, duration, &maxDuration);
-		owner->getEffects(sse.cumulativeEffects, parameters.effectLevel, true, duration, &maxDuration);
+		owner->getEffects(normal, getEffectLevel(), false, duration, &maxDuration);
+		owner->getEffects(cumulative, getEffectLevel(), true, duration, &maxDuration);
 
 		//if all spell effects have special duration, use it later for special bonuses
 		duration = maxDuration;
 	}
 
 	//we need to know who cast Bind
-	if(owner->id == SpellID::BIND && casterStack)
+	if(getSpellIndex() == SpellID::BIND && casterStack && !normal.empty())
 	{
-		sse.effect.at(sse.effect.size() - 1).additionalInfo = casterStack->ID;
+		normal.at(normal.size() - 1).additionalInfo = casterStack->ID;
 	}
+
 	std::shared_ptr<Bonus> bonus = nullptr;
 	auto casterHero = dynamic_cast<const CGHeroInstance *>(caster);
 	if(casterHero)
-		bonus = casterHero->getBonusLocalFirst(Selector::typeSubtype(Bonus::SPECIAL_PECULIAR_ENCHANT, owner->id));
+		bonus = casterHero->getBonusLocalFirst(Selector::typeSubtype(Bonus::SPECIAL_PECULIAR_ENCHANT, getSpellIndex()));
 	//TODO does hero specialty should affects his stack casting spells?
 
-	for(const IStackState * affected : target)
+	for(const battle::Unit * affected : target)
 	{
 		si32 power = 0;
-		sse.stacks.push_back(affected->unitId());
+		uint32_t unitId = affected->unitId();
+
+		std::vector<Bonus> toAdd;
+		std::copy(cumulative.begin(), cumulative.end(), std::back_inserter(toAdd));
+
+		std::vector<Bonus> toUpdate;
+		std::copy(normal.begin(), normal.end(), std::back_inserter(toUpdate));
 
 		//Apply hero specials - peculiar enchants
 		const auto tier = std::max(affected->creatureLevel(), 1); //don't divide by 0 for certain creatures (commanders, war machines)
@@ -381,48 +376,51 @@ void DefaultSpellMechanics::defaultTimedEffect(const SpellCastEnvironment * env,
 						power = 1;
 						break;
 					}
-					for(const Bonus & b : sse.effect)
+					for(const Bonus & b : normal)
 					{
 						Bonus specialBonus(b);
 						specialBonus.val = power; //it doesn't necessarily make sense for some spells, use it wisely
 						specialBonus.turnsRemain = duration;
-						sse.uniqueBonuses.push_back(std::pair<ui32, Bonus>(affected->unitId(), specialBonus)); //additional premy to given effect
+						toUpdate.push_back(specialBonus);//additional premy to given effect
 					}
-					for(const Bonus & b : sse.cumulativeEffects)
+					for(const Bonus & b : cumulative)
 					{
 						Bonus specialBonus(b);
 						specialBonus.val = power; //it doesn't necessarily make sense for some spells, use it wisely
 						specialBonus.turnsRemain = duration;
-						sse.cumulativeUniqueBonuses.push_back(std::pair<ui32, Bonus>(affected->unitId(), specialBonus)); //additional premy to given effect
+						toAdd.push_back(specialBonus);//additional premy to given effect
 					}
 				}
 				break;
 			case 1: //only Coronius as yet
 				{
 					power = std::max(5 - tier, 0);
-					Bonus specialBonus(Bonus::N_TURNS, Bonus::PRIMARY_SKILL, Bonus::SPELL_EFFECT, power, owner->id, PrimarySkill::ATTACK);
+					Bonus specialBonus(Bonus::N_TURNS, Bonus::PRIMARY_SKILL, Bonus::SPELL_EFFECT, power, getSpellIndex(), PrimarySkill::ATTACK);
 					specialBonus.turnsRemain = duration;
-					sse.uniqueBonuses.push_back(std::pair<ui32,Bonus>(affected->unitId(), specialBonus)); //additional attack to Slayer effect
+					toUpdate.push_back(specialBonus); //additional attack to Slayer effect
 				}
 				break;
 			}
 		}
-		if(casterHero && casterHero->hasBonusOfType(Bonus::SPECIAL_BLESS_DAMAGE, owner->id)) //TODO: better handling of bonus percentages
+		if(casterHero && casterHero->hasBonusOfType(Bonus::SPECIAL_BLESS_DAMAGE, getSpellIndex())) //TODO: better handling of bonus percentages
 		{
-			int damagePercent = casterHero->level * casterHero->valOfBonuses(Bonus::SPECIAL_BLESS_DAMAGE, owner->id.toEnum()) / tier;
-			Bonus specialBonus(Bonus::N_TURNS, Bonus::CREATURE_DAMAGE, Bonus::SPELL_EFFECT, damagePercent, owner->id, 0, Bonus::PERCENT_TO_ALL);
+			int damagePercent = casterHero->level * casterHero->valOfBonuses(Bonus::SPECIAL_BLESS_DAMAGE, getSpellIndex()) / tier;
+			Bonus specialBonus(Bonus::N_TURNS, Bonus::CREATURE_DAMAGE, Bonus::SPELL_EFFECT, damagePercent, getSpellIndex(), 0, Bonus::PERCENT_TO_ALL);
 			specialBonus.turnsRemain = duration;
-			sse.uniqueBonuses.push_back(std::pair<ui32,Bonus>(affected->unitId(), specialBonus));
+			toUpdate.push_back(specialBonus);
 		}
+
+		sse.toAdd.push_back(std::make_pair(unitId, toAdd));
+		sse.toUpdate.push_back(std::make_pair(unitId, toUpdate));
 	}
 }
 
-std::vector<BattleHex> DefaultSpellMechanics::rangeInHexes(BattleHex centralHex, ui8 schoolLvl, bool * outDroppedHexes) const
+std::vector<BattleHex> DefaultSpellMechanics::rangeInHexes(BattleHex centralHex, bool * outDroppedHexes) const
 {
 	using namespace SRSLPraserHelpers;
 
 	std::vector<BattleHex> ret;
-	std::string rng = owner->getLevelInfo(schoolLvl).range + ','; //copy + artificial comma for easier handling
+	std::string rng = owner->getLevelInfo(getRangeLevel()).range + ','; //copy + artificial comma for easier handling
 
 	if(rng.size() >= 2 && rng[0] != 'X') //there is at least one hex in range (+artificial comma)
 	{
@@ -489,7 +487,7 @@ bool DefaultSpellMechanics::canBeCast(Problem & problem) const
 	//allow to cast spell if there is at least one smart target
 	if(requiresCreatureTarget())
 	{
-		CSpell::TargetInfo tinfo(owner, caster->getSpellSchoolLevel(mode, owner), mode);
+		CSpell::TargetInfo tinfo(owner, getRangeLevel(), mode);
 		bool targetExists = false;
 
 		for(const CStack * stack : cb->battleGetAllStacks())
@@ -522,17 +520,18 @@ bool DefaultSpellMechanics::canBeCast(Problem & problem) const
 	return true;
 }
 
-void DefaultSpellMechanics::cast(IBattleState * battleState, const BattleCast & parameters) const
+void DefaultSpellMechanics::cast(IBattleState * battleState, vstd::RNG & rng, const BattleCast & parameters) const
 {
 	//do nothing, only custom mechanics can be evaluated
 	UNUSED(battleState);
+	UNUSED(rng);
 	UNUSED(parameters);
 }
 
-bool DefaultSpellMechanics::isImmuneByStack(const IStackState * obj) const
+bool DefaultSpellMechanics::isImmuneByStack(const battle::Unit * obj) const
 {
 	//by default use general algorithm
-	return owner->internalIsImmune(cb, caster, obj);
+	return !isReceptive(obj);
 }
 
 bool DefaultSpellMechanics::dispellSelector(const Bonus * bonus)
@@ -575,7 +574,7 @@ void DefaultSpellMechanics::doRemoveEffects(const SpellCastEnvironment * env, Sp
 	for(auto s : ctx.attackedCres)
 	{
 		std::vector<Bonus> buffer;
-		auto bl = s->unitAsBearer()->getBonuses(selector);
+		auto bl = s->getBonuses(selector);
 
 		for(auto item : *bl)
 			buffer.emplace_back(*item);
@@ -597,7 +596,7 @@ void DefaultSpellMechanics::handleMagicMirror(const SpellCastEnvironment * env, 
 	{
 		for(auto s : ctx.attackedCres)
 		{
-			const int mirrorChance = s->unitAsBearer()->valOfBonuses(Bonus::MAGIC_MIRROR);
+			const int mirrorChance = s->valOfBonuses(Bonus::MAGIC_MIRROR);
 			if(env->getRandomGenerator().nextInt(99) < mirrorChance)
 				reflected.push_back(s);
 		}
@@ -648,15 +647,15 @@ bool DefaultSpellMechanics::requiresCreatureTarget() const
 }
 
 ///RegularSpellMechanics
-RegularSpellMechanics::RegularSpellMechanics(const CSpell * s, const CBattleInfoCallback * Cb, const Caster * caster_)
-	: DefaultSpellMechanics(s, Cb, caster_)
+RegularSpellMechanics::RegularSpellMechanics(const IBattleCast * event)
+	: DefaultSpellMechanics(event)
 {
 
 }
 
 void RegularSpellMechanics::applyBattleEffects(const SpellCastEnvironment * env, const BattleCast & parameters, SpellCastContext & ctx) const
 {
-	std::vector<const IStackState *> affected;
+	std::vector<const battle::Unit *> affected;
 
 	std::copy(ctx.attackedCres.begin(), ctx.attackedCres.begin(), std::back_inserter(affected));
 
@@ -670,19 +669,19 @@ void RegularSpellMechanics::applyBattleEffects(const SpellCastEnvironment * env,
 		SetStackEffect sse;
 		defaultTimedEffect(env, parameters, sse, affected);
 
-		if(!sse.stacks.empty())
+		if(!(sse.toAdd.empty() && sse.toUpdate.empty()))
 			env->sendAndApply(&sse);
 	}
 }
 
-std::vector<const CStack *> RegularSpellMechanics::calculateAffectedStacks(int spellLvl, BattleHex destination) const
+std::vector<const CStack *> RegularSpellMechanics::calculateAffectedStacks(BattleHex destination) const
 {
 	std::set<const CStack *> attackedCres;//std::set to exclude multiple occurrences of two hex creatures
-	CSpell::TargetInfo ti(owner, spellLvl, mode);
-	auto attackedHexes = rangeInHexes(destination, spellLvl);
+	CSpell::TargetInfo ti(owner, getRangeLevel(), mode);
+	auto attackedHexes = rangeInHexes(destination);
 
 	//hackfix for banned creature massive spells
-	if(!ti.massive && owner->getLevelInfo(spellLvl).range == "X")
+	if(!ti.massive && owner->getLevelInfo(getRangeLevel()).range == "X")
 		attackedHexes.push_back(destination);
 
 	auto mainFilter = [&](const CStack * s)
@@ -741,8 +740,7 @@ std::vector<const CStack *> RegularSpellMechanics::calculateAffectedStacks(int s
 
 bool RegularSpellMechanics::canBeCastAt(BattleHex destination) const
 {
-	const auto level = caster->getSpellSchoolLevel(mode, owner);
-	std::vector<const CStack *> affected = getAffectedStacks(level, destination);
+	std::vector<const CStack *> affected = getAffectedStacks(destination);
 
 	bool targetExists = false;
 
@@ -772,7 +770,7 @@ bool RegularSpellMechanics::canBeCastAt(BattleHex destination) const
 
 void RegularSpellMechanics::cast(const SpellCastEnvironment * env, const BattleCast & parameters, SpellCastContext & ctx, std::vector<const CStack*> & reflected) const
 {
-	ctx.attackedCres = getAffectedStacks(parameters.spellLvl, parameters.getFirstDestinationHex());
+	ctx.attackedCres = getAffectedStacks(parameters.getFirstDestinationHex());
 
 	logGlobal->debug("will affect %d stacks", ctx.attackedCres.size());
 
@@ -786,10 +784,10 @@ void RegularSpellMechanics::cast(const SpellCastEnvironment * env, const BattleC
 	ctx.cast();
 }
 
-std::vector<const CStack *> RegularSpellMechanics::getAffectedStacks(int spellLvl, BattleHex destination) const
+std::vector<const CStack *> RegularSpellMechanics::getAffectedStacks(BattleHex destination) const
 {
-	std::vector<const CStack *> result = calculateAffectedStacks(spellLvl, destination);
-	CSpell::TargetInfo ti(owner, spellLvl, mode);
+	std::vector<const CStack *> result = calculateAffectedStacks(destination);
+	CSpell::TargetInfo ti(owner, getRangeLevel(), mode);
 
 	auto predicate = [&, this](const CStack * s)->bool
 	{
@@ -833,7 +831,7 @@ void RegularSpellMechanics::prepareBattleLog(SpellCastContext & ctx) const
 
 	displayDamage = false; //in most following cases damage info text is custom
 
-	switch(owner->id)
+	switch(getSpellIndex())
 	{
 	case SpellID::STONE_GAZE:
 		addLogLine(558, boost::logic::indeterminate);
@@ -892,7 +890,7 @@ void RegularSpellMechanics::prepareBattleLog(SpellCastContext & ctx) const
 		MetaString line;
 
 		line.addTxt(MetaString::GENERAL_TXT, 376);
-		line.addReplacement(MetaString::SPELL_NAME, owner->id.toEnum());
+		line.addReplacement(MetaString::SPELL_NAME, getSpellIndex());
 		line.addReplacement(ctx.getDamageToDisplay());
 
 		ctx.addBattleLog(std::move(line));
@@ -901,8 +899,8 @@ void RegularSpellMechanics::prepareBattleLog(SpellCastContext & ctx) const
 
 
 ///SpecialSpellMechanics
-SpecialSpellMechanics::SpecialSpellMechanics(const CSpell * s, const CBattleInfoCallback * Cb, const Caster * caster_)
-	: DefaultSpellMechanics(s, Cb, caster_)
+SpecialSpellMechanics::SpecialSpellMechanics(const IBattleCast * event)
+	: DefaultSpellMechanics(event)
 {
 }
 
@@ -913,7 +911,7 @@ bool SpecialSpellMechanics::canBeCastAt(BattleHex destination) const
 	return true;
 }
 
-std::vector<const CStack *> SpecialSpellMechanics::getAffectedStacks(int spellLvl, BattleHex destination) const
+std::vector<const CStack *> SpecialSpellMechanics::getAffectedStacks(BattleHex destination) const
 {
 	return std::vector<const CStack *>();
 }

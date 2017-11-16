@@ -845,7 +845,7 @@ ui8 CGHeroInstance::getSpellSchoolLevel(const spells::Mode mode, const CSpell * 
 	return skill;
 }
 
-ui32 CGHeroInstance::getSpellBonus(const CSpell * spell, ui32 base, const IStackState * affectedStack) const
+int64_t CGHeroInstance::getSpellBonus(const CSpell * spell, int64_t base, const battle::Unit * affectedStack) const
 {
 	//applying sorcery secondary skill
 
@@ -864,7 +864,7 @@ ui32 CGHeroInstance::getSpellBonus(const CSpell * spell, ui32 base, const IStack
 	return base;
 }
 
-ui32 CGHeroInstance::getSpecificSpellBonus(const CSpell * spell, ui32 base) const
+int64_t CGHeroInstance::getSpecificSpellBonus(const CSpell * spell, int64_t base) const
 {
 	base *= (100.0 + valOfBonuses(Bonus::SPECIFIC_SPELL_DAMAGE, spell->id.toEnum())) / 100.0;
 	return base;

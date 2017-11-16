@@ -9,10 +9,10 @@
  */
 #include "StdInc.h"
 #include "AccessibilityInfo.h"
-#include "../CStack.h"
+#include "Unit.h"
 #include "../GameConstants.h"
 
-bool AccessibilityInfo::accessible(BattleHex tile, const IStackState * stack) const
+bool AccessibilityInfo::accessible(BattleHex tile, const battle::Unit * stack) const
 {
 	return accessible(tile, stack->doubleWide(), stack->unitSide());
 }
@@ -20,7 +20,7 @@ bool AccessibilityInfo::accessible(BattleHex tile, const IStackState * stack) co
 bool AccessibilityInfo::accessible(BattleHex tile, bool doubleWide, ui8 side) const
 {
 	// All hexes that stack would cover if standing on tile have to be accessible.
-	for(auto hex : CStack::getHexes(tile, doubleWide, side))
+	for(auto hex : battle::Unit::getHexes(tile, doubleWide, side))
 	{
 		// If the hex is out of range then the tile isn't accessible
 		if(!hex.isValid())

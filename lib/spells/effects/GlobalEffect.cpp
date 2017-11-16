@@ -26,13 +26,13 @@ GlobalEffect::GlobalEffect(const int level)
 
 GlobalEffect::~GlobalEffect() = default;
 
-EffectTarget GlobalEffect::filterTarget(const Mechanics * m, const BattleCast & p, const EffectTarget & target) const
+EffectTarget GlobalEffect::filterTarget(const Mechanics * m, const EffectTarget & target) const
 {
 	EffectTarget res;
 	vstd::copy_if(target, std::back_inserter(res), [](const Destination & d)
 	{
 		//we can apply only to default target, but not only once
-		return !d.stackValue && (d.hexValue == BattleHex::INVALID);
+		return !d.unitValue && (d.hexValue == BattleHex::INVALID);
 	});
 	return res;
 }

@@ -10,10 +10,9 @@
 
 #pragma once
 
-#include "StdInc.h"
-#include "../../lib/CStack.h"
+#include "../../lib/battle/IUnitInfo.h"
 
-class UnitHealthInfoMock : public IUnitHealthInfo
+class UnitHealthInfoMock : public battle::IUnitHealthInfo
 {
 public:
 	MOCK_CONST_METHOD0(unitMaxHealth, int32_t());

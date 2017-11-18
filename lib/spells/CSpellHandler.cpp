@@ -102,7 +102,7 @@ CSpell::CSpell():
 	positiveness(ESpellPositiveness::NEUTRAL),
 	defaultProbability(0),
 	isRising(false), isDamage(false), isOffensive(false), isSpecial(true),
-	targetType(ETargetType::NO_TARGET),
+	targetType(spells::AimType::NO_TARGET),
 	mechanics(),
 	adventureMechanics()
 {
@@ -138,12 +138,14 @@ const CSpell::LevelInfo & CSpell::getLevelInfo(const int level) const
 	return levels.at(level);
 }
 
-int64_t CSpell::calculateDamage(const spells::Caster * caster, const CStack * affectedCreature, int spellSchoolLevel, int usedSpellPower) const
+int64_t CSpell::calculateDamage(const spells::Caster * caster) const
 {
 	//check if spell really does damage - if not, return 0
 	if(!isDamageSpell())
 		return 0;
-	return adjustRawDamage(caster, affectedCreature, calculateRawEffectValue(spellSchoolLevel, usedSpellPower, 1));
+	auto rawDamage = calculateRawEffectValue(caster->getEffectLevel(spells::Mode::HERO, this), caster->getEffectPower(spells::Mode::HERO, this), 1);
+
+	return caster->getSpellBonus(this, rawDamage, nullptr);
 }
 
 bool CSpell::canBeCast(const CBattleInfoCallback * cb, spells::Mode mode, const spells::Caster * caster) const
@@ -217,7 +219,7 @@ std::vector<const CStack *> CSpell::getAffectedStacks(const CBattleInfoCallback 
 	return battleMechanics(&event)->getAffectedStacks(destination);
 }
 
-CSpell::ETargetType CSpell::getTargetType() const
+spells::AimType CSpell::getTargetType() const
 {
 	return targetType;
 }
@@ -306,9 +308,9 @@ bool CSpell::hasEffects() const
 	return !levels[0].effects.empty() || !levels[0].cumulativeEffects.empty();
 }
 
-bool CSpell::hasSpecialEffects() const
+bool CSpell::hasBattleEffects() const
 {
-	return levels[0].specialEffects.getType() == JsonNode::JsonType::DATA_STRUCT;
+	return levels[0].battleEffects.getType() == JsonNode::JsonType::DATA_STRUCT && !levels[0].battleEffects.Struct().empty();
 }
 
 const std::string & CSpell::getIconImmune() const
@@ -743,13 +745,13 @@ CSpell * CSpellHandler::loadFromJson(const JsonNode & json, const std::string & 
 	auto targetType = json["targetType"].String();
 
 	if(targetType == "NO_TARGET")
-		spell->targetType = CSpell::NO_TARGET;
+		spell->targetType = spells::AimType::NO_TARGET;
 	else if(targetType == "CREATURE")
-		spell->targetType = CSpell::CREATURE;
+		spell->targetType = spells::AimType::CREATURE;
 	else if(targetType == "OBSTACLE")
-		spell->targetType = CSpell::OBSTACLE;
+		spell->targetType = spells::AimType::OBSTACLE;
 	else if(targetType == "LOCATION")
-		spell->targetType = CSpell::LOCATION;
+		spell->targetType = spells::AimType::LOCATION;
 	else
 		logMod->warn("Spell %s: target type %s - assumed NO_TARGET.", spell->name, (targetType.empty() ? "empty" : "unknown ("+targetType+")"));
 
@@ -965,9 +967,9 @@ CSpell * CSpellHandler::loadFromJson(const JsonNode & json, const std::string & 
 			levelObject.cumulativeEffects.push_back(b);
 		}
 
-		if(levelNode["specialEffects"].getType() == JsonNode::JsonType::DATA_STRUCT && !levelNode["specialEffects"].Struct().empty())
+		if(levelNode["battleEffects"].getType() == JsonNode::JsonType::DATA_STRUCT && !levelNode["battleEffects"].Struct().empty())
 		{
-			levelObject.specialEffects = levelNode["specialEffects"];
+			levelObject.battleEffects = levelNode["battleEffects"];
 
 			if(!levelObject.cumulativeEffects.empty() || !levelObject.effects.empty() || spell->isOffensiveSpell())
 				logGlobal->error("Mixing %s special effects with old format effects gives unpredictable result", spell->name);
@@ -1055,9 +1057,9 @@ void CSpellHandler::update780()
 
 			CSpell::LevelInfo & levelObject = spell->levels[levelIndex];
 
-			if(levelNode["specialEffects"].getType() == JsonNode::DATA_STRUCT && !levelNode["specialEffects"].Struct().empty())
+			if(levelNode["battleEffects"].getType() == JsonNode::DATA_STRUCT && !levelNode["battleEffects"].Struct().empty())
 			{
-				levelObject.specialEffects = levelNode["specialEffects"];
+				levelObject.battleEffects = levelNode["battleEffects"];
 
 				logGlobal->trace("Updated special effects for level %d of spell %s", levelIndex, spell->identifier);
 			}

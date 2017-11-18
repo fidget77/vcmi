@@ -911,7 +911,7 @@ void CGHeroInstance::getCastDescription(const CSpell * spell, MetaString & text)
 	text.addReplacement(MetaString::SPELL_NAME, spell->id.toEnum());
 }
 
-void CGHeroInstance::getCastDescription(const CSpell * spell, const std::vector<const CStack *> & attacked, MetaString & text) const
+void CGHeroInstance::getCastDescription(const CSpell * spell, const std::vector<const battle::Unit *> & attacked, MetaString & text) const
 {
 	const bool singleTarget = attacked.size() == 1;
 	const int textIndex = singleTarget ? 195 : 196;
@@ -925,12 +925,15 @@ void CGHeroInstance::getCastDescription(const CSpell * spell, const std::vector<
 
 void CGHeroInstance::spendMana(const spells::Mode mode, const CSpell * spell, const spells::PacketSender * server, const int spellCost) const
 {
-	SetMana sm;
-	sm.absolute = false;
-	sm.hid = id;
-	sm.val = -spellCost;
+	if(mode == spells::Mode::HERO && spellCost != 0)
+	{
+		SetMana sm;
+		sm.absolute = false;
+		sm.hid = id;
+		sm.val = -spellCost;
 
-	server->sendAndApply(&sm);
+		server->sendAndApply(&sm);
+	}
 }
 
 bool CGHeroInstance::canCastThisSpell(const CSpell * spell) const

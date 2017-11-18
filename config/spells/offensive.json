@@ -19,7 +19,7 @@
 		"levels" : {
 			"base":{
 				"range" : "0",
-				"specialEffects" : {
+				"battleEffects" : {
 					"directDamage" : {"type":"core:damage"}
 				},
 				"targetModifier":{"smart":true}
@@ -55,7 +55,7 @@
 		"levels" : {
 			"base":{
 				"range" : "0",
-				"specialEffects" : {
+				"battleEffects" : {
 					"directDamage" : {"type":"core:damage"}
 				},
 				"targetModifier":{"smart":true}
@@ -84,7 +84,7 @@
 		"levels" : {
 			"base":{
 				"range" : "0",
-				"specialEffects" : {
+				"battleEffects" : {
 					"directDamage" : {"type":"core:damage"}
 				},
 				"targetModifier":{"smart":true}
@@ -113,7 +113,7 @@
 		"levels" : {
 			"base":{
 				"range" : "0",
-				"specialEffects" : {
+				"battleEffects" : {
 					"directDamage" : {"type":"core:damage"}
 				},
 				"targetModifier":{"smart":true}
@@ -143,7 +143,7 @@
 		"levels" : {
 			"base":{
 				"range" : "0",
-				"specialEffects" : {
+				"battleEffects" : {
 					"directDamage" : {
 						"type" : "core:chainDamage",
 						"factor" : 0.5,
@@ -153,14 +153,14 @@
 				"targetModifier":{"smart":true}
 			},
 			"advanced" : {
-				"specialEffects" : {
+				"battleEffects" : {
 					"directDamage" : {
 						"length" : 5
 					}
 				}
 			},
 			"expert" : {
-				"specialEffects" : {
+				"battleEffects" : {
 					"directDamage" : {
 						"length" : 5
 					}
@@ -186,7 +186,7 @@
 		"levels" : {
 			"base":{
 				"range" : "1",
-				"specialEffects" : {
+				"battleEffects" : {
 					"directDamage" : {"type":"core:damage"}
 				},
 				"targetModifier":{"smart":false}
@@ -215,7 +215,7 @@
 		"levels" : {
 			"base":{
 				"range" : "0,1",
-				"specialEffects" : {
+				"battleEffects" : {
 					"directDamage" : {"type":"core:damage"}
 				},
 				"targetModifier":{"smart":false}
@@ -244,7 +244,7 @@
 		"levels" : {
 			"base":{
 				"range" : "0-2",
-				"specialEffects" : {
+				"battleEffects" : {
 					"directDamage" : {"type":"core:damage"}
 				},
 				"targetModifier":{"smart":false}
@@ -273,7 +273,7 @@
 		"levels" : {
 			"base":{
 				"range" : "0,1",
-				"specialEffects" : {
+				"battleEffects" : {
 					"directDamage" : {"type":"core:damage"}
 				},
 				"targetModifier":{"smart":false}
@@ -302,7 +302,7 @@
 		"levels" : {
 			"base":{
 				"range" : "X",
-				"specialEffects" : {
+				"battleEffects" : {
 					"directDamage" : {"type":"core:damage"}
 				},
 				"targetModifier":{"smart":false}
@@ -333,7 +333,7 @@
 		"levels" : {
 			"base":{
 				"range" : "X",
-				"specialEffects" : {
+				"battleEffects" : {
 					"directDamage" : {"type":"core:damage"}
 				},
 				"targetModifier":{"smart":false}
@@ -365,7 +365,7 @@
 		"levels" : {
 			"base":{
 				"range" : "X",
-				"specialEffects" : {
+				"battleEffects" : {
 					"directDamage" : {"type":"core:damage"}
 				},
 				"targetModifier":{"smart":false}
@@ -394,7 +394,7 @@
 		"levels" : {
 			"base":{
 				"range" : "0",
-				"specialEffects" : {
+				"battleEffects" : {
 					"directDamage" : {"type":"core:damage"}
 				},
 				"targetModifier":{"smart":true}

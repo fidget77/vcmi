@@ -128,7 +128,7 @@ void Heal::prepareHealEffect(int64_t value, BattleStacksChanged & pack, RNG & rn
 
 		if(unit)
 		{
-			auto unitHPgained = m->caster->getSpellBonus(m->owner, value, unit);
+			auto unitHPgained = m->applySpellBonus(value, unit);
 
 			auto state = unit->asquire();
 			state->heal(unitHPgained, healLevel, healPower);

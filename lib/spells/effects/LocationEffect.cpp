@@ -24,6 +24,11 @@ LocationEffect::LocationEffect(const int level)
 
 LocationEffect::~LocationEffect() = default;
 
+void LocationEffect::adjustTargetTypes(std::vector<TargetType> & types) const
+{
+
+}
+
 EffectTarget LocationEffect::filterTarget(const Mechanics * m, const EffectTarget & target) const
 {
 	EffectTarget res;

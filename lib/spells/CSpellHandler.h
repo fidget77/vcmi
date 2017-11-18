@@ -145,7 +145,7 @@ public:
 		std::vector<std::shared_ptr<Bonus>> effects; //deprecated
 		std::vector<std::shared_ptr<Bonus>> cumulativeEffects; //deprecated
 
-		JsonNode specialEffects;
+		JsonNode battleEffects;
 
 		LevelInfo();
 		~LevelInfo();
@@ -183,7 +183,7 @@ public:
 			h & clearAffected;
 
 			if(version >= 780)
-				h & specialEffects;
+				h & battleEffects;
 		}
 	};
 
@@ -195,14 +195,6 @@ public:
 	 */
 	const CSpell::LevelInfo & getLevelInfo(const int level) const;
 public:
-	enum ETargetType
-	{
-		NO_TARGET,
-		CREATURE,
-		OBSTACLE,
-		LOCATION
-	};
-
 	enum ESpellPositiveness
 	{
 		NEGATIVE = -1,
@@ -212,7 +204,7 @@ public:
 
 	struct DLL_LINKAGE TargetInfo
 	{
-		ETargetType type;
+		spells::AimType type;
 		bool smart;
 		bool massive;
 		bool onlyAlive;
@@ -252,7 +244,7 @@ public:
 
 	std::vector<BattleHex> rangeInHexes(const CBattleInfoCallback * cb, spells::Mode mode, const spells::Caster * caster, BattleHex centralHex) const;
 
-	ETargetType getTargetType() const; //deprecated
+	spells::AimType getTargetType() const;
 
 	bool isCombatSpell() const;
 	bool isAdventureSpell() const;
@@ -273,9 +265,9 @@ public:
 	bool hasEffects() const;
 	void getEffects(std::vector<Bonus> & lst, const int level, const bool cumulative, const si32 duration, boost::optional<si32 *> maxDuration = boost::none) const;
 
-	bool hasSpecialEffects() const;
+	bool hasBattleEffects() const;
 	///calculate spell damage on stack taking caster`s secondary skills and affectedCreature`s bonuses into account
-	int64_t calculateDamage(const spells::Caster * caster, const CStack * affectedCreature, int spellSchoolLevel, int usedSpellPower) const;
+	int64_t calculateDamage(const spells::Caster * caster) const;
 
 	///selects from allStacks actually affected stacks
 	std::vector<const CStack *> getAffectedStacks(const CBattleInfoCallback * cb, spells::Mode mode, const spells::Caster * caster, int spellLvl, BattleHex destination) const;
@@ -406,7 +398,7 @@ private:
 
 	std::string attributes; //reference only attributes //todo: remove or include in configuration format, currently unused
 
-	ETargetType targetType;
+	spells::AimType targetType;
 
 	///graphics related stuff
 	std::string iconImmune;

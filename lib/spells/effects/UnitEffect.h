@@ -23,6 +23,8 @@ public:
 	UnitEffect(const int level);
 	virtual ~UnitEffect();
 
+	void adjustTargetTypes(std::vector<TargetType> & types) const override;
+
 	bool applicable(Problem & problem, const Mechanics * m) const override;
 	bool applicable(Problem & problem, const Mechanics * m, const Target & aimPoint, const EffectTarget & target) const override;
 

@@ -37,6 +37,28 @@ Sacrifice::Sacrifice(const int level)
 
 Sacrifice::~Sacrifice() = default;
 
+void Sacrifice::adjustTargetTypes(std::vector<TargetType> & types) const
+{
+	if(!types.empty())
+	{
+		if(types[0] != AimType::CREATURE)
+		{
+			types.clear();
+			return;
+		}
+
+		if(types.size() == 1)
+		{
+			types.push_back(AimType::CREATURE);
+		}
+		else if(types.size() > 1)
+		{
+			if(types[1] != AimType::CREATURE)
+				types.clear();
+		}
+	}
+}
+
 bool Sacrifice::applicable(Problem & problem, const Mechanics * m) const
 {
 	auto mode = m->mode;
@@ -108,7 +130,6 @@ bool Sacrifice::applicable(Problem & problem, const Mechanics * m, const Target 
 
 void Sacrifice::apply(const PacketSender * server, RNG & rng, const Mechanics * m, const EffectTarget & target) const
 {
-
 	if(target.size() != 2)
 	{
 		logGlobal->error("Sacrifice effect requires 2 targets");
@@ -126,7 +147,7 @@ void Sacrifice::apply(const PacketSender * server, RNG & rng, const Mechanics * 
 	EffectTarget healTarget;
 	healTarget.emplace_back(target.front());
 
-	int64_t effectValue = (m->getEffectPower() + victim->unitMaxHealth() + m->owner->getPower(spellLevel)) * victim->getCount();
+	int64_t effectValue = (m->getEffectPower() + victim->unitMaxHealth() + m->calculateRawEffectValue(0, 1)) * victim->getCount();
 
 	Heal::apply(effectValue, server, rng, m, healTarget);
 

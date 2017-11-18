@@ -23,6 +23,8 @@ public:
 	Teleport(const int level);
 	virtual ~Teleport();
 
+	void adjustTargetTypes(std::vector<TargetType> & types) const override;
+
 	bool applicable(Problem & problem, const Mechanics * m) const override;
 
 	void apply(const PacketSender * server, RNG & rng, const Mechanics * m, const EffectTarget & target) const override;

@@ -152,7 +152,7 @@ public:
 		logGlobal->error("Unexpected call to ObstacleCasterProxy::getCastDescription");
 	}
 
-	void getCastDescription(const CSpell * spell, const std::vector<const CStack *> & attacked, MetaString & text) const override
+	void getCastDescription(const CSpell * spell, const std::vector<const battle::Unit *> & attacked, MetaString & text) const override
 	{
 		logGlobal->error("Unexpected call to ObstacleCasterProxy::getCastDescription");
 	}
@@ -4413,7 +4413,7 @@ bool CGameHandler::makeBattleAction(BattleAction &ba)
 			CreatureID summonedType(summoner->getBonusLocalFirst(Selector::type(Bonus::DAEMON_SUMMONING))->subtype);//in case summoner can summon more than one type of monsters... scream!
 			BattleStackAdded bsa;
 			bsa.side = summoner->side;
-
+			bsa.newStackID = gs->curB->battleNextUnitId();
 			bsa.creID = summonedType;
 			ui64 risedHp = summoner->getCount() * summoner->valOfBonuses(Bonus::DAEMON_SUMMONING, bsa.creID.toEnum());
 			ui64 targetHealth = destStack->getCreature()->MaxHealth() * destStack->baseAmount;
@@ -4632,11 +4632,11 @@ void CGameHandler::stackEnchantedTrigger(const CStack * st)
 		{
 			for(auto s : gs->curB->battleGetAllStacks())
 				if(battleMatchOwner(st, s, true) && s->isValidTarget()) //all allied
-					battleCast.aimToStack(s);
+					battleCast.aimToUnit(s);
 		}
 		else
 		{
-			battleCast.aimToStack(st);
+			battleCast.aimToUnit(st);
 		}
 		battleCast.applyEffectsForced(spellEnv);
 	}
@@ -4820,6 +4820,7 @@ bool CGameHandler::handleDamageFromObstacle(const CStack * curStack, bool stackI
 				COMPLAIN_RET("Invalid obstacle instance");
 
 			spells::BattleCast battleCast(gs->curB, &caster, spells::Mode::HERO, sp);
+			battleCast.aimToUnit(curStack);
 			battleCast.applyEffects(spellEnv);
 
 			if(oneTimeObstacle)
@@ -5413,7 +5414,7 @@ void CGameHandler::attackCasting(bool ranged, Bonus::BonusType attackMode, const
 			{
 				spells::BattleCast parameters(gs->curB, attacker, mode, spell);
 				parameters.setSpellLevel(spellLevel);
-				parameters.aimToStack(defender);
+				parameters.aimToUnit(defender);
 				parameters.cast(spellEnv);
 			}
 		}
@@ -5463,7 +5464,7 @@ void CGameHandler::handleAfterAttackCasting(bool ranged, const CStack * attacker
 
 			spells::BattleCast parameters(gs->curB, attacker, spells::Mode::AFTER_ATTACK, spell);
 			parameters.setSpellLevel(0);
-			parameters.aimToStack(defender);
+			parameters.aimToUnit(defender);
 			parameters.setEffectValue(staredCreatures);
 			parameters.cast(spellEnv);
 		}
@@ -5486,7 +5487,7 @@ void CGameHandler::handleAfterAttackCasting(bool ranged, const CStack * attacker
 
 		spells::BattleCast parameters(gs->curB, attacker, spells::Mode::AFTER_ATTACK, spell);
 		parameters.setSpellLevel(0);
-		parameters.aimToStack(defender);
+		parameters.aimToUnit(defender);
 		parameters.setEffectValue(acidDamage * attacker->getCount());
 		parameters.cast(spellEnv);
 	}
@@ -5837,6 +5838,7 @@ void CGameHandler::runBattle()
 				if (accessibility.accessible(hex, guardianIsBig, stack->side)) //without this multiple creatures can occupy one hex
 				{
 					BattleStackAdded newStack;
+					newStack.newStackID = gs->curB->battleNextUnitId();
 					newStack.amount = std::max(1, (int)(stack->getCount() * 0.01 * summonInfo->val));
 					newStack.creID = creatureData.num;
 					newStack.side = stack->side;

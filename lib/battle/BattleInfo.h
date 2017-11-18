@@ -96,6 +96,8 @@ public:
 	void updateUnitBonus(uint32_t id, const std::vector<Bonus> & bonus) override;
 	void removeUnitBonus(uint32_t id, const std::vector<Bonus> & bonus) override;
 
+	uint32_t nextUnitId() const override;
+
 	void addOrUpdateUnitBonus(CStack * sta, const Bonus & value, bool forceAdd);
 
 	//////////////////////////////////////////////////////////////////////////
@@ -109,9 +111,8 @@ public:
 
 	void calculateCasualties(std::map<ui32,si32> * casualties) const; //casualties are array of maps size 2 (attacker, defeneder), maps are (crid => amount)
 
-	CStack * generateNewStack(const CStackInstance &base, ui8 side, SlotID slot, BattleHex position) const; //helper for CGameHandler::setupBattle and spells addign new stacks to the battlefield
-	CStack * generateNewStack(const CStackBasicDescriptor &base, ui8 side, SlotID slot, BattleHex position) const; //helper for CGameHandler::setupBattle and spells addign new stacks to the battlefield
-	int getIdForNewStack() const; //suggest a currently unused ID that'd suitable for generating a new stack
+	CStack * generateNewStack(uint32_t id, const CStackInstance &base, ui8 side, SlotID slot, BattleHex position);
+	CStack * generateNewStack(uint32_t id, const CStackBasicDescriptor &base, ui8 side, SlotID slot, BattleHex position);
 
 	const CGHeroInstance * getHero(PlayerColor player) const; //returns fighting hero that belongs to given player
 

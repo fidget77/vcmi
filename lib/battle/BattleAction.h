@@ -45,6 +45,7 @@ public:
 	void aimToUnit(const battle::Unit * destination);
 
 	battle::Target getTarget(const CBattleInfoCallback * cb) const;
+	void setTarget(const battle::Target & target_);
 
 	template <typename Handler> void serialize(Handler & h, const int version)
 	{

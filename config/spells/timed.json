@@ -224,7 +224,7 @@
 			"base":{
 				"range" : "0",
 				"targetModifier":{"smart":true},
-				"specialEffects":{
+				"battleEffects":{
 					"spellImmunity":{
 						"type":"core:timed",
 						"bonus":{
@@ -246,7 +246,7 @@
 				}
 			},
 			"advanced":{
-				"specialEffects":{
+				"battleEffects":{
 					"spellImmunity":{
 						"bonus" :{
 							"levelSpellImmunity":{
@@ -257,7 +257,7 @@
 				}
 			},
 			"expert":{
-				"specialEffects":{
+				"battleEffects":{
 					"spellImmunity":{
 						"bonus":{
 							"levelSpellImmunity":{

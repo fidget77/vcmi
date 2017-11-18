@@ -24,6 +24,8 @@ public:
 	LocationEffect(const int level);
 	virtual ~LocationEffect();
 
+	void adjustTargetTypes(std::vector<TargetType> & types) const override;
+
 	EffectTarget filterTarget(const Mechanics * m, const EffectTarget & target) const override;
 
 	EffectTarget transformTarget(const Mechanics * m, const Target & aimPoint, const Target & spellTarget) const override;

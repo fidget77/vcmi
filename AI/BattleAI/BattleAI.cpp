@@ -200,23 +200,24 @@ BattleAction CBattleAI::useCatapult(const CStack * stack)
 }
 
 
-enum SpellTypes
+enum class SpellTypes
 {
-	OFFENSIVE_SPELL, TIMED_EFFECT, OTHER
+	ADVENTURE, BATTLE, OTHER
 };
 
-SpellTypes spellType(const CSpell *spell)
+SpellTypes spellType(const CSpell * spell)
 {
-	if (spell->isOffensiveSpell())
-		return OFFENSIVE_SPELL;
-	if (spell->hasEffects() || spell->hasSpecialEffects())
-		return TIMED_EFFECT;
-	return OTHER;
+	if(!spell->isCombatSpell() || spell->isCreatureAbility())
+		return SpellTypes::OTHER;
+
+	if(spell->isOffensiveSpell() || spell->hasEffects() || spell->hasBattleEffects())
+		return SpellTypes::BATTLE;
+
+	return SpellTypes::OTHER;
 }
 
 void CBattleAI::attemptCastingSpell()
 {
-	//FIXME: support special spell effects (at least damage and timed effects)
 	auto hero = cb->battleGetMyHero();
 	if(!hero)
 		return;
@@ -234,17 +235,22 @@ void CBattleAI::attemptCastingSpell()
 	LOGFL("I can cast %d spells.", possibleSpells.size());
 
 	vstd::erase_if(possibleSpells, [](const CSpell *s)
-	{return spellType(s) == OTHER; });
-	LOGFL("I know about workings of %d of them.", possibleSpells.size());
+	{
+		return spellType(s) != SpellTypes::BATTLE;
+	});
+
+	LOGFL("I know how %d of them works.", possibleSpells.size());
 
 	//Get possible spell-target pairs
 	std::vector<PossibleSpellcast> possibleCasts;
 	for(auto spell : possibleSpells)
 	{
-		for(auto hex : getTargetsToConsider(spell, hero))
+		spells::BattleCast temp(getCbc().get(), hero, spells::Mode::HERO, spell);
+
+		for(auto & target : temp.findPotentialTargets())
 		{
 			PossibleSpellcast ps;
-			ps.dest = hex;
+			ps.dest = target;
 			ps.spell = spell;
 			possibleCasts.push_back(ps);
 		}
@@ -313,7 +319,7 @@ void CBattleAI::attemptCastingSpell()
 		HypotheticBattle state(cb);
 
 		spells::BattleCast cast(&state, hero, spells::Mode::HERO, ps->spell);
-		cast.aimToHex(ps->dest);
+		cast.target = ps->dest;
 		cast.cast(&state, rngStub);
 
 		std::vector<battle::Units> newTurnOrder;
@@ -350,7 +356,6 @@ void CBattleAI::attemptCastingSpell()
 	{
 		tasks.push_back(std::bind(evaluateSpellcast, &psc));
 
-		//evaluateSpellcast(&psc);
 	}
 
 	CThreadHelper threadHelper(&tasks, std::max<uint32_t>(boost::thread::hardware_concurrency(), 1));
@@ -368,7 +373,7 @@ void CBattleAI::attemptCastingSpell()
 		BattleAction spellcast;
 		spellcast.actionType = EActionType::HERO_SPELL;
 		spellcast.additionalInfo = castToPerform.spell->id;
-		spellcast.aimToHex(castToPerform.dest);//TODO: allow multiple destinations (f.e. Teleport & Sacrifice)
+		spellcast.setTarget(castToPerform.dest);
 		spellcast.side = side;
 		spellcast.stackNumber = (!side) ? -1 : -2;
 		cb->battleMakeAction(&spellcast);
@@ -377,36 +382,6 @@ void CBattleAI::attemptCastingSpell()
 	{
 		LOGFL("Best spell is %s. But it is actually useless (value %d).", castToPerform.spell->name % castToPerform.value);
 	}
-}
-
-std::vector<BattleHex> CBattleAI::getTargetsToConsider(const CSpell * spell, const spells::Caster * caster) const
-{
-	//todo: move to CSpell
-	const CSpell::TargetInfo targetInfo(spell, caster->getSpellSchoolLevel(spells::Mode::HERO, spell), spells::Mode::HERO);
-	std::vector<BattleHex> ret;
-	if(targetInfo.massive || targetInfo.type == CSpell::NO_TARGET)
-	{
-		ret.push_back(BattleHex());
-	}
-	else
-	{
-		switch(targetInfo.type)
-		{
-		case CSpell::CREATURE:
-		case CSpell::LOCATION:
-			for(int i = 0; i < GameConstants::BFIELD_SIZE; i++)
-			{
-				BattleHex dest(i);
-				if(dest.isAvailable())
-					if(spell->canBeCastAt(getCbc().get(), spells::Mode::HERO, caster, dest))
-						ret.push_back(i);
-			}
-			break;
-		default:
-			break;
-		}
-	}
-	return ret;
 }
 
 int CBattleAI::distToNearestNeighbour(BattleHex hex, const ReachabilityInfo::TDistances &dists, BattleHex *chosenHex)

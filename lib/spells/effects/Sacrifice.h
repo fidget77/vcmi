@@ -25,6 +25,8 @@ public:
 	Sacrifice(const int level);
 	virtual ~Sacrifice();
 
+	void adjustTargetTypes(std::vector<TargetType> & types) const override;
+
 	bool applicable(Problem & problem, const Mechanics * m) const override;
 	bool applicable(Problem & problem, const Mechanics * m, const Target & aimPoint, const EffectTarget & target) const override;
 

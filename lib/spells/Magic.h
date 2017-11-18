@@ -16,7 +16,6 @@
 
 
 class CSpell;
-class CStack;
 class PlayerColor;
 struct MetaString;
 struct CPackForClient;
@@ -49,6 +48,14 @@ enum class Mode
 	ENCHANTER,
 	SPELL_LIKE_ATTACK,
 	PASSIVE//f.e. opening battle spells
+};
+
+enum class AimType
+{
+	NO_TARGET,
+	CREATURE,
+	OBSTACLE,
+	LOCATION
 };
 
 class DLL_LINKAGE PacketSender
@@ -113,7 +120,7 @@ public:
 
 	///full default text
 	virtual void getCastDescription(const CSpell * spell, MetaString & text) const = 0;
-	virtual void getCastDescription(const CSpell * spell, const std::vector<const CStack *> & attacked, MetaString & text) const = 0;
+	virtual void getCastDescription(const CSpell * spell, const std::vector<const battle::Unit *> & attacked, MetaString & text) const = 0;
 
 	virtual void spendMana(const Mode mode, const CSpell * spell, const spells::PacketSender * server, const int spellCost) const = 0;
 };

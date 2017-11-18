@@ -1404,13 +1404,13 @@ CBattleInterface::PossibleActions CBattleInterface::getCasterAction(const CSpell
 
 	const CSpell::TargetInfo ti(spell, caster->getSpellSchoolLevel(mode, spell), mode);
 
-	if(ti.massive || ti.type == CSpell::NO_TARGET)
+	if(ti.massive || ti.type == spells::AimType::NO_TARGET)
 		spellSelMode = NO_LOCATION;
-	else if(ti.type == CSpell::LOCATION && ti.clearAffected)
+	else if(ti.type == spells::AimType::LOCATION && ti.clearAffected)
 		spellSelMode = FREE_LOCATION;
-	else if(ti.type == CSpell::CREATURE)
+	else if(ti.type == spells::AimType::CREATURE)
 		spellSelMode = AIMED_SPELL_CREATURE;
-	else if(ti.type == CSpell::OBSTACLE)
+	else if(ti.type == spells::AimType::OBSTACLE)
 		spellSelMode = OBSTACLE;
 
 	return spellSelMode;

@@ -91,7 +91,7 @@
 		"levels" : {
 			"base":{
 				"targetModifier":{"smart":true},
-				"specialEffects":{
+				"battleEffects":{
 					"catapult":{
 						"type":"core:catapult"
 					}
@@ -119,7 +119,7 @@
 				"targetModifier":{
 					"smart":true
 				},
-				"specialEffects":{
+				"battleEffects":{
 					"dispel":{
 						"type":"core:dispel",
 						"optional":false,
@@ -136,7 +136,7 @@
 			},
  			"expert":{
 				"targetModifier":{"smart":false},
-				"specialEffects":{
+				"battleEffects":{
 					"dispel":{
 						"optional":true,
 					},
@@ -166,7 +166,7 @@
 		"levels" : {
 			"base":{
 				"targetModifier":{"smart":true},
-				"specialEffects":{
+				"battleEffects":{
 					"heal":{
 						"type":"core:heal",
 						"healLevel":"heal",
@@ -204,7 +204,7 @@
 		"levels" : {
 			"base":{
 				"range" : "0",
-				"specialEffects":{
+				"battleEffects":{
 					"heal":{
 						"type":"core:heal",
 						"healLevel":"resurrect",
@@ -223,7 +223,7 @@
 				"targetModifier":{"smart":true}
 			},
 			"advanced":{
-				"specialEffects":{
+				"battleEffects":{
 					"heal":{
 						"healPower":"permanent"
 					}
@@ -255,7 +255,7 @@
 		"levels" : {
 			"base":{
 				"range" : "0",
-				"specialEffects":{
+				"battleEffects":{
 					"heal":{
 						"type":"core:heal",
 						"healLevel":"resurrect",
@@ -289,7 +289,7 @@
 		"levels" : {
 			"base":{
 				"range" : "0",
-				"specialEffects":{
+				"battleEffects":{
 					"sacrifice":{
 						"type":"core:sacrifice",
 						"healLevel":"resurrect",
@@ -322,7 +322,7 @@
 		"levels" : {
 			"base":{
 				"range" : "0",
-				"specialEffects":{
+				"battleEffects":{
 					"teleport":{
 						"type":"core:teleport"
 					}
@@ -351,7 +351,7 @@
 		"levels" : {
 			"base":{
 				"range" : "0",
-				"specialEffects": {
+				"battleEffects": {
 					"removeObstacle" : {
 						"optional":false,
 						"type":"core:removeObstacle",
@@ -360,14 +360,14 @@
 				}
 			},
 			"advanced" : {
-				"specialEffects": {
+				"battleEffects": {
 					"removeObstacle" : {
 						"removeSpells" : ["fireWall"]
 					}
 				}
 			},
 			"expert" : {
-				"specialEffects": {
+				"battleEffects": {
 					"removeObstacle" : {
 						"removeAllSpells" : true
 					}
@@ -390,7 +390,7 @@
 		"levels" : {
 			"base":{
 				"range" : "0",
-				"specialEffects":{
+				"battleEffects":{
 					"clone":{
 						"maxTier":5,
 						"type":"core:clone"
@@ -399,14 +399,14 @@
 				"targetModifier":{"smart":true}
 			},
 			"advanced":{
-				"specialEffects":{
+				"battleEffects":{
 					"clone":{
 						"maxTier":6
 					}
 				}
 			},
 			"expert":{
-				"specialEffects":{
+				"battleEffects":{
 					"clone":{
 						"maxTier":1000
 					}
@@ -434,7 +434,7 @@
 		"levels" : {
 			"base":{
 				"range" : "X",
-				"specialEffects":{
+				"battleEffects":{
 					"summon":{
 						"exclusive":true,
 						"id":"fireElemental",
@@ -460,7 +460,7 @@
 		"levels" : {
 			"base":{
 				"range" : "X",
-				"specialEffects":{
+				"battleEffects":{
 					"summon":{
 						"exclusive":true,
 						"id":"earthElemental",
@@ -486,7 +486,7 @@
 		"levels" : {
 			"base":{
 				"range" : "X",
-				"specialEffects":{
+				"battleEffects":{
 					"summon":{
 						"exclusive":true,
 						"id":"waterElemental",
@@ -512,7 +512,7 @@
 		"levels" : {
 			"base":{
 				"range" : "X",
-				"specialEffects":{
+				"battleEffects":{
 					"summon":{
 						"exclusive":true,
 						"id":"airElemental",

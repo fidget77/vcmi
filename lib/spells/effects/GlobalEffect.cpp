@@ -26,15 +26,14 @@ GlobalEffect::GlobalEffect(const int level)
 
 GlobalEffect::~GlobalEffect() = default;
 
+void GlobalEffect::adjustTargetTypes(std::vector<TargetType> & types) const
+{
+	//any target type allowed
+}
+
 EffectTarget GlobalEffect::filterTarget(const Mechanics * m, const EffectTarget & target) const
 {
-	EffectTarget res;
-	vstd::copy_if(target, std::back_inserter(res), [](const Destination & d)
-	{
-		//we can apply only to default target, but not only once
-		return !d.unitValue && (d.hexValue == BattleHex::INVALID);
-	});
-	return res;
+	return target;
 }
 
 EffectTarget GlobalEffect::transformTarget(const Mechanics * m, const Target & aimPoint, const Target & spellTarget) const

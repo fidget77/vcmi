@@ -40,11 +40,8 @@ bool Effects::applicable(Problem & problem, const Mechanics * m) const
 	bool res = true;
 	bool res2 = false;
 
-	auto callback = [&res, &res2, &problem, m](const Effect * e, bool & stop)
+	auto callback = [&](const Effect * e, bool & stop)
 	{
-		if(!e->automatic)
-			return;
-
 		if(e->applicable(problem, m))
 		{
 			res2 = true;
@@ -68,7 +65,7 @@ bool Effects::applicable(Problem & problem, const Mechanics * m, const Target & 
 
 	bool res = true;
 	bool res2 = false;
-	auto callback = [&res, &res2, &problem, &aimPoint, &spellTarget, m](const Effect * e, bool & stop)
+	auto callback = [&](const Effect * e, bool & stop)
 	{
 		if(!e->automatic)
 			return;

@@ -30,6 +30,11 @@ UnitEffect::UnitEffect(const int level)
 
 UnitEffect::~UnitEffect() = default;
 
+void UnitEffect::adjustTargetTypes(std::vector<TargetType> & types) const
+{
+
+}
+
 bool UnitEffect::applicable(Problem & problem, const Mechanics * m) const
 {
 	//stack effect is applicable in general if there is at least one smart target

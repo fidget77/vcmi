@@ -126,6 +126,11 @@ const battle::Unit * CBattleInfoEssentials::battleActiveUnit() const
 		return nullptr;
 }
 
+uint32_t CBattleInfoEssentials::battleNextUnitId() const
+{
+	return getBattle()->nextUnitId();
+}
+
 TStacks CBattleInfoEssentials::battleAliveStacks() const
 {
 	return battleGetStacksIf([](const CStack * s)

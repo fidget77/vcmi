@@ -1612,21 +1612,17 @@ DLL_LINKAGE void BattleStacksRemoved::applyGs(CGameState *gs)
 
 DLL_LINKAGE void BattleStackAdded::applyGs(CGameState *gs)
 {
-	newStackID = 0;
-	if(!BattleHex(pos).isValid())
+	if(!pos.isValid())
 	{
 		logNetwork->warn("No place found for new stack!");
 		return;
 	}
 
 	CStackBasicDescriptor csbd(creID, amount);
-	CStack * addedStack = gs->curB->generateNewStack(csbd, side, SlotID::SUMMONED_SLOT_PLACEHOLDER, pos); //TODO: netpacks?
+	CStack * addedStack = gs->curB->generateNewStack(newStackID, csbd, side, SlotID::SUMMONED_SLOT_PLACEHOLDER, pos);
 	addedStack->stackState.summoned = summoned;
 
 	addedStack->localInit(gs->curB.get());
-	gs->curB->stacks.push_back(addedStack);
-
-	newStackID = addedStack->ID;
 }
 
 DLL_LINKAGE void BattleSetStackProperty::applyGs(CGameState * gs)

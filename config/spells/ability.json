@@ -254,7 +254,7 @@
 		"levels" : {
 			"base":{
 				"range" : "0-1",
-				"specialEffects":{
+				"battleEffects":{
 					"damage":{
 						"type":"core:damage"
 					}
@@ -284,7 +284,12 @@
 		},
 		"levels" : {
 			"base":{
-				"range" : "0"
+				"range" : "0",
+				"battleEffects":{
+					"damage":{
+						"type":"core:damage"
+					}
+				}
 			}
 		},
 		"flags" : {
@@ -305,7 +310,7 @@
 		},
 		"levels" : {
 			"base":{
-				"specialEffects":{
+				"battleEffects":{
 					"dispel":{
 						"type":"core:dispel",
 						"ignoreImmunity" : true,
@@ -334,7 +339,7 @@
 		},
 		"levels" : {
 			"base":{
-				"specialEffects":{
+				"battleEffects":{
 					"destruction":{
 						"type":"core:destruction"
 					}
@@ -359,7 +364,7 @@
 
 		"levels" : {
 			"base":{
-				"specialEffects":{
+				"battleEffects":{
 					"timed":{
 						"type":"core:timed",
 						"cumulative":true,
@@ -395,7 +400,7 @@
 		},
 		"levels" : {
 			"base":{
-				"specialEffects":{
+				"battleEffects":{
 					"damage":{
 						"type":"core:damage",
 						"ignoreImmunity" : true

@@ -140,6 +140,18 @@ battle::Target BattleAction::getTarget(const CBattleInfoCallback * cb) const
 	return ret;
 }
 
+void BattleAction::setTarget(const battle::Target & target_)
+{
+    target.clear();
+	for(auto & destination : target_)
+	{
+		if(destination.unitValue == nullptr)
+			aimToHex(destination.hexValue);
+		else
+			aimToUnit(destination.unitValue);
+	}
+}
+
 
 std::ostream & operator<<(std::ostream & os, const BattleAction & ba)
 {

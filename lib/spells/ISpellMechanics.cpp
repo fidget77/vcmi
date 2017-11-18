@@ -22,7 +22,7 @@
 #include "../serializer/JsonSerializer.h"
 
 #include "TargetCondition.h"
-#include "CDefaultSpellMechanics.h"
+#include "Problem.h"
 
 #include "AdventureSpellMechanics.h"
 #include "BattleSpellMechanics.h"
@@ -102,7 +102,7 @@ public:
 		: CustomMechanicsFactory(s)
 	{
 		for(int level = 0; level < GameConstants::SPELL_SCHOOL_LEVELS; level++)
-			loadEffects(s->getLevelInfo(level).specialEffects, level);
+			loadEffects(s->getLevelInfo(level).battleEffects, level);
 	}
 };
 
@@ -117,7 +117,7 @@ public:
 		for(int level = 0; level < GameConstants::SPELL_SCHOOL_LEVELS; level++)
 		{
 			const CSpell::LevelInfo & levelInfo = s->getLevelInfo(level);
-			assert(levelInfo.specialEffects.isNull());
+			assert(levelInfo.battleEffects.isNull());
 
 			if(s->isOffensiveSpell())
 			{
@@ -265,10 +265,10 @@ void BattleCast::aimToHex(const BattleHex & destination)
 	target.push_back(Destination(destination));
 }
 
-void BattleCast::aimToStack(const CStack * destination)
+void BattleCast::aimToUnit(const battle::Unit * destination)
 {
 	if(nullptr == destination)
-		logGlobal->error("BattleCast::aimToStack invalid stack.");
+		logGlobal->error("BattleCast::aimToUnit: invalid unit.");
 	else
 		target.push_back(Destination(destination));
 }
@@ -276,13 +276,13 @@ void BattleCast::aimToStack(const CStack * destination)
 void BattleCast::applyEffects(const SpellCastEnvironment * env) const
 {
 	auto m = spell->battleMechanics(this);
-	m->applyEffects(env, *this);
+	m->applyEffects(env, target);
 }
 
 void BattleCast::applyEffectsForced(const SpellCastEnvironment * env) const
 {
 	auto m = spell->battleMechanics(this);
-	m->applyEffectsForced(env, *this);
+	m->applyEffectsForced(env, target);
 }
 
 void BattleCast::cast(const SpellCastEnvironment * env)
@@ -293,15 +293,7 @@ void BattleCast::cast(const SpellCastEnvironment * env)
 
 	std::vector <const CStack*> reflected;//for magic mirror
 
-	{
-		SpellCastContext ctx(m.get(), env, *this);
-
-		ctx.beforeCast();
-
-		m->cast(env, *this, ctx, reflected);
-
-		ctx.afterCast();
-	}
+	m->cast(env, target, reflected);
 
 	//Magic Mirror effect
 	for(auto & attackedCre : reflected)
@@ -339,7 +331,7 @@ void BattleCast::cast(IBattleState * battleState, vstd::RNG & rng)
 	//TODO: reflection
 	//TODO: random effects evaluation
 
-	m->cast(battleState, rng, *this);
+	m->cast(battleState, rng, target);
 }
 
 bool BattleCast::castIfPossible(const SpellCastEnvironment * env)
@@ -352,14 +344,63 @@ bool BattleCast::castIfPossible(const SpellCastEnvironment * env)
 	return false;
 }
 
-BattleHex BattleCast::getFirstDestinationHex() const
+std::vector<Target> BattleCast::findPotentialTargets() const
 {
-	if(target.empty())
+	//TODO: for more that 2 destinations per target much more efficient algorithm is required
+
+	auto m = spell->battleMechanics(this);
+
+	auto targetTypes = m->getTargetTypes();
+
+
+	if(targetTypes.empty() || targetTypes.size() > 2)
 	{
-		logGlobal->error("Spell have no target.");
-        return BattleHex::INVALID;
+		return std::vector<Target>();
 	}
-	return target.at(0).hexValue;
+	else
+	{
+		std::vector<Target> previous;
+		std::vector<Target> next;
+
+		for(size_t index = 0; index < targetTypes.size(); index++)
+		{
+			std::swap(previous, next);
+			next.clear();
+
+			std::vector<Destination> destinations;
+
+			if(previous.empty())
+			{
+				Target empty;
+				destinations = m->getPossibleDestinations(index, targetTypes.at(index), empty);
+
+				for(auto & destination : destinations)
+				{
+					Target target;
+					target.emplace_back(destination);
+					next.push_back(target);
+				}
+			}
+			else
+			{
+				for(const Target & current : previous)
+				{
+					destinations = m->getPossibleDestinations(index, targetTypes.at(index), current);
+
+					for(auto & destination : destinations)
+					{
+						Target target = current;
+						target.emplace_back(destination);
+						next.push_back(target);
+					}
+				}
+			}
+
+			if(next.empty())
+				break;
+		}
+		return next;
+	}
 }
 
 ///ISpellMechanicsFactory
@@ -377,7 +418,7 @@ ISpellMechanicsFactory::~ISpellMechanicsFactory()
 std::unique_ptr<ISpellMechanicsFactory> ISpellMechanicsFactory::get(const CSpell * s)
 {
 	//ignore spell id if there are special effects
-	if(s->hasSpecialEffects())
+	if(s->hasBattleEffects())
 		return make_unique<ConfigurableMechanicsFactory>(s);
 
 	//to be converted
@@ -392,10 +433,6 @@ std::unique_ptr<ISpellMechanicsFactory> ISpellMechanicsFactory::get(const CSpell
 		return make_unique<SpellMechanicsFactory<LandMineMechanics>>(s);
 	case SpellID::QUICKSAND:
 		return make_unique<SpellMechanicsFactory<QuicksandMechanics>>(s);
-
-	case SpellID::THUNDERBOLT:
-
-		return make_unique<SpellMechanicsFactory<RegularSpellMechanics>>(s);
 	default:
 		return make_unique<FallbackMechanicsFactory>(s);
 	}
@@ -417,20 +454,6 @@ Mechanics::Mechanics(const IBattleCast * event)
 }
 
 Mechanics::~Mechanics() = default;
-
-bool Mechanics::counteringSelector(const Bonus * bonus) const
-{
-	if(bonus->source != Bonus::SPELL_EFFECT)
-		return false;
-
-	for(const SpellID & id : owner->counteredSpells)
-	{
-		if(bonus->sid == id.toEnum())
-			return true;
-	}
-
-	return false;
-}
 
 BaseMechanics::BaseMechanics(const IBattleCast * event)
 	: Mechanics(event)
@@ -575,6 +598,11 @@ std::string BaseMechanics::getSpellName() const
 	return owner->name;
 }
 
+int32_t BaseMechanics::getSpellLevel() const
+{
+	return owner->level;
+}
+
 bool BaseMechanics::isSmart() const
 {
 	const CSpell::TargetInfo targetInfo(owner, getRangeLevel(), mode);
@@ -585,6 +613,48 @@ bool BaseMechanics::isMassive() const
 {
 	const CSpell::TargetInfo targetInfo(owner, getRangeLevel(), mode);
 	return targetInfo.massive;
+}
+
+bool BaseMechanics::isNegativeSpell() const
+{
+	return owner->isNegative();
+}
+
+bool BaseMechanics::isPositiveSpell() const
+{
+	return owner->isPositive();
+}
+
+int64_t BaseMechanics::adjustEffectValue(const battle::Unit * target) const
+{
+	return owner->adjustRawDamage(caster, target, getEffectValue());
+}
+
+int64_t BaseMechanics::applySpellBonus(int64_t value, const battle::Unit* target) const
+{
+	return caster->getSpellBonus(owner, value, target);
+}
+
+int64_t BaseMechanics::applySpecificSpellBonus(int64_t value) const
+{
+	return caster->getSpecificSpellBonus(owner, value);
+}
+
+int64_t BaseMechanics::calculateRawEffectValue(int32_t basePowerMultiplier, int32_t levelPowerMultiplier) const
+{
+	return owner->calculateRawEffectValue(getEffectLevel(), basePowerMultiplier, levelPowerMultiplier);
+}
+
+std::vector<Bonus::BonusType> BaseMechanics::getElementalImmunity() const
+{
+	std::vector<Bonus::BonusType> ret;
+
+	owner->forEachSchool([&](const SpellSchoolInfo & cnf, bool & stop)
+	{
+		ret.push_back(cnf.immunityBonus);
+	});
+
+	return ret;
 }
 
 bool BaseMechanics::ownerMatches(const battle::Unit * unit) const
@@ -615,6 +685,26 @@ IBattleCast::Value BaseMechanics::getEffectDuration() const
 IBattleCast::Value64 BaseMechanics::getEffectValue() const
 {
 	return effectValue;
+}
+
+std::vector<AimType> BaseMechanics::getTargetTypes() const
+{
+	std::vector<AimType> ret;
+	detail::ProblemImpl ingored;
+
+	if(canBeCast(ingored))
+	{
+		auto spellTargetType = owner->getTargetType();
+
+		if(isMassive())
+			spellTargetType = AimType::NO_TARGET;
+		else if(spellTargetType == AimType::OBSTACLE)
+			spellTargetType = AimType::LOCATION;
+
+		ret.push_back(spellTargetType);
+	}
+
+	return ret;
 }
 
 

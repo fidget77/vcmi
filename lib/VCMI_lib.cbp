@@ -389,8 +389,6 @@
 		<Unit filename="spells/CDefaultSpellMechanics.h" />
 		<Unit filename="spells/CSpellHandler.cpp" />
 		<Unit filename="spells/CSpellHandler.h" />
-		<Unit filename="spells/CreatureSpellMechanics.cpp" />
-		<Unit filename="spells/CreatureSpellMechanics.h" />
 		<Unit filename="spells/CustomSpellMechanics.cpp" />
 		<Unit filename="spells/CustomSpellMechanics.h" />
 		<Unit filename="spells/ISpellMechanics.cpp" />
@@ -410,6 +408,8 @@
 		<Unit filename="spells/effects/Clone.h" />
 		<Unit filename="spells/effects/Damage.cpp" />
 		<Unit filename="spells/effects/Damage.h" />
+		<Unit filename="spells/effects/Destruction.cpp" />
+		<Unit filename="spells/effects/Destruction.h" />
 		<Unit filename="spells/effects/Dispel.cpp" />
 		<Unit filename="spells/effects/Dispel.h" />
 		<Unit filename="spells/effects/Effect.cpp" />

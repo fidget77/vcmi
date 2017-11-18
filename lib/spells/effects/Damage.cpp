@@ -17,6 +17,7 @@
 #include "../../CStack.h"
 #include "../../battle/IBattleState.h"
 #include "../../battle/CBattleInfoCallback.h"
+#include "../../CGeneralTextHandler.h"
 
 
 static const std::string EFFECT_NAME = "core:damage";
@@ -50,6 +51,23 @@ void Damage::apply(IBattleState * battleState, RNG & rng, const Mechanics * m, c
 	stacksInjured.applyBattle(battleState);
 }
 
+bool Damage::isReceptive(const Mechanics * m, const battle::Unit * unit) const
+{
+	if(!UnitEffect::isReceptive(m, unit))
+		return false;
+
+	//elemental immunity for damage
+	auto filter = m->getElementalImmunity();
+
+	for(auto element : filter)
+	{
+		if(!m->isPositiveSpell() && unit->hasBonusOfType(element, 2))
+			return false;
+	}
+
+	return true;
+}
+
 void Damage::serializeJsonUnitEffect(JsonSerializeFormat & handler)
 {
 	serializeJsonDamageEffect(handler);
@@ -63,41 +81,62 @@ void Damage::serializeJsonDamageEffect(JsonSerializeFormat & handler)
 int64_t Damage::damageForTarget(size_t targetIndex, const Mechanics * m, const battle::Unit * target) const
 {
 	UNUSED(targetIndex);
-	return m->owner->adjustRawDamage(m->caster, target, m->getEffectValue());
+	return m->adjustEffectValue(target);
 }
 
 void Damage::describeEffect(std::vector<MetaString> & log, const Mechanics * m, const battle::Unit * firstTarget, uint32_t kills, int64_t damage, bool multiple) const
 {
+	if(m->getSpellIndex() == SpellID::THUNDERBOLT && !multiple)
 	{
-		MetaString line;
+		{
+			MetaString line;
+			firstTarget->addText(line, MetaString::GENERAL_TXT, -367, true);
+			firstTarget->addNameReplacement(line, true);
+			log.push_back(line);
+		}
 
-		line.addTxt(MetaString::GENERAL_TXT, 376);
-		line.addReplacement(MetaString::SPELL_NAME, m->getSpellIndex());
-		line.addReplacement(damage);
-
-		log.push_back(line);
+		{
+			MetaString line;
+			//todo: handle newlines in metastring
+			std::string text = VLC->generaltexth->allTexts.at(343); //Does %d points of damage.
+			boost::algorithm::trim(text);
+			line << text;
+			line.addReplacement(damage); //no more text afterwards
+			log.push_back(line);
+		}
 	}
-
+	else
 	{
-		MetaString line;
-		const int textId = (kills > 1) ? 379 : 378;
-		line.addTxt(MetaString::GENERAL_TXT, textId);
+		{
+			MetaString line;
+			line.addTxt(MetaString::GENERAL_TXT, 376);
+			line.addReplacement(MetaString::SPELL_NAME, m->getSpellIndex());
+			line.addReplacement(damage);
 
-		if(kills > 1)
-			line.addReplacement(kills);
+			log.push_back(line);
+		}
 
-		if(kills > 1)
-			if(multiple || !firstTarget)
-				line.addReplacement(MetaString::GENERAL_TXT, 43);
+		{
+			MetaString line;
+			const int textId = (kills > 1) ? 379 : 378;
+			line.addTxt(MetaString::GENERAL_TXT, textId);
+
+			if(kills > 1)
+				line.addReplacement(kills);
+
+			if(kills > 1)
+				if(multiple || !firstTarget)
+					line.addReplacement(MetaString::GENERAL_TXT, 43);
+				else
+					firstTarget->addNameReplacement(line, true);
 			else
-				firstTarget->addNameReplacement(line, true);
-		else
-			if(multiple || !firstTarget)
-				line.addReplacement(MetaString::GENERAL_TXT, 42);
-			else
-				firstTarget->addNameReplacement(line, false);
+				if(multiple || !firstTarget)
+					line.addReplacement(MetaString::GENERAL_TXT, 42);
+				else
+					firstTarget->addNameReplacement(line, false);
 
-		log.push_back(line);
+			log.push_back(line);
+		}
 	}
 }
 

@@ -20,6 +20,148 @@
 namespace spells
 {
 
+///SpecialSpellMechanics
+SpecialSpellMechanics::SpecialSpellMechanics(const IBattleCast * event)
+	: DefaultSpellMechanics(event)
+{
+}
+
+
+void SpecialSpellMechanics::applyEffects(const SpellCastEnvironment * env, const Target & targets) const
+{
+	Target receptive;
+
+	for(const Destination & dest : targets)
+	{
+		if(dest.unitValue)
+		{
+			if(isReceptive(dest.unitValue))
+				receptive.push_back(dest);
+		}
+		else
+		{
+			receptive.push_back(dest);
+		}
+	}
+
+	applyEffectsForced(env, receptive);
+}
+
+void SpecialSpellMechanics::applyEffectsForced(const SpellCastEnvironment * env, const Target & targets) const
+{
+	std::vector<const battle::Unit *> stacks;
+	for(auto & dest : targets)
+	{
+		if(dest.unitValue)
+			stacks.push_back(dest.unitValue);
+	}
+
+	if(owner->isDamageSpell())
+	{
+		//todo: remove once obstacle spells will be converted
+		StacksInjured si;
+		defaultDamageEffect(env, si, stacks);
+		if(!si.stacks.empty())
+			env->sendAndApply(&si);
+	}
+
+	if(owner->hasEffects())
+	{
+		logGlobal->error("Unexpected DefaultSpellMechanics::applyEffectsForced call");
+	}
+}
+
+
+int SpecialSpellMechanics::defaultDamageEffect(const SpellCastEnvironment * env, StacksInjured & si, const std::vector<const battle::Unit *> & target) const
+{
+	int totalDamage = 0;
+	for(const battle::Unit * affected : target)
+	{
+		BattleStackAttacked bsa;
+		bsa.damageAmount = adjustEffectValue(affected);
+		totalDamage += bsa.damageAmount;
+
+		bsa.stackAttacked = affected->unitId();
+		bsa.attackerID = -1;
+		auto state = affected->asquire();
+		CStack::prepareAttacked(bsa, env->getRandomGenerator(), state);
+		si.stacks.push_back(bsa);
+	}
+
+	return totalDamage;
+}
+
+
+bool SpecialSpellMechanics::canBeCast(Problem & problem) const
+{
+	//check for creature target existence
+	//allow to cast spell if there is at least one smart target
+	if(requiresCreatureTarget())
+	{
+		CSpell::TargetInfo tinfo(owner, getRangeLevel(), mode);
+		bool targetExists = false;
+
+		for(const CStack * stack : cb->battleGetAllStacks())
+		{
+			const bool immune = (!stack->isValidTarget(!tinfo.onlyAlive)) || (!isReceptive(stack));
+
+			switch(mode)
+			{
+			case spells::Mode::HERO:
+			case spells::Mode::CREATURE_ACTIVE:
+			case spells::Mode::ENCHANTER:
+			case spells::Mode::PASSIVE:
+				{
+					const bool ownerMatches = cb->battleMatchOwner(caster->getOwner(), stack, owner->getPositiveness());
+					targetExists = !immune && ownerMatches;
+				}
+				break;
+			default:
+				targetExists = !immune;
+				break;
+			}
+
+			if(targetExists)
+				break;
+		}
+
+		if(!targetExists)
+			return adaptProblem(ESpellCastProblem::NO_APPROPRIATE_TARGET, problem);
+	}
+	return true;
+}
+
+bool SpecialSpellMechanics::canBeCastAt(BattleHex destination) const
+{
+	//no problems by default
+	//common problems handled by CSpell
+	return true;
+}
+
+std::vector<const CStack *> SpecialSpellMechanics::getAffectedStacks(BattleHex destination) const
+{
+	return std::vector<const CStack *>();
+}
+
+void SpecialSpellMechanics::beforeCast(vstd::RNG & rng, const Target & target, std::vector<const CStack *> & reflected)
+{
+	reflected.clear();
+}
+
+void SpecialSpellMechanics::cast(IBattleState * battleState, vstd::RNG & rng, const Target & target)
+{
+	//do nothing, only custom mechanics can be evaluated
+	UNUSED(battleState);
+	UNUSED(rng);
+	UNUSED(target);
+}
+
+std::vector<Destination> SpecialSpellMechanics::getPossibleDestinations(size_t index, AimType aimType, const Target & current) const
+{
+	//do nothing, only custom mechanics can be evaluated
+	return std::vector<Destination>();
+}
+
 
 ///ObstacleMechanics
 ObstacleMechanics::ObstacleMechanics(const IBattleCast * event)
@@ -77,7 +219,7 @@ bool ObstacleMechanics::isHexAviable(const CBattleInfoCallback * cb, const Battl
 	return true;
 }
 
-void ObstacleMechanics::placeObstacle(const SpellCastEnvironment * env, const BattleCast & parameters, const BattleHex & pos) const
+void ObstacleMechanics::placeObstacle(const SpellCastEnvironment * env, const BattleHex & pos) const
 {
 	//do not trust obstacle count, some of them may be removed
 	auto all = cb->battleGetAllObstacles(BattlePerspective::ALL_KNOWING);
@@ -108,7 +250,7 @@ PatchObstacleMechanics::PatchObstacleMechanics(const IBattleCast * event)
 {
 }
 
-void PatchObstacleMechanics::applyBattleEffects(const SpellCastEnvironment * env, const BattleCast & parameters, SpellCastContext & ctx) const
+void PatchObstacleMechanics::applyCastEffects(const SpellCastEnvironment * env, const Target & target) const
 {
 	std::vector<BattleHex> availableTiles;
 	for(int i = 0; i < GameConstants::BFIELD_SIZE; i += 1)
@@ -123,7 +265,7 @@ void PatchObstacleMechanics::applyBattleEffects(const SpellCastEnvironment * env
 
 	//land mines or quicksand patches are handled as spell created obstacles
 	for (int i = 0; i < patchesToPut; i++)
-		placeObstacle(env, parameters, availableTiles.at(i));
+		placeObstacle(env, availableTiles.at(i));
 }
 
 ///LandMineMechanics
@@ -147,9 +289,9 @@ bool LandMineMechanics::canBeCast(Problem & problem) const
 	return SpecialSpellMechanics::canBeCast(problem);
 }
 
-int LandMineMechanics::defaultDamageEffect(const SpellCastEnvironment * env, const BattleCast & parameters, StacksInjured & si, const std::vector<const battle::Unit *> & target) const
+int LandMineMechanics::defaultDamageEffect(const SpellCastEnvironment * env, StacksInjured & si, const std::vector<const battle::Unit *> & target) const
 {
-	auto res = PatchObstacleMechanics::defaultDamageEffect(env, parameters, si, target);
+	auto res = PatchObstacleMechanics::defaultDamageEffect(env, si, target);
 
 	for(BattleStackAttacked & bsa : si.stacks)
 	{
@@ -243,9 +385,9 @@ bool FireWallMechanics::requiresCreatureTarget() const
 	return true;
 }
 
-void FireWallMechanics::applyBattleEffects(const SpellCastEnvironment * env, const BattleCast & parameters, SpellCastContext & ctx) const
+void FireWallMechanics::applyCastEffects(const SpellCastEnvironment * env, const Target & target) const
 {
-	const BattleHex destination = parameters.getFirstDestinationHex();
+	const BattleHex destination = target.at(0).hexValue;
 
 	if(!destination.isValid())
 	{
@@ -255,7 +397,7 @@ void FireWallMechanics::applyBattleEffects(const SpellCastEnvironment * env, con
 	//firewall is build from multiple obstacles - one fire piece for each affected hex
 	auto affectedHexes = rangeInHexes(destination);
 	for(BattleHex hex : affectedHexes)
-		placeObstacle(env, parameters, hex);
+		placeObstacle(env, hex);
 }
 
 void FireWallMechanics::setupObstacle(SpellCreatedObstacle * obstacle) const
@@ -276,16 +418,16 @@ bool ForceFieldMechanics::requiresCreatureTarget() const
 	return false;
 }
 
-void ForceFieldMechanics::applyBattleEffects(const SpellCastEnvironment * env, const BattleCast & parameters, SpellCastContext & ctx) const
+void ForceFieldMechanics::applyCastEffects(const SpellCastEnvironment * env, const Target & target) const
 {
-	const BattleHex destination = parameters.getFirstDestinationHex();
+	const BattleHex destination = target.at(0).hexValue;
 
 	if(!destination.isValid())
 	{
 		env->complain("Invalid destination for FORCE_FIELD");
 		return;
 	}
-	placeObstacle(env, parameters, destination);
+	placeObstacle(env, destination);
 }
 
 void ForceFieldMechanics::setupObstacle(SpellCreatedObstacle * obstacle) const
@@ -295,9 +437,6 @@ void ForceFieldMechanics::setupObstacle(SpellCreatedObstacle * obstacle) const
 	obstacle->visibleForAnotherSide = true;
 	obstacle->customSize = rangeInHexes(obstacle->pos);
 }
-
-
-
 
 } // namespace spells
 

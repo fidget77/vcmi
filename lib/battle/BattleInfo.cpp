@@ -49,24 +49,24 @@ void BattleInfo::calculateCasualties(std::map<ui32,si32> * casualties) const
 	}
 }
 
-CStack * BattleInfo::generateNewStack(const CStackInstance & base, ui8 side, SlotID slot, BattleHex position) const
+CStack * BattleInfo::generateNewStack(uint32_t id, const CStackInstance & base, ui8 side, SlotID slot, BattleHex position)
 {
-	int stackID = getIdForNewStack();
 	PlayerColor owner = sides[side].color;
 	assert((owner >= PlayerColor::PLAYER_LIMIT) ||
 		(base.armyObj && base.armyObj->tempOwner == owner));
 
-	auto ret = new CStack(&base, owner, stackID, side, slot);
+	auto ret = new CStack(&base, owner, id, side, slot);
 	ret->initialPosition = getAvaliableHex(base.getCreatureID(), side, position); //TODO: what if no free tile on battlefield was found?
+	stacks.push_back(ret);
 	return ret;
 }
 
-CStack * BattleInfo::generateNewStack(const CStackBasicDescriptor & base, ui8 side, SlotID slot, BattleHex position) const
+CStack * BattleInfo::generateNewStack(uint32_t id, const CStackBasicDescriptor & base, ui8 side, SlotID slot, BattleHex position)
 {
-	int stackID = getIdForNewStack();
 	PlayerColor owner = sides[side].color;
-	auto ret = new CStack(&base, owner, stackID, side, slot);
+	auto ret = new CStack(&base, owner, id, side, slot);
 	ret->initialPosition = position;
+	stacks.push_back(ret);
 	return ret;
 }
 
@@ -368,7 +368,7 @@ BattleInfo * BattleInfo::setupBattle(int3 tile, ETerrainType terrain, BFieldType
 				CreatureID cre = warMachineArt->artType->warMachine;
 
 				if(cre != CreatureID::NONE)
-					stacks.push_back(curB->generateNewStack(CStackBasicDescriptor(cre, 1), side, SlotID::WAR_MACHINES_SLOT, hex));
+					curB->generateNewStack(curB->nextUnitId(), CStackBasicDescriptor(cre, 1), side, SlotID::WAR_MACHINES_SLOT, hex);
 			}
 		};
 
@@ -413,8 +413,7 @@ BattleInfo * BattleInfo::setupBattle(int3 tile, ETerrainType terrain, BFieldType
 			if(creatureBank && i->second->type->isDoubleWide())
 				pos += side ? BattleHex::LEFT : BattleHex::RIGHT;
 
-			CStack * stack = curB->generateNewStack(*i->second, side, i->first, pos);
-			stacks.push_back(stack);
+			curB->generateNewStack(curB->nextUnitId(), *i->second, side, i->first, pos);
 		}
 	}
 
@@ -423,9 +422,7 @@ BattleInfo * BattleInfo::setupBattle(int3 tile, ETerrainType terrain, BFieldType
 	{
 		if (heroes[i] && heroes[i]->commander && heroes[i]->commander->alive)
 		{
-			CStack * stack = curB->generateNewStack (*heroes[i]->commander, i, SlotID::COMMANDER_SLOT_PLACEHOLDER,
-				creatureBank ? commanderBank[i] : commanderField[i]);
-			stacks.push_back(stack);
+			curB->generateNewStack(curB->nextUnitId(), *heroes[i]->commander, i, SlotID::COMMANDER_SLOT_PLACEHOLDER, creatureBank ? commanderBank[i] : commanderField[i]);
 		}
 
 	}
@@ -433,16 +430,14 @@ BattleInfo * BattleInfo::setupBattle(int3 tile, ETerrainType terrain, BFieldType
 	if (curB->town && curB->town->fortLevel() >= CGTownInstance::CITADEL)
 	{
 		// keep tower
-		CStack * stack = curB->generateNewStack(CStackBasicDescriptor(CreatureID::ARROW_TOWERS, 1), 1, SlotID::ARROW_TOWERS_SLOT, -2);
-		stacks.push_back(stack);
+		curB->generateNewStack(curB->nextUnitId(), CStackBasicDescriptor(CreatureID::ARROW_TOWERS, 1), 1, SlotID::ARROW_TOWERS_SLOT, -2);
 
 		if (curB->town->fortLevel() >= CGTownInstance::CASTLE)
 		{
 			// lower tower + upper tower
-			CStack * stack = curB->generateNewStack(CStackBasicDescriptor(CreatureID::ARROW_TOWERS, 1), 1, SlotID::ARROW_TOWERS_SLOT, -4);
-			stacks.push_back(stack);
-			stack = curB->generateNewStack(CStackBasicDescriptor(CreatureID::ARROW_TOWERS, 1), 1, SlotID::ARROW_TOWERS_SLOT, -3);
-			stacks.push_back(stack);
+			curB->generateNewStack(curB->nextUnitId(), CStackBasicDescriptor(CreatureID::ARROW_TOWERS, 1), 1, SlotID::ARROW_TOWERS_SLOT, -4);
+
+			curB->generateNewStack(curB->nextUnitId(), CStackBasicDescriptor(CreatureID::ARROW_TOWERS, 1), 1, SlotID::ARROW_TOWERS_SLOT, -3);
 		}
 
 		//moat
@@ -600,20 +595,6 @@ ui8 BattleInfo::whatSide(PlayerColor player) const
 
 	logGlobal->warn("BattleInfo::whatSide: Player %s is not in battle!", player.getStr());
 	return -1;
-}
-
-int BattleInfo::getIdForNewStack() const
-{
-	if(stacks.size())
-	{
-		//stacks vector may be sorted not by ID and they may be not contiguous -> find stack with max ID
-		auto highestIDStack = *std::max_element(stacks.begin(), stacks.end(),
-								[](const CStack *a, const CStack *b) { return a->ID < b->ID; });
-
-		return highestIDStack->ID + 1;
-	}
-
-	return 0;
 }
 
 BattlefieldBI::BattlefieldBI BattleInfo::battlefieldTypeToBI(BFieldType bfieldType)
@@ -875,6 +856,11 @@ void BattleInfo::removeUnitBonus(uint32_t id, const std::vector<Bonus> & bonus)
 		};
 		sta->popBonuses(selector);
 	}
+}
+
+uint32_t BattleInfo::nextUnitId() const
+{
+	return stacks.size();
 }
 
 void BattleInfo::addOrUpdateUnitBonus(CStack * sta, const Bonus & value, bool forceAdd)

@@ -10,7 +10,8 @@
 
 #pragma once
 
-#include "../../lib/battle/BattleHex.h"
+#include "../../lib/battle/Destination.h"
+#include "../../lib/spells/Magic.h"
 
 class CSpell;
 
@@ -20,7 +21,7 @@ public:
 	using ValueMap = std::map<uint32_t, int64_t>;
 
 	const CSpell * spell;
-	BattleHex dest;
+	spells::Target dest;
 	int64_t value;
 
 	PossibleSpellcast();

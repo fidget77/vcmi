@@ -401,7 +401,7 @@ void CStack::getCastDescription(const CSpell * spell, MetaString & text) const
 	text.addReplacement(MetaString::SPELL_NAME, spell->id.toEnum());
 }
 
-void CStack::getCastDescription(const CSpell * spell, const std::vector<const CStack *> & attacked, MetaString & text) const
+void CStack::getCastDescription(const CSpell * spell, const std::vector<const battle::Unit *> & attacked, MetaString & text) const
 {
 	getCastDescription(spell, text);
 }

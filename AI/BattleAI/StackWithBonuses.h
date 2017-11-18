@@ -55,4 +55,6 @@ public:
 	void addUnitBonus(uint32_t id, const std::vector<Bonus> & bonus) override;
 	void updateUnitBonus(uint32_t id, const std::vector<Bonus> & bonus) override;
 	void removeUnitBonus(uint32_t id, const std::vector<Bonus> & bonus) override;
+
+	uint32_t nextUnitId() const override;
 };

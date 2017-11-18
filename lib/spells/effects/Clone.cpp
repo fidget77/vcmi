@@ -61,7 +61,10 @@ void Clone::apply(const PacketSender * server, RNG & rng, const Mechanics * m, c
 
 		//TODO: generate stack ID before apply
 
+		auto unitId = m->cb->battleNextUnitId();
+
 		BattleStackAdded bsa;
+		bsa.newStackID = unitId;
 		bsa.creID = clonedStack->creatureId();
 		bsa.side = m->casterSide;
 		bsa.summoned = true;
@@ -70,7 +73,7 @@ void Clone::apply(const PacketSender * server, RNG & rng, const Mechanics * m, c
 		server->sendAndApply(&bsa);
 
 		BattleSetStackProperty ssp;
-		ssp.stackID = bsa.newStackID;//we know stack ID after apply
+		ssp.stackID = unitId;
 		ssp.which = BattleSetStackProperty::CLONED;
 		ssp.val = 0;
 		ssp.absolute = 1;
@@ -78,7 +81,7 @@ void Clone::apply(const PacketSender * server, RNG & rng, const Mechanics * m, c
 
 		ssp.stackID = clonedStack->unitId();
 		ssp.which = BattleSetStackProperty::HAS_CLONE;
-		ssp.val = bsa.newStackID;
+		ssp.val = unitId;
 		ssp.absolute = 1;
 		server->sendAndApply(&ssp);
 
@@ -87,7 +90,7 @@ void Clone::apply(const PacketSender * server, RNG & rng, const Mechanics * m, c
 		lifeTimeMarker.turnsRemain = m->getEffectDuration();
 		std::vector<Bonus> buffer;
 		buffer.push_back(lifeTimeMarker);
-		sse.toAdd.push_back(std::make_pair(bsa.newStackID, buffer));
+		sse.toAdd.push_back(std::make_pair(unitId, buffer));
 		server->sendAndApply(&sse);
 	}
 }

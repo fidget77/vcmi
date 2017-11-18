@@ -65,7 +65,6 @@ public:
 
 	boost::optional<BattleAction> considerFleeingOrSurrendering();
 
-	std::vector<BattleHex> getTargetsToConsider(const CSpell *spell, const spells::Caster * caster) const;
 	static int distToNearestNeighbour(BattleHex hex, const ReachabilityInfo::TDistances& dists, BattleHex *chosenHex = nullptr);
 	static bool isCloser(const EnemyInfo & ei1, const EnemyInfo & ei2, const ReachabilityInfo::TDistances & dists);
 

@@ -73,6 +73,8 @@ public:
 	const battle::Unit * battleGetUnitByID(uint32_t ID) const;
 	const battle::Unit * battleActiveUnit() const;
 
+	uint32_t battleNextUnitId() const;
+
 	bool battleHasNativeStack(ui8 side) const;
 	const CGTownInstance * battleGetDefendedTown() const; //returns defended town if current battle is a siege, nullptr instead
 	const CStack * battleActiveStack() const;

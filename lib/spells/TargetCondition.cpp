@@ -125,7 +125,7 @@ bool TargetCondition::isReceptive(const CBattleInfoCallback * cb, const Caster *
 		return false;
 
 	//check receptivity
-	if(m->owner->isPositive() && target->hasBonusOfType(Bonus::RECEPTIVE)) //accept all positive spells
+	if(m->isPositiveSpell() && target->hasBonusOfType(Bonus::RECEPTIVE)) //accept all positive spells
 		return true;
 
 	//Orb of vulnerability
@@ -313,11 +313,10 @@ bool AnitimagicCondition::check(const Mechanics * m, const battle::Unit * target
 
 	TBonusListPtr levelImmunitiesFromSpell = target->getBonuses(Selector::type(Bonus::LEVEL_SPELL_IMMUNITY).And(Selector::sourceType(Bonus::SPELL_EFFECT)), cachingStr.str());
 
-	if(levelImmunitiesFromSpell->size() > 0 && levelImmunitiesFromSpell->totalValue() >= m->owner->level && m->owner->level)
+	if(levelImmunitiesFromSpell->size() > 0 && levelImmunitiesFromSpell->totalValue() >= m->getSpellLevel() && m->getSpellLevel() > 0)
 		return false;
 	return true;
 }
-
 
 ///BonusCondition
 BonusCondition::BonusCondition(BonusTypeID type_)
@@ -352,24 +351,24 @@ bool ElementalCondition::check(const Mechanics * m, const battle::Unit * target)
 {
 	bool elementalImmune = false;
 
-	m->owner->forEachSchool([&](const SpellSchoolInfo & cnf, bool & stop)
-	{
-		auto element = cnf.immunityBonus;
+	auto filter = m->getElementalImmunity();
 
+	for(auto element : filter)
+	{
 		if(target->hasBonusOfType(element, 0)) //always resist if immune to all spells altogether
 		{
 			elementalImmune = true;
-			stop = true;
+			break;
 		}
-		else if(!m->owner->isPositive()) //negative or indifferent
+		else if(!m->isPositiveSpell()) //negative or indifferent
 		{
-			if((m->owner->isDamageSpell() && target->hasBonusOfType(element, 2)) || target->hasBonusOfType(element, 1))
+			if(target->hasBonusOfType(element, 1))
 			{
 				elementalImmune = true;
-				stop = true;
+				break;
 			}
 		}
-	});
+	}
 	return elementalImmune;
 }
 
@@ -385,7 +384,7 @@ bool NormalLevelCondition::check(const Mechanics * m, const battle::Unit * targe
 	TBonusListPtr levelImmunities = target->getBonuses(Selector::type(Bonus::LEVEL_SPELL_IMMUNITY));
 
 	if(target->hasBonusOfType(Bonus::SPELL_IMMUNITY, m->getSpellIndex())
-		|| (levelImmunities->size() > 0 && levelImmunities->totalValue() >= m->owner->level && m->owner->level))
+		|| (levelImmunities->size() > 0 && levelImmunities->totalValue() >= m->getSpellLevel() && m->getSpellLevel() > 0))
 		return false;
 	return true;
 }
@@ -401,7 +400,7 @@ bool HealthValueCondition::check(const Mechanics * m, const battle::Unit * targe
 	//TODO: what with other creatures casting hypnotize, Faerie Dragons style?
 	int64_t subjectHealth = target->getAvailableHealth();
 	//apply 'damage' bonus for hypnotize, including hero specialty
-	auto maxHealth = m->caster->getSpellBonus(m->owner, m->owner->calculateRawEffectValue(m->getEffectValue(), m->getEffectPower(), 1), target);
+	auto maxHealth = m->applySpellBonus(m->getEffectValue(), target);
 	if(subjectHealth > maxHealth)
 		return false;
 

@@ -37,14 +37,7 @@ class Registry;
 template<typename F>
 class RegisterEffect;
 
-//using TargetType = ::CSpell::ETargetType;//todo: use this after ETargetType moved to better place
-
-enum class TargetType
-{
-	NO_TARGET,
-	LOCATION,
-	CREATURE
-};
+using TargetType = ::spells::AimType;
 
 class Effect
 {
@@ -56,6 +49,8 @@ public:
 
 	Effect(const int level);
 	virtual ~Effect();
+
+	virtual void adjustTargetTypes(std::vector<TargetType> & types) const = 0;
 
 	virtual bool applicable(Problem & problem, const Mechanics * m) const;
 	virtual bool applicable(Problem & problem, const Mechanics * m, const Target & aimPoint, const EffectTarget & target) const;

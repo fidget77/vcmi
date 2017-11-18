@@ -11,7 +11,7 @@
 #pragma once
 
 #include "ISpellMechanics.h"
-#include "CDefaultSpellMechanics.h"//todo:remove
+#include "CDefaultSpellMechanics.h"
 
 #include "effects/Effects.h"
 
@@ -24,23 +24,29 @@ public:
 	CustomSpellMechanics(const IBattleCast * event, std::shared_ptr<effects::Effects> e);
 	virtual ~CustomSpellMechanics();
 
-	void applyEffects(const SpellCastEnvironment * env, const BattleCast & parameters) const override;
-	void applyEffectsForced(const SpellCastEnvironment * env, const BattleCast & parameters) const override;
+	void applyEffects(const SpellCastEnvironment * env, const Target & targets) const override;
+	void applyEffectsForced(const SpellCastEnvironment * env, const Target & targets) const override;
 
 	bool canBeCast(Problem & problem) const override;
 	bool canBeCastAt(BattleHex destination) const override;
 
-	bool requiresCreatureTarget() const	override;
+	void beforeCast(vstd::RNG & rng, const Target & target, std::vector <const CStack*> & reflected) override;
 
-	void cast(const SpellCastEnvironment * env, const BattleCast & parameters, SpellCastContext & ctx, std::vector <const CStack*> & reflected) const override;
-	void cast(IBattleState * battleState, vstd::RNG & rng, const BattleCast & parameters) const override;
+	void applyCastEffects(const SpellCastEnvironment * env, const Target & target) const override;
+
+	void cast(IBattleState * battleState, vstd::RNG & rng, const Target & target) override;
 
 	std::vector<const CStack *> getAffectedStacks(BattleHex destination) const override final;
 
+	std::vector<AimType> getTargetTypes() const override final;
+	std::vector<Destination> getPossibleDestinations(size_t index, AimType aimType, const Target & current) const override final;
+
 private:
+	effects::Effects::EffectsToApply effectsToApply;
+
 	std::shared_ptr<effects::Effects> effects;
 
-	std::set<const battle::Unit *> collectTargets(const effects::Effects::EffectsToApply & from) const;
+	std::set<const battle::Unit *> collectTargets() const;
 
 	Target transformSpellTarget(const Target & aimPoint) const;
 };

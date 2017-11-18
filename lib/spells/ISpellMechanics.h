@@ -73,6 +73,8 @@ public:
 class DLL_LINKAGE BattleCast : public IBattleCast
 {
 public:
+	Target target;
+
 	//normal constructor
 	BattleCast(const CBattleInfoCallback * cb, const Caster * caster_, const Mode mode_, const CSpell * spell_);
 
@@ -105,7 +107,7 @@ public:
 	void setEffectValue(Value64 value);
 
 	void aimToHex(const BattleHex & destination);
-	void aimToStack(const CStack * destination);
+	void aimToUnit(const battle::Unit * destination);
 
 	///only apply effects to specified targets
 	void applyEffects(const SpellCastEnvironment * env) const;
@@ -122,9 +124,7 @@ public:
 	///cast with silent check for permitted cast
 	bool castIfPossible(const SpellCastEnvironment * env);
 
-	BattleHex getFirstDestinationHex() const;
-
-	Target target;
+	std::vector<Target> findPotentialTargets() const;
 
 private:
 	///spell school level
@@ -161,8 +161,6 @@ protected:
 	ISpellMechanicsFactory(const CSpell * s);
 };
 
-class SpellCastContext;
-
 class DLL_LINKAGE Mechanics
 {
 public:
@@ -178,15 +176,18 @@ public:
 	virtual bool canBeCast(Problem & problem) const = 0;
 	virtual bool canBeCastAt(BattleHex destination) const = 0;
 
-	virtual void applyEffects(const SpellCastEnvironment * env, const BattleCast & parameters) const = 0;
-	virtual void applyEffectsForced(const SpellCastEnvironment * env, const BattleCast & parameters) const = 0;
+	virtual void applyEffects(const SpellCastEnvironment * env, const Target & targets) const = 0;
+	virtual void applyEffectsForced(const SpellCastEnvironment * env, const Target & targets) const = 0;
 
-	virtual void cast(const SpellCastEnvironment * env, const BattleCast & parameters, SpellCastContext & ctx, std::vector <const CStack*> & reflected) const = 0;
-	virtual void cast(IBattleState * battleState, vstd::RNG & rng, const BattleCast & parameters) const = 0;
+	virtual void cast(const SpellCastEnvironment * env, const Target & target, std::vector <const CStack*> & reflected) = 0;
+
+	virtual void cast(IBattleState * battleState, vstd::RNG & rng, const Target & target) = 0;
 
 	virtual bool isReceptive(const battle::Unit * target) const = 0;
 
-	bool counteringSelector(const Bonus * bonus) const;
+    virtual std::vector<AimType> getTargetTypes() const = 0;
+
+    virtual std::vector<Destination> getPossibleDestinations(size_t index, AimType aimType, const Target & current) const = 0;
 
 	//Cast event facade
 
@@ -202,21 +203,33 @@ public:
 	virtual int32_t getSpellIndex() const = 0;
 	virtual SpellID getSpellId() const = 0;
 	virtual std::string getSpellName() const = 0;
+	virtual int32_t getSpellLevel() const = 0;
 
 	virtual bool isSmart() const = 0;
 	virtual bool isMassive() const = 0;
+
+	virtual bool isNegativeSpell() const = 0;
+	virtual bool isPositiveSpell() const = 0;
+
+	virtual int64_t adjustEffectValue(const battle::Unit * target) const = 0;
+	virtual int64_t applySpellBonus(int64_t value, const battle::Unit * target) const = 0;
+	virtual int64_t applySpecificSpellBonus(int64_t value) const = 0;
+	virtual int64_t calculateRawEffectValue(int32_t basePowerMultiplier, int32_t levelPowerMultiplier) const = 0;
+
+	virtual std::vector<Bonus::BonusType> getElementalImmunity() const = 0;
 
 	//Battle facade
 	virtual bool ownerMatches(const battle::Unit * unit) const = 0;
 
 	Mode mode;
-	const CSpell * owner;
 	const CBattleInfoCallback * cb;
 	const Caster * caster;
 
 	const CStack * casterStack; //deprecated
 
 	ui8 casterSide;
+protected:
+	const CSpell * owner;
 };
 
 class DLL_LINKAGE BaseMechanics : public Mechanics
@@ -234,6 +247,7 @@ public:
 	int32_t getSpellIndex() const override;
 	SpellID getSpellId() const override;
 	std::string getSpellName() const override;
+	int32_t getSpellLevel() const override;
 
 	IBattleCast::Value getEffectLevel() const override;
 	IBattleCast::Value getRangeLevel() const override;
@@ -246,7 +260,20 @@ public:
 	bool isSmart() const override;
 	bool isMassive() const override;
 
+	bool isNegativeSpell() const override;
+	bool isPositiveSpell() const override;
+
+	int64_t adjustEffectValue(const battle::Unit * target) const override;
+	int64_t applySpellBonus(int64_t value, const battle::Unit * target) const override;
+	int64_t applySpecificSpellBonus(int64_t value) const override;
+	int64_t calculateRawEffectValue(int32_t basePowerMultiplier, int32_t levelPowerMultiplier) const override;
+
+	std::vector<Bonus::BonusType> getElementalImmunity() const override;
+
 	bool ownerMatches(const battle::Unit * unit) const override;
+
+	std::vector<AimType> getTargetTypes() const override;
+
 
 private:
 

@@ -26,22 +26,22 @@ CustomSpellMechanics::CustomSpellMechanics(const IBattleCast * event, std::share
 
 CustomSpellMechanics::~CustomSpellMechanics() = default;
 
-void CustomSpellMechanics::applyEffects(const SpellCastEnvironment * env, const BattleCast & parameters) const
+void CustomSpellMechanics::applyEffects(const SpellCastEnvironment * env, const Target & targets) const
 {
 	auto callback = [&](const effects::Effect * e, bool & stop)
 	{
-		EffectTarget target = e->filterTarget(this, parameters.target);
+		EffectTarget target = e->filterTarget(this, targets);
 		e->apply(env, env->getRandomGenerator(), this, target);
 	};
 
 	effects->forEachEffect(getEffectLevel(), callback);
 }
 
-void CustomSpellMechanics::applyEffectsForced(const SpellCastEnvironment * env, const BattleCast & parameters) const
+void CustomSpellMechanics::applyEffectsForced(const SpellCastEnvironment * env, const Target & targets) const
 {
 	auto callback = [&](const effects::Effect * e, bool & stop)
 	{
-		e->apply(env, env->getRandomGenerator(), this, parameters.target);
+		e->apply(env, env->getRandomGenerator(), this, targets);
 	};
 
 	effects->forEachEffect(getEffectLevel(), callback);
@@ -96,14 +96,16 @@ std::vector<const CStack *> CustomSpellMechanics::getAffectedStacks(BattleHex de
 	return res;
 }
 
-void CustomSpellMechanics::cast(const SpellCastEnvironment * env, const BattleCast & parameters, SpellCastContext & ctx, std::vector<const CStack*> & reflected) const
+void CustomSpellMechanics::beforeCast(vstd::RNG & rng, const Target & target, std::vector<const CStack*> & reflected)
 {
 	reflected.clear();
+	affectedUnits.clear();
 
-	Target spellTarget = transformSpellTarget(parameters.target);
+	Target spellTarget = transformSpellTarget(target);
 
-	std::vector <const CStack *> affected;
 	std::vector <const CStack *> resisted;
+
+	auto rangeGen = rng.getInt64Range(0, 99);
 
 	auto stackReflected = [&, this](const CStack * s) -> bool
 	{
@@ -111,7 +113,7 @@ void CustomSpellMechanics::cast(const SpellCastEnvironment * env, const BattleCa
 		if(tryMagicMirror)
 		{
 			const int mirrorChance = s->valOfBonuses(Bonus::MAGIC_MIRROR);
-			if(env->getRandomGenerator().nextInt(99) < mirrorChance)
+			if(rangeGen() < mirrorChance)
 				return true;
 		}
 		return false;
@@ -123,7 +125,7 @@ void CustomSpellMechanics::cast(const SpellCastEnvironment * env, const BattleCa
 		{
 			//magic resistance
 			const int prob = std::min((s)->magicResistance(), 100); //probability of resistance in %
-			if(env->getRandomGenerator().nextInt(99) < prob)
+			if(rangeGen() < prob)
 				return true;
 		}
 		return false;
@@ -141,20 +143,20 @@ void CustomSpellMechanics::cast(const SpellCastEnvironment * env, const BattleCa
 		else if(stackReflected(s))
 			reflected.push_back(s);
 		else
-			affected.push_back(s);
+			affectedUnits.push_back(s);
 	};
 
 	//prepare targets
-	auto toApply = effects->prepare(this, parameters.target, spellTarget);
+	effectsToApply = effects->prepare(this, target, spellTarget);
 
-	std::set<const battle::Unit *> stacks = collectTargets(toApply);
+	std::set<const battle::Unit *> stacks = collectTargets();
 
 	//process them
 	for(auto s : stacks)
 		filterStack(s);
 
 	//and update targets
-	for(auto & p : toApply)
+	for(auto & p : effectsToApply)
 	{
 		vstd::erase_if(p.second, [&](const Destination & d)
 		{
@@ -165,55 +167,33 @@ void CustomSpellMechanics::cast(const SpellCastEnvironment * env, const BattleCa
 	}
 
 	for(auto s : reflected)
-		ctx.addCustomEffect(s, 3);
+		addCustomEffect(s, 3);
 
 	for(auto s : resisted)
-		ctx.addCustomEffect(s, 78);
-
-	ctx.attackedCres = affected;
-
-	switch (mode)
-	{
-	case Mode::CREATURE_ACTIVE:
-	case Mode::ENCHANTER:
-	case Mode::HERO:
-	case Mode::PASSIVE:
-		{
-			MetaString line;
-			caster->getCastDescription(owner, affected, line);
-			ctx.addBattleLog(std::move(line));
-		}
-		break;
-
-	default:
-		break;
-	}
-
-	//TODO: handle special cases
+		addCustomEffect(s, 78);
+}
 
 
-	//now we actually cast a spell
-	ctx.cast();
-
-	//and see what it does
-	for(auto & p : toApply)
+void CustomSpellMechanics::applyCastEffects(const SpellCastEnvironment * env, const Target & target) const
+{
+	for(auto & p : effectsToApply)
 		p.first->apply(env, env->getRandomGenerator(), this, p.second);
 }
 
-void CustomSpellMechanics::cast(IBattleState * battleState, vstd::RNG & rng, const BattleCast & parameters) const
+void CustomSpellMechanics::cast(IBattleState * battleState, vstd::RNG & rng, const Target & target)
 {
 	//TODO: evaluate caster updates (mana usage etc.)
 	//TODO: evaluate random values
 
-	Target spellTarget = transformSpellTarget(parameters.target);
+	Target spellTarget = transformSpellTarget(target);
 
-	auto toApply = effects->prepare(this, parameters.target, spellTarget);
+	effectsToApply = effects->prepare(this, target, spellTarget);
 
-	std::set<const battle::Unit *> stacks = collectTargets(toApply);
+	std::set<const battle::Unit *> stacks = collectTargets();
 
 	for(const battle::Unit * one : stacks)
 	{
-		auto selector = std::bind(&Mechanics::counteringSelector, this, _1);
+		auto selector = std::bind(&DefaultSpellMechanics::counteringSelector, this, _1);
 
 		std::vector<Bonus> buffer;
 		auto bl = one->getBonuses(selector);
@@ -225,15 +205,15 @@ void CustomSpellMechanics::cast(IBattleState * battleState, vstd::RNG & rng, con
 			battleState->removeUnitBonus(one->unitId(), buffer);
 	}
 
-	for(auto & p : toApply)
+	for(auto & p : effectsToApply)
 		p.first->apply(battleState, rng, this, p.second);
 }
 
-std::set<const battle::Unit *> CustomSpellMechanics::collectTargets(const effects::Effects::EffectsToApply & from) const
+std::set<const battle::Unit *> CustomSpellMechanics::collectTargets() const
 {
 	std::set<const battle::Unit *> result;
 
-	for(const auto & p : from)
+	for(const auto & p : effectsToApply)
 	{
 		for(const Destination & d : p.second)
 			if(d.unitValue)
@@ -272,11 +252,50 @@ Target CustomSpellMechanics::transformSpellTarget(const Target & aimPoint) const
 	return std::move(spellTarget);
 }
 
-bool CustomSpellMechanics::requiresCreatureTarget() const
+std::vector<AimType> CustomSpellMechanics::getTargetTypes() const
 {
-	//TODO: remove
-	//effects will do target existence check
-	return false;
+	auto ret = DefaultSpellMechanics::getTargetTypes();
+
+	if(!ret.empty())
+	{
+		effects->forEachEffect(getEffectLevel(), [&](const effects::Effect * e, bool & stop)
+		{
+			e->adjustTargetTypes(ret);
+			stop = ret.empty();
+		});
+	}
+
+	return ret;
+}
+
+std::vector<Destination> CustomSpellMechanics::getPossibleDestinations(size_t index, AimType aimType, const Target & current) const
+{
+	//TODO: CustomSpellMechanics::getPossibleDestinations
+
+	if(index != 0)
+		return std::vector<Destination>();
+
+	std::vector<Destination> ret;
+
+	switch(aimType)
+	{
+	case AimType::CREATURE:
+	case AimType::LOCATION:
+		for(int i = 0; i < GameConstants::BFIELD_SIZE; i++)
+		{
+			BattleHex dest(i);
+			if(dest.isAvailable())
+				if(canBeCastAt(dest))
+					ret.emplace_back(dest);
+		}
+		break;
+	case AimType::NO_TARGET:
+		ret.emplace_back();
+	default:
+		break;
+	}
+
+	return ret;
 }
 
 

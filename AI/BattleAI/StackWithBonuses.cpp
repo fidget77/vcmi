@@ -201,3 +201,9 @@ void HypotheticBattle::removeUnitBonus(uint32_t id, const std::vector<Bonus> & b
 	getForUpdate(id)->removeUnitBonus(bonus);
 }
 
+uint32_t HypotheticBattle::nextUnitId() const
+{
+	//TODO:
+	return subject->battleNextUnitId();
+
+}

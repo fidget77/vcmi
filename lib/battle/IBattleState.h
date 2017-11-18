@@ -47,6 +47,8 @@ public:
 	virtual ui8 getTacticsSide() const = 0;
 
 	virtual const IBonusBearer * asBearer() const = 0;
+
+	virtual uint32_t nextUnitId() const = 0;
 };
 
 

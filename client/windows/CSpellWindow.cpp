@@ -581,9 +581,9 @@ void CSpellWindow::SpellArea::clickLeft(tribool down, bool previousState)
 				owner->myInt->spellbookSettings.spellbokLastPageAdvmap = owner->currentPage;
 			});
 
-			if(mySpell->getTargetType() == CSpell::LOCATION)
+			if(mySpell->getTargetType() == spells::AimType::LOCATION)
 				adventureInt->enterCastingMode(mySpell);
-			else if(mySpell->getTargetType() == CSpell::NO_TARGET)
+			else if(mySpell->getTargetType() == spells::AimType::NO_TARGET)
 				owner->myInt->cb->castSpell(h, mySpell->id);
 			else
 				logGlobal->error("Invalid spell target type");

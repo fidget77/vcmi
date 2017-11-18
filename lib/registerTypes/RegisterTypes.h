@@ -21,6 +21,7 @@
 #include "../mapObjects/CommonConstructors.h"
 #include "../mapObjects/MapObjects.h"
 #include "../battle/CObstacleInstance.h"
+#include "../CStack.h"
 
 class BinarySerializer;
 class BinaryDeserializer;

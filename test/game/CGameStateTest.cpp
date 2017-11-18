@@ -179,6 +179,7 @@ TEST_F(CGameStateTest, issue2765)
 	ASSERT_EQ(gameState->curB, battle);
 	{
 		BattleStackAdded bsa;
+		bsa.newStackID = battle->battleNextUnitId();
 		bsa.creID = CreatureID(69);
 		bsa.side = BattleSide::ATTACKER;
 		bsa.summoned = false;
@@ -208,7 +209,7 @@ TEST_F(CGameStateTest, issue2765)
 		ASSERT_NE(age, nullptr);
 		//here tested ballista, but this applied to all war machines
 		spells::BattleCast cast(battle, att, spells::Mode::AFTER_ATTACK, age);
-		cast.aimToStack(def);
+		cast.aimToUnit(def);
 		cast.setSpellLevel(3);
 
 		EXPECT_FALSE(age->canBeCastAt(battle, spells::Mode::AFTER_ATTACK, att, def->getPosition()));

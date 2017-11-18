@@ -1635,6 +1635,7 @@ struct SetStackEffect : public CPackForClient
 		h & toAdd;
 		h & toUpdate;
 		h & toRemove;
+		h & battleLog;
 	}
 };
 
@@ -1738,7 +1739,7 @@ struct BattleStacksRemoved : public CPackForClient
 struct BattleStackAdded : public CPackForClient
 {
 	BattleStackAdded()
-		: side(0), amount(0), pos(0), summoned(0), newStackID(0)
+		: side(0), amount(0), pos(0), summoned(false), newStackID(0)
 	{};
 
 	DLL_LINKAGE void applyGs(CGameState *gs);
@@ -1746,20 +1747,20 @@ struct BattleStackAdded : public CPackForClient
 
 	ui8 side;
 	CreatureID creID;
-	int amount;
-	int pos;
-	int summoned; //if true, remove it afterwards
+	int32_t amount;
+	BattleHex pos;
+	bool summoned; //if true, remove it afterwards
 
-	///Actual stack ID, set on apply, do not serialize
-	int newStackID;
+	uint32_t newStackID;
 
-	template <typename Handler> void serialize(Handler &h, const int version)
+	template <typename Handler> void serialize(Handler & h, const int version)
 	{
 		h & side;
 		h & creID;
 		h & amount;
 		h & pos;
 		h & summoned;
+		h & newStackID;
 	}
 };
 

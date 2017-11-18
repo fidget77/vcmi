@@ -254,7 +254,7 @@ public:
 
 	void getCasterName(MetaString & text) const override;
 	void getCastDescription(const CSpell * spell, MetaString & text) const override;
-	void getCastDescription(const CSpell * spell, const std::vector<const CStack *> & attacked, MetaString & text) const override;
+	void getCastDescription(const CSpell * spell, const std::vector<const battle::Unit *> & attacked, MetaString & text) const override;
 	void spendMana(const spells::Mode mode, const CSpell * spell, const spells::PacketSender * server, const int spellCost) const override;
 
 	void deserializationFix();

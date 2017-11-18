@@ -34,6 +34,28 @@ Teleport::Teleport(const int level)
 
 Teleport::~Teleport() = default;
 
+void Teleport::adjustTargetTypes(std::vector<TargetType> & types) const
+{
+	if(!types.empty())
+	{
+		if(types[0] != AimType::CREATURE)
+		{
+			types.clear();
+			return;
+		}
+
+		if(types.size() == 1)
+		{
+			types.push_back(AimType::LOCATION);
+		}
+		else if(types.size() > 1)
+		{
+			if(types[1] != AimType::LOCATION)
+				types.clear();
+		}
+	}
+}
+
 bool Teleport::applicable(Problem & problem, const Mechanics * m) const
 {
 	auto mode = m->mode;

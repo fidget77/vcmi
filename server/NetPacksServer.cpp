@@ -14,9 +14,9 @@
 #include "../lib/IGameCallback.h"
 #include "../lib/mapping/CMap.h"
 #include "../lib/CGameState.h"
-#include "../lib/CStack.h"
 #include "../lib/battle/BattleInfo.h"
 #include "../lib/battle/BattleAction.h"
+#include "../lib/battle/Unit.h"
 #include "../lib/serializer/Connection.h"
 #include "../lib/spells/CSpellHandler.h"
 #include "../lib/spells/ISpellMechanics.h"
@@ -277,8 +277,13 @@ bool MakeAction::applyGh( CGameHandler *gh )
 		if(gh->connections[b->sides[b->tacticsSide].color] != c)
 			ERROR_AND_RETURN;
 	}
-	else if(gh->connections[b->battleGetStackByID(b->activeStack)->owner] != c)
-		ERROR_AND_RETURN;
+	else
+	{
+		auto active = b->battleActiveUnit();
+		if(!active) ERROR_AND_RETURN;
+		auto unitOwner = b->battleGetOwner(active);
+		if(gh->connections[unitOwner] != c) ERROR_AND_RETURN;
+	}
 
 	return gh->makeBattleAction(ba);
 }
@@ -288,9 +293,10 @@ bool MakeCustomAction::applyGh( CGameHandler *gh )
 	const BattleInfo *b = GS(gh)->curB;
 	if(!b) ERROR_AND_RETURN;
 	if(b->tacticDistance) ERROR_AND_RETURN;
-	const CStack *active = GS(gh)->curB->battleGetStackByID(GS(gh)->curB->activeStack);
+	auto active = b->battleActiveUnit();
 	if(!active) ERROR_AND_RETURN;
-	if(gh->connections[active->owner] != c) ERROR_AND_RETURN;
+	auto unitOwner = b->battleGetOwner(active);
+	if(gh->connections[unitOwner] != c) ERROR_AND_RETURN;
 	if(ba.actionType != EActionType::HERO_SPELL) ERROR_AND_RETURN;
 	return gh->makeCustomAction(ba);
 }

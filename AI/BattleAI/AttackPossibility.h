@@ -8,22 +8,10 @@
  *
  */
 #pragma once
-#include "../../lib/CStack.h"
+#include "../../lib/battle/CUnitState.h"
 #include "../../CCallback.h"
 #include "common.h"
 #include "StackWithBonuses.h"
-
-class Priorities
-{
-public:
-	std::vector<double> resourceTypeBaseValues;
-	std::function<double(const battle::Unit *)> stackEvaluator;
-	Priorities()
-	{
-		//        range::copy(VLC->objh->resVals, std::back_inserter(resourceTypeBaseValues));
-		stackEvaluator = [](const battle::Unit *){ return 1.0; };
-	}
-};
 
 class AttackPossibility
 {
@@ -32,13 +20,14 @@ public:
 	BattleHex tile; //tile from which we attack
 	BattleAttackInfo attack;
 
-	int64_t damageDealt;
-	int64_t damageReceived; //usually by counter-attack
-	int tacticImpact;
+	int64_t damageDealt = 0;
+	int64_t damageReceived = 0; //usually by counter-attack
+	int64_t tacticImpact = 0;
 
-	int damageDiff() const;
-	int attackValue() const;
+	AttackPossibility(std::shared_ptr<battle::CUnitState> enemy_, BattleHex tile_, const BattleAttackInfo & attack_);
+
+	int64_t damageDiff() const;
+	int64_t attackValue() const;
 
 	static AttackPossibility evaluate(const BattleAttackInfo & AttackInfo, BattleHex hex);
-	static Priorities * priorities;
 };

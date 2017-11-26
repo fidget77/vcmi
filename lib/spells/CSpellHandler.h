@@ -40,7 +40,11 @@ class CMap;
 class AdventureSpellCastParameters;
 class SpellCastEnvironment;
 
-struct SpellSchoolInfo
+
+namespace spells
+{
+
+struct SchoolInfo
 {
 	ESpellSchool id; //backlink
 	Bonus::BonusType damagePremyBonus;
@@ -50,10 +54,12 @@ struct SpellSchoolInfo
 	Bonus::BonusType knoledgeBonus;
 };
 
+}
+
 
 enum class VerticalPosition : ui8{TOP, CENTER, BOTTOM};
 
-class DLL_LINKAGE CSpell
+class DLL_LINKAGE CSpell : public spells::Spell
 {
 public:
 	struct ProjectileInfo
@@ -286,7 +292,9 @@ public:
 	 *
 	 * Set stop to true to abort looping
 	 */
-	void forEachSchool(const std::function<void (const SpellSchoolInfo &, bool &)> & cb) const;
+	void forEachSchool(const std::function<void (const spells::SchoolInfo &, bool &)> & cb) const override;
+
+	int32_t getIndex() const override;
 
 	/**
 	 * Returns resource name of icon for SPELL_IMMUNITY bonus

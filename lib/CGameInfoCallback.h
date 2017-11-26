@@ -29,6 +29,7 @@ class CMapHeader;
 struct TeamState;
 struct QuestInfo;
 class int3;
+class CGameState;
 
 
 class DLL_LINKAGE CGameInfoCallback : public virtual CCallbackBase

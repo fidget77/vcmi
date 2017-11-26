@@ -118,10 +118,9 @@ BattleAction CStupidAI::activeStack( const CStack * stack )
 	{
 		BattleAction attack;
 		static const std::vector<int> wallHexes = {50, 183, 182, 130, 78, 29, 12, 95};
-
-		attack.destinationTile = *RandomGeneratorUtil::nextItem(wallHexes, CRandomGenerator::getDefault());
+		auto seletectedHex = *RandomGeneratorUtil::nextItem(wallHexes, CRandomGenerator::getDefault());
+		attack.aimToHex(seletectedHex);
 		attack.actionType = EActionType::CATAPULT;
-		attack.additionalInfo = 0;
 		attack.side = side;
 		attack.stackNumber = stack->ID;
 
@@ -140,7 +139,7 @@ BattleAction CStupidAI::activeStack( const CStack * stack )
 		}
 		else
 		{
-			std::vector<BattleHex> avHexes = cb->battleGetAvailableHexes(stack, false);
+			std::vector<BattleHex> avHexes = cb->battleGetAvailableHexes(stack);
 
 			for (BattleHex hex : avHexes)
 			{
@@ -271,8 +270,8 @@ void CStupidAI::print(const std::string &text) const
 BattleAction CStupidAI::goTowards(const CStack * stack, BattleHex destination)
 {
 	assert(destination.isValid());
-	auto avHexes = cb->battleGetAvailableHexes(stack, false);
 	auto reachability = cb->getReachability(stack);
+	auto avHexes = cb->battleGetAvailableHexes(reachability, stack);
 
 	if(vstd::contains(avHexes, destination))
 		return BattleAction::makeMove(stack, destination);

@@ -82,17 +82,40 @@ const std::map<std::string, TPropagatorPtr> bonusPropagatorMap =
 
 ///CBonusProxy
 CBonusProxy::CBonusProxy(const IBonusBearer * Target, CSelector Selector)
-	: cachedLast(0), target(Target), selector(Selector), data()
+	: cachedLast(0),
+	target(Target),
+	selector(Selector),
+	data()
+{
+
+}
+
+CBonusProxy::CBonusProxy(const CBonusProxy & other)
+	: cachedLast(other.cachedLast),
+	target(other.target),
+	selector(other.selector),
+	data(other.data)
 {
 
 }
 
 CBonusProxy::CBonusProxy(CBonusProxy && other)
-	: cachedLast(0), target(other.target), selector(), data()
+	: cachedLast(0),
+	target(other.target),
+	selector(),
+	data()
 {
 	std::swap(cachedLast, other.cachedLast);
 	std::swap(selector, other.selector);
 	std::swap(data, other.data);
+}
+
+CBonusProxy & CBonusProxy::operator=(const CBonusProxy & other)
+{
+	cachedLast = other.cachedLast;
+	selector = other.selector;
+	data = other.data;
+	return *this;
 }
 
 CBonusProxy & CBonusProxy::operator=(CBonusProxy && other)
@@ -105,12 +128,12 @@ CBonusProxy & CBonusProxy::operator=(CBonusProxy && other)
 
 TBonusListPtr CBonusProxy::get() const
 {
-	if(CBonusSystemNode::treeChanged != cachedLast || !data)
+	if(target->getTreeVersion() != cachedLast || !data)
 	{
 		//TODO: support limiters
 		data = target->getAllBonuses(selector, nullptr);
 		data->eliminateDuplicates();
-		cachedLast = CBonusSystemNode::treeChanged;
+		cachedLast = target->getTreeVersion();
 	}
 	return data;
 }
@@ -120,7 +143,7 @@ const BonusList * CBonusProxy::operator->() const
 	return get().get();
 }
 
-int CBonusSystemNode::treeChanged = 1;
+std::atomic<int32_t> CBonusSystemNode::treeChanged(1);
 const bool CBonusSystemNode::cachingEnabled = true;
 
 BonusList::BonusList(bool BelongsToTree) : belongsToTree(BelongsToTree)
@@ -426,11 +449,17 @@ int IBonusBearer::LuckVal() const
 
 si32 IBonusBearer::Attack() const
 {
-	si32 ret = valOfBonuses(Bonus::PRIMARY_SKILL, PrimarySkill::ATTACK);
+	static const std::string cachingStrSkill = "type_PRIMARY_SKILLs_ATTACK";
+	static const auto selectorSkill = Selector::typeSubtype(Bonus::PRIMARY_SKILL, PrimarySkill::ATTACK);
 
-	if (double frenzyPower = valOfBonuses(Bonus::IN_FRENZY)) //frenzy for attacker
+	static const std::string cachingStrFrenzy = "type_IN_FRENZY";
+	static const auto selectorFrenzy = Selector::type(Bonus::IN_FRENZY);
+
+	si32 ret = valOfBonuses(selectorSkill, cachingStrSkill);
+
+	if(si32 frenzyPower = valOfBonuses(selectorFrenzy, cachingStrFrenzy)) //frenzy for attacker
 	{
-		ret += (frenzyPower/100) * (double)Defense(false);
+		ret += ((double)frenzyPower/100) * (double)Defense(false);
 	}
 	vstd::amax(ret, 0);
 
@@ -439,9 +468,15 @@ si32 IBonusBearer::Attack() const
 
 si32 IBonusBearer::Defense(bool withFrenzy) const
 {
-	si32 ret = valOfBonuses(Bonus::PRIMARY_SKILL, PrimarySkill::DEFENSE);
+	static const std::string cachingStrSkill = "type_PRIMARY_SKILLs_DEFENSE";
+	static const auto selectorSkill = Selector::typeSubtype(Bonus::PRIMARY_SKILL, PrimarySkill::DEFENSE);
 
-	if(withFrenzy && hasBonusOfType(Bonus::IN_FRENZY)) //frenzy for defender
+	static const std::string cachingStrFrenzy = "type_IN_FRENZY";
+	static const auto selectorFrenzy = Selector::type(Bonus::IN_FRENZY);
+
+	si32 ret = valOfBonuses(selectorSkill, cachingStrSkill);
+
+	if(withFrenzy && hasBonus(selectorFrenzy, cachingStrFrenzy)) //frenzy for defender
 	{
 		return 0;
 	}
@@ -452,20 +487,23 @@ si32 IBonusBearer::Defense(bool withFrenzy) const
 
 ui32 IBonusBearer::MaxHealth() const
 {
-	return std::max(1, valOfBonuses(Bonus::STACK_HEALTH)); //never 0
+	static const std::string cachingStr = "type_STACK_HEALTH";
+	static const auto selector = Selector::type(Bonus::STACK_HEALTH);
+	auto value = valOfBonuses(selector, cachingStr);
+	return std::max(1, value); //never 0
 }
 
 ui32 IBonusBearer::getMinDamage() const
 {
-	std::stringstream cachingStr;
-	cachingStr << "type_" << Bonus::CREATURE_DAMAGE << "s_0Otype_" << Bonus::CREATURE_DAMAGE << "s_1";
-	return valOfBonuses(Selector::typeSubtype(Bonus::CREATURE_DAMAGE, 0).Or(Selector::typeSubtype(Bonus::CREATURE_DAMAGE, 1)), cachingStr.str());
+	static const std::string cachingStr = "type_CREATURE_DAMAGEs_0Otype_CREATURE_DAMAGEs_1";
+	static const auto selector = Selector::typeSubtype(Bonus::CREATURE_DAMAGE, 0).Or(Selector::typeSubtype(Bonus::CREATURE_DAMAGE, 1));
+	return valOfBonuses(selector, cachingStr);
 }
 ui32 IBonusBearer::getMaxDamage() const
 {
-	std::stringstream cachingStr;
-	cachingStr << "type_" << Bonus::CREATURE_DAMAGE << "s_0Otype_" << Bonus::CREATURE_DAMAGE << "s_2";
-	return valOfBonuses(Selector::typeSubtype(Bonus::CREATURE_DAMAGE, 0).Or(Selector::typeSubtype(Bonus::CREATURE_DAMAGE, 2)), cachingStr.str());
+	static const std::string cachingStr = "type_CREATURE_DAMAGEs_0Otype_CREATURE_DAMAGEs_2";
+	static const auto selector = Selector::typeSubtype(Bonus::CREATURE_DAMAGE, 0).Or(Selector::typeSubtype(Bonus::CREATURE_DAMAGE, 2));
+	return valOfBonuses(selector, cachingStr);
 }
 
 si32 IBonusBearer::manaLimit() const
@@ -494,7 +532,7 @@ si32 IBonusBearer::magicResistance() const
 	return valOfBonuses(Bonus::MAGIC_RESISTANCE);
 }
 
-ui32 IBonusBearer::Speed(int turn, bool useBind ) const
+ui32 IBonusBearer::Speed(int turn, bool useBind) const
 {
 	//war machines cannot move
 	if(hasBonus(Selector::type(Bonus::SIEGE_WEAPON).And(Selector::turns(turn))))
@@ -521,8 +559,8 @@ bool IBonusBearer::isLiving() const //TODO: theoreticaly there exists "LIVING" b
 
 const std::shared_ptr<Bonus> IBonusBearer::getBonus(const CSelector &selector) const
 {
-	auto bonuses = getAllBonuses(Selector::all, Selector::all);
-	return bonuses->getFirst(selector);
+	auto bonuses = getAllBonuses(selector, Selector::all);
+	return bonuses->getFirst(Selector::all);
 }
 
 std::shared_ptr<Bonus> CBonusSystemNode::getBonusLocalFirst(const CSelector &selector)
@@ -1074,6 +1112,12 @@ TBonusListPtr CBonusSystemNode::limitBonuses(const BonusList &allBonuses) const
 void CBonusSystemNode::treeHasChanged()
 {
 	treeChanged++;
+}
+
+int64_t CBonusSystemNode::getTreeVersion() const
+{
+	int64_t ret = treeChanged;
+	return ret << 32;
 }
 
 int NBonus::valOf(const CBonusSystemNode *obj, Bonus::BonusType type, int subtype)

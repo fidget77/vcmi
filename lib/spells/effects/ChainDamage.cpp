@@ -14,9 +14,9 @@
 #include "../ISpellMechanics.h"
 
 #include "../../NetPacks.h"
-#include "../../CStack.h"
 #include "../../battle/IBattleState.h"
 #include "../../battle/CBattleInfoCallback.h"
+#include "../../battle/Unit.h"
 #include "../../serializer/JsonSerializeFormat.h"
 
 static const std::string EFFECT_NAME = "core:chainDamage";
@@ -86,6 +86,9 @@ EffectTarget ChainDamage::transformTarget(const Mechanics * m, const Target & ai
 
 		for(auto hex : battle::Unit::getHexes(unit->getPosition(), unit->doubleWide(), unit->unitSide()))
 			possibleHexes.erase(hex);
+
+		if(possibleHexes.empty())
+			break;
 
 		lightningHex = BattleHex::getClosestTile(unit->unitSide(), lightningHex, possibleHexes);
 	}

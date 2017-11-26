@@ -22,10 +22,6 @@
 #include "CModHandler.h"
 #include "StringConstants.h"
 
-#include "CStack.h"
-#include "battle/BattleInfo.h"
-#include "battle/CBattleInfoCallback.h"
-
 ///CSkill
 CSkill::LevelInfo::LevelInfo()
 {

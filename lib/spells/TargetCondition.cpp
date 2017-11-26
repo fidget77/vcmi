@@ -15,8 +15,8 @@
 
 #include "../GameConstants.h"
 #include "../CBonusTypeHandler.h"
-#include "../CStack.h"
 #include "../battle/CBattleInfoCallback.h"
+#include "../battle/Unit.h"
 
 #include "../serializer/JsonSerializeFormat.h"
 #include "../VCMI_Lib.h"

@@ -43,6 +43,8 @@ public:
 	int32_t creatureIndex() const;
 	CreatureID creatureId() const;
 	int32_t creatureLevel() const;
+	int32_t creatureCost() const;
+
 	virtual const CCreature * creatureType() const = 0;
 };
 

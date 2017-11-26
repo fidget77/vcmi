@@ -24,17 +24,67 @@ namespace battle
 {
 class CUnitState;
 
+class DLL_LINKAGE CTotalsProxy
+{
+public:
+	CTotalsProxy(const IBonusBearer * Target, CSelector Selector, int InitialValue);
+	CTotalsProxy(const CTotalsProxy & other);
+	CTotalsProxy(CTotalsProxy && other) = delete;
+
+	CTotalsProxy & operator=(const CTotalsProxy & other);
+	CTotalsProxy & operator=(CTotalsProxy && other) = delete;
+
+	int getMeleeValue() const;
+	int getRangedValue() const;
+
+private:
+	const IBonusBearer * target;
+	CSelector selector;
+	int initialValue;
+
+	mutable int64_t meleeCachedLast;
+	mutable int meleeValue;
+
+	mutable int64_t rangedCachedLast;
+	mutable int rangedValue;
+};
+
+class DLL_LINKAGE CCheckProxy
+{
+public:
+	CCheckProxy(const IBonusBearer * Target, CSelector Selector);
+	CCheckProxy(const CCheckProxy & other);
+
+	bool getHasBonus() const;
+
+private:
+	const IBonusBearer * target;
+	CSelector selector;
+
+	mutable int64_t cachedLast;
+	mutable bool hasBonus;
+};
+
+class DLL_LINKAGE CAttacks : public CTotalsProxy
+{
+public:
+	explicit CAttacks(const battle::Unit * Owner);
+	CAttacks(const CAttacks & other);
+
+	CAttacks & operator=(const CAttacks & other);
+};
+
 class DLL_LINKAGE CAmmo
 {
 public:
 	explicit CAmmo(const battle::Unit * Owner, CSelector totalSelector);
-	explicit CAmmo(const CAmmo & other, CSelector totalSelector);
 
-	//bonus-related stuff if not copyable
-	CAmmo(const CAmmo & other) = delete;
-
-	//ammo itself if not movable
+	//only copy construction is allowed for acquire(), serializeJson should be used for any other "assignment"
+	CAmmo(const CAmmo & other);
 	CAmmo(CAmmo && other) = delete;
+
+	CAmmo & operator=(const CAmmo & other);
+	CAmmo & operator=(CAmmo && other) = delete;
 
 	int32_t available() const;
 	bool canUse(int32_t amount = 1) const;
@@ -57,8 +107,11 @@ public:
 	CShots(const CShots & other);
 	CShots & operator=(const CShots & other);
 	bool isLimited() const override;
+	int32_t total() const override;
 private:
 	const IUnitEnvironment * env;
+
+	CCheckProxy shooter;
 };
 
 class DLL_LINKAGE CCasts : public CAmmo
@@ -82,6 +135,9 @@ public:
 	void serializeJson(JsonSerializeFormat & handler) override;
 private:
 	mutable int32_t totalCache;
+
+	CCheckProxy noRetaliation;
+	CCheckProxy unlimited;
 };
 
 class DLL_LINKAGE CHealth
@@ -118,7 +174,6 @@ private:
 	int32_t resurrected;
 };
 
-///mutable part of CStack
 class DLL_LINKAGE CUnitState : public Unit
 {
 public:
@@ -139,6 +194,11 @@ public:
 	CHealth health;
 	CShots shots;
 
+	CAttacks totalAttacks;
+
+	CTotalsProxy minDamage;
+	CTotalsProxy maxDamage;
+
 	///id of alive clone of this stack clone if any
 	si32 cloneID;
 
@@ -147,8 +207,10 @@ public:
 
 	explicit CUnitState(const IUnitInfo * unit_, const IBonusBearer * bonus_, const IUnitEnvironment * env_);
 	CUnitState(const CUnitState & other);
+	CUnitState(CUnitState && other) = delete;
 
-	CUnitState & operator=(const CUnitState & other);
+	CUnitState & operator= (const CUnitState & other);
+	CUnitState & operator= (CUnitState && other) = delete;
 
 	bool ableToRetaliate() const override;
 	bool alive() const override;
@@ -156,6 +218,8 @@ public:
 
 	bool isClone() const override;
 	bool hasClone() const override;
+
+	bool isSummoned() const override;
 
 	bool canCast() const override;
 	bool isCaster() const override;
@@ -192,12 +256,14 @@ public:
 
 	int battleQueuePhase(int turn) const override;
 
+	int getAttack(bool ranged) const;
+	int getDefence(bool ranged) const;
+
 	void damage(int64_t & amount);
 	void heal(int64_t & amount, EHealLevel level, EHealPower power);
 
 	void localInit();
 	void serializeJson(JsonSerializeFormat & handler);
-	void swap(CUnitState & other);
 
 	void toInfo(CStackStateInfo & info);
 	void fromInfo(const CStackStateInfo & info);
@@ -207,12 +273,18 @@ public:
 	const TBonusListPtr getAllBonuses(const CSelector & selector, const CSelector & limit,
 		const CBonusSystemNode * root = nullptr, const std::string & cachingStr = "") const override;
 
+	int64_t getTreeVersion() const override;
+
 	void afterAttack(bool ranged, bool counter);
 
 private:
 	const IUnitInfo * unit;
 	const IBonusBearer * bonus;
 	const IUnitEnvironment * env;
+
+	CTotalsProxy attack;
+	CTotalsProxy defence;
+	CBonusProxy inFrenzy;
 
 	void reset();
 };

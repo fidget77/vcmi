@@ -19,8 +19,7 @@ BattleAction::BattleAction():
 	side(-1),
 	stackNumber(-1),
 	actionType(EActionType::INVALID),
-	destinationTile(-1),
-	additionalInfo(-1)
+	actionSubtype(-1)
 {
 }
 
@@ -30,7 +29,7 @@ BattleAction BattleAction::makeHeal(const battle::Unit * healer, const battle::U
 	ba.side = healer->unitSide();
 	ba.actionType = EActionType::STACK_HEAL;
 	ba.stackNumber = healer->unitId();
-	ba.destinationTile = healed->getPosition();
+	ba.aimToUnit(healed);
 	return ba;
 }
 
@@ -71,7 +70,7 @@ BattleAction BattleAction::makeShotAttack(const battle::Unit * shooter, const ba
 	ba.side = shooter->unitSide();
 	ba.actionType = EActionType::SHOOT;
 	ba.stackNumber = shooter->unitId();
-	ba.destinationTile = target->getPosition();
+	ba.aimToUnit(target);
 	return ba;
 }
 
@@ -81,7 +80,7 @@ BattleAction BattleAction::makeMove(const battle::Unit * stack, BattleHex dest)
 	ba.side = stack->unitSide();
 	ba.actionType = EActionType::WALK;
 	ba.stackNumber = stack->unitId();
-	ba.destinationTile = dest;
+	ba.aimToHex(dest);
 	return ba;
 }
 
@@ -98,8 +97,25 @@ std::string BattleAction::toString() const
 	std::stringstream actionTypeStream;
 	actionTypeStream << actionType;
 
-	boost::format fmt("{BattleAction: side '%d', stackNumber '%d', actionType '%s', destinationTile '%s', additionalInfo '%d'}");
-	fmt % static_cast<int>(side) % stackNumber % actionTypeStream.str() % destinationTile % additionalInfo;
+	std::stringstream targetStream;
+
+	for(const DestinationInfo & info : target)
+	{
+		if(info.unitValue == INVALID_UNIT_ID)
+		{
+			targetStream << info.hexValue;
+		}
+		else
+		{
+			targetStream << info.unitValue;
+			targetStream << "@";
+			targetStream << info.hexValue;
+		}
+		targetStream << ",";
+	}
+
+	boost::format fmt("{BattleAction: side '%d', stackNumber '%d', actionType '%s', actionSubtype '%d', target {%s}}");
+	fmt % static_cast<int>(side) % stackNumber % actionTypeStream.str() % actionSubtype % targetStream.str();
 	return fmt.str();
 }
 
@@ -124,10 +140,6 @@ void BattleAction::aimToUnit(const battle::Unit * destination)
 battle::Target BattleAction::getTarget(const CBattleInfoCallback * cb) const
 {
 	battle::Target ret;
-
-	//todo: remove
-	if(target.empty())
-		ret.emplace_back(destinationTile);
 
 	for(auto & destination : target)
 	{

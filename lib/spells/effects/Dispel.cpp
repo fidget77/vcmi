@@ -15,8 +15,8 @@
 #include "../CSpellHandler.h"
 
 #include "../../NetPacks.h"
-#include "../../CStack.h"
 #include "../../battle/IBattleState.h"
+#include "../../battle/Unit.h"
 #include "../../serializer/JsonSerializeFormat.h"
 
 static const std::string EFFECT_NAME = "core:dispel";

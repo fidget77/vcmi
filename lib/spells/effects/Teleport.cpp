@@ -13,9 +13,9 @@
 #include "Registry.h"
 #include "Registry.h"
 #include "../ISpellMechanics.h"
-#include "../../CStack.h"
 #include "../../NetPacks.h"
 #include "../../battle/CBattleInfoCallback.h"
+#include "../../battle/Unit.h"
 
 //TODO: Teleport effect
 

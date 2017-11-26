@@ -139,36 +139,6 @@ bool CStack::waited(int turn) const
 	return stackState.waited(turn);
 }
 
-BattleHex CStack::occupiedHex() const
-{
-	return occupiedHex(stackState.position);
-}
-
-BattleHex CStack::occupiedHex(BattleHex assumedPos) const
-{
-	if(doubleWide())
-	{
-		if(side == BattleSide::ATTACKER)
-			return assumedPos - 1;
-		else
-			return assumedPos + 1;
-	}
-	else
-	{
-		return BattleHex::INVALID;
-	}
-}
-
-std::vector<BattleHex> CStack::getHexes() const
-{
-	return getHexes(stackState.position);
-}
-
-std::vector<BattleHex> CStack::getHexes(BattleHex assumedPos) const
-{
-	return battle::Unit::getHexes(assumedPos, doubleWide(), side);
-}
-
 BattleHex::EDir CStack::destShiftDir() const
 {
 	if(doubleWide())
@@ -341,35 +311,35 @@ void CStack::makeGhost()
 	stackState.ghostPending = true;
 }
 
-ui8 CStack::getSpellSchoolLevel(const spells::Mode mode, const CSpell * spell, int * outSelectedSchool) const
+ui8 CStack::getSpellSchoolLevel(const spells::Mode mode, const spells::Spell * spell, int * outSelectedSchool) const
 {
-	int skill = valOfBonuses(Selector::typeSubtype(Bonus::SPELLCASTER, spell->id));
+	int skill = valOfBonuses(Selector::typeSubtype(Bonus::SPELLCASTER, spell->getIndex()));
 	vstd::abetween(skill, 0, 3);
 	return skill;
 }
 
-int64_t CStack::getSpellBonus(const CSpell * spell, int64_t base, const battle::Unit * affectedStack) const
+int64_t CStack::getSpellBonus(const spells::Spell * spell, int64_t base, const battle::Unit * affectedStack) const
 {
 	//stacks does not have sorcery-like bonuses (yet?)
 	return base;
 }
 
-int64_t CStack::getSpecificSpellBonus(const CSpell * spell, int64_t base) const
+int64_t CStack::getSpecificSpellBonus(const spells::Spell * spell, int64_t base) const
 {
 	return base;
 }
 
-int CStack::getEffectLevel(const spells::Mode mode, const CSpell * spell) const
+int CStack::getEffectLevel(const spells::Mode mode, const spells::Spell * spell) const
 {
 	return getSpellSchoolLevel(mode, spell);
 }
 
-int CStack::getEffectPower(const spells::Mode mode, const CSpell * spell) const
+int CStack::getEffectPower(const spells::Mode mode, const spells::Spell * spell) const
 {
 	return valOfBonuses(Bonus::CREATURE_SPELL_POWER) * stackState.getCount() / 100;
 }
 
-int CStack::getEnchantPower(const spells::Mode mode, const CSpell * spell) const
+int CStack::getEnchantPower(const spells::Mode mode, const spells::Spell * spell) const
 {
 	int res = valOfBonuses(Bonus::CREATURE_ENCHANT_POWER);
 	if(res <= 0)
@@ -377,9 +347,9 @@ int CStack::getEnchantPower(const spells::Mode mode, const CSpell * spell) const
 	return res;
 }
 
-int CStack::getEffectValue(const spells::Mode mode, const CSpell * spell) const
+int CStack::getEffectValue(const spells::Mode mode, const spells::Spell * spell) const
 {
-	return valOfBonuses(Bonus::SPECIFIC_SPELL_POWER, spell->id.toEnum()) * stackState.getCount();
+	return valOfBonuses(Bonus::SPECIFIC_SPELL_POWER, spell->getIndex()) * stackState.getCount();
 }
 
 const PlayerColor CStack::getOwner() const
@@ -393,20 +363,20 @@ void CStack::getCasterName(MetaString & text) const
 	addNameReplacement(text, true);
 }
 
-void CStack::getCastDescription(const CSpell * spell, MetaString & text) const
+void CStack::getCastDescription(const spells::Spell * spell, MetaString & text) const
 {
 	text.addTxt(MetaString::GENERAL_TXT, 565);//The %s casts %s
 	//todo: use text 566 for single creature
 	getCasterName(text);
-	text.addReplacement(MetaString::SPELL_NAME, spell->id.toEnum());
+	text.addReplacement(MetaString::SPELL_NAME, spell->getIndex());
 }
 
-void CStack::getCastDescription(const CSpell * spell, const std::vector<const battle::Unit *> & attacked, MetaString & text) const
+void CStack::getCastDescription(const spells::Spell * spell, const std::vector<const battle::Unit *> & attacked, MetaString & text) const
 {
 	getCastDescription(spell, text);
 }
 
-void CStack::spendMana(const spells::Mode mode, const CSpell * spell, const spells::PacketSender * server, const int spellCost) const
+void CStack::spendMana(const spells::Mode mode, const spells::Spell * spell, const spells::PacketSender * server, const int spellCost) const
 {
 	if(mode == spells::Mode::CREATURE_ACTIVE || mode == spells::Mode::ENCHANTER)
 	{
@@ -422,7 +392,7 @@ void CStack::spendMana(const spells::Mode mode, const CSpell * spell, const spel
 
 		if(mode == spells::Mode::ENCHANTER)
 		{
-			auto bl = getBonuses(Selector::typeSubtype(Bonus::ENCHANTER, spell->id.toEnum()));
+			auto bl = getBonuses(Selector::typeSubtype(Bonus::ENCHANTER, spell->getIndex()));
 
 			int cooldown = 1;
 			for(auto b : *(bl))
@@ -509,6 +479,11 @@ bool CStack::hasClone() const
 	return stackState.hasClone();
 }
 
+bool CStack::isSummoned() const
+{
+	return stackState.isSummoned();
+}
+
 bool CStack::isGhost() const
 {
 	return stackState.isGhost();
@@ -566,7 +541,7 @@ BattleHex CStack::getPosition() const
 
 std::shared_ptr<battle::CUnitState> CStack::asquire() const
 {
-	return std::make_shared<battle::CUnitState>(stackState);
+	return stackState.asquire();
 }
 
 int CStack::battleQueuePhase(int turn) const

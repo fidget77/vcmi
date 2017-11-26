@@ -10,14 +10,21 @@
 #include "StdInc.h"
 #include "AttackPossibility.h"
 
-int AttackPossibility::damageDiff() const
+AttackPossibility::AttackPossibility(std::shared_ptr<battle::CUnitState> enemy_, BattleHex tile_, const BattleAttackInfo & attack_)
+	: enemy(enemy_),
+	tile(tile_),
+	attack(attack_)
 {
-	if (!priorities)
-		priorities = new Priorities();
-	const auto dealtDmgValue = priorities->stackEvaluator(enemy.get()) * damageDealt;
-	const auto receivedDmgValue = priorities->stackEvaluator(attack.attacker.get()) * damageReceived;
+}
 
-	int diff = 0;
+
+int64_t AttackPossibility::damageDiff() const
+{
+	//TODO: use target priority from HypotheticBattle
+	const auto dealtDmgValue = damageDealt;
+	const auto receivedDmgValue = damageReceived;
+
+	int64_t diff = 0;
 
 	//friendly fire or not
 	if(attack.attacker->unitSide() == enemy->unitSide())
@@ -32,7 +39,7 @@ int AttackPossibility::damageDiff() const
 	return diff;
 }
 
-int AttackPossibility::attackValue() const
+int64_t AttackPossibility::attackValue() const
 {
 	return damageDiff() + tacticImpact;
 }
@@ -40,16 +47,16 @@ int AttackPossibility::attackValue() const
 AttackPossibility AttackPossibility::evaluate(const BattleAttackInfo & AttackInfo, BattleHex hex)
 {
 	const int remainingCounterAttacks = AttackInfo.defender->counterAttacks.available();
-	const bool counterAttacksBlocked = AttackInfo.attacker->hasBonusOfType(Bonus::BLOCKS_RETALIATION) || AttackInfo.defender->hasBonusOfType(Bonus::NO_RETALIATION);
+	const bool counterAttacksBlocked = AttackInfo.attacker->hasBonusOfType(Bonus::BLOCKS_RETALIATION);
 
-	const int totalAttacks = 1 + AttackInfo.attacker->getBonuses(Selector::type(Bonus::ADDITIONAL_ATTACK), (Selector::effectRange (Bonus::NO_LIMIT).Or(Selector::effectRange(Bonus::ONLY_MELEE_FIGHT))))->totalValue();
+	const int totalAttacks = AttackInfo.shooting ? AttackInfo.attacker->totalAttacks.getRangedValue() : AttackInfo.attacker->totalAttacks.getMeleeValue();
 
-	AttackPossibility ap = {AttackInfo.defender, hex, AttackInfo, 0, 0, 0};
+	AttackPossibility ap(AttackInfo.defender, hex, AttackInfo);
 
 	BattleAttackInfo curBai = AttackInfo; //we'll modify here the stack state
 
-	curBai.attacker.reset(new battle::CUnitState(*AttackInfo.attacker.get()));
-	curBai.defender.reset(new battle::CUnitState(*AttackInfo.defender.get()));
+	curBai.attacker = AttackInfo.attacker->asquire();
+	curBai.defender = AttackInfo.defender->asquire();
 
 	for(int i = 0; i < totalAttacks; i++)
 	{
@@ -62,11 +69,10 @@ AttackPossibility AttackPossibility::evaluate(const BattleAttackInfo & AttackInf
 		vstd::amin(retaliation.first, curBai.attacker->health.available());
 		vstd::amin(retaliation.second, curBai.attacker->health.available());
 
-		ap.damageDealt = (attackDmg.first + attackDmg.second) / 2;
-		ap.damageReceived = (retaliation.first + retaliation.second) / 2;
+		ap.damageDealt += (attackDmg.first + attackDmg.second) / 2;
 
-		if(remainingCounterAttacks <= i || counterAttacksBlocked)
-			ap.damageReceived = 0;
+		if(remainingCounterAttacks > i && !counterAttacksBlocked)
+			ap.damageReceived += (retaliation.first + retaliation.second) / 2;
 
 		curBai.attacker->damage(ap.damageReceived);
 		curBai.defender->damage(ap.damageDealt);
@@ -82,6 +88,3 @@ AttackPossibility AttackPossibility::evaluate(const BattleAttackInfo & AttackInf
 
 	return ap;
 }
-
-
-Priorities* AttackPossibility::priorities = nullptr;

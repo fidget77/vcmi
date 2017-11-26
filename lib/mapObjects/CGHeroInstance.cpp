@@ -22,12 +22,13 @@
 #include "../IGameCallback.h"
 #include "../CGameState.h"
 #include "../CCreatureHandler.h"
-#include "../CStack.h"
 #include "../CTownHandler.h"
 #include "../mapping/CMap.h"
 #include "CGTownInstance.h"
 #include "../serializer/JsonSerializeFormat.h"
 #include "../StringConstants.h"
+#include "../battle/Unit.h"
+
 
 ///helpers
 static void showInfoDialog(const PlayerColor playerID, const ui32 txtID, const ui16 soundID)
@@ -820,11 +821,11 @@ TExpType CGHeroInstance::calculateXp(TExpType exp) const
 	return exp * (100 + valOfBonuses(Bonus::SECONDARY_SKILL_PREMY, SecondarySkill::LEARNING))/100.0;
 }
 
-ui8 CGHeroInstance::getSpellSchoolLevel(const spells::Mode mode, const CSpell * spell, int *outSelectedSchool) const
+ui8 CGHeroInstance::getSpellSchoolLevel(const spells::Mode mode, const spells::Spell * spell, int * outSelectedSchool) const
 {
 	si16 skill = -1; //skill level
 
-	spell->forEachSchool([&, this](const SpellSchoolInfo & cnf, bool & stop)
+	spell->forEachSchool([&, this](const spells::SchoolInfo & cnf, bool & stop)
 	{
 		int thisSchool = std::max<int>(
 			valOfBonuses(Bonus::SECONDARY_SKILL_PREMY, cnf.skill),
@@ -838,57 +839,57 @@ ui8 CGHeroInstance::getSpellSchoolLevel(const spells::Mode mode, const CSpell * 
 	});
 
 	vstd::amax(skill, valOfBonuses(Bonus::MAGIC_SCHOOL_SKILL, 0)); //any school bonus
-	vstd::amax(skill, valOfBonuses(Bonus::SPELL, spell->id.toEnum())); //given by artifact or other effect
+	vstd::amax(skill, valOfBonuses(Bonus::SPELL, spell->getIndex())); //given by artifact or other effect
 
 	vstd::amax(skill, 0); //in case we don't know any school
 	vstd::amin(skill, 3);
 	return skill;
 }
 
-int64_t CGHeroInstance::getSpellBonus(const CSpell * spell, int64_t base, const battle::Unit * affectedStack) const
+int64_t CGHeroInstance::getSpellBonus(const spells::Spell * spell, int64_t base, const battle::Unit * affectedStack) const
 {
 	//applying sorcery secondary skill
 
 	base *= (100.0 + valOfBonuses(Bonus::SECONDARY_SKILL_PREMY, SecondarySkill::SORCERY)) / 100.0;
-	base *= (100.0 + valOfBonuses(Bonus::SPELL_DAMAGE) + valOfBonuses(Bonus::SPECIFIC_SPELL_DAMAGE, spell->id.toEnum())) / 100.0;
+	base *= (100.0 + valOfBonuses(Bonus::SPELL_DAMAGE) + valOfBonuses(Bonus::SPECIFIC_SPELL_DAMAGE, spell->getIndex())) / 100.0;
 
-	spell->forEachSchool([&base, this](const SpellSchoolInfo & cnf, bool & stop)
+	spell->forEachSchool([&base, this](const spells::SchoolInfo & cnf, bool & stop)
 	{
 		base *= (100.0 + valOfBonuses(cnf.damagePremyBonus)) / 100.0;
 		stop = true; //only bonus from one school is used
 	});
 
 	if(affectedStack && affectedStack->creatureLevel() > 0) //Hero specials like Solmyr, Deemer
-		base *= (100. + ((valOfBonuses(Bonus::SPECIAL_SPELL_LEV, spell->id.toEnum()) * level) / affectedStack->creatureLevel())) / 100.0;
+		base *= (100. + ((valOfBonuses(Bonus::SPECIAL_SPELL_LEV, spell->getIndex()) * level) / affectedStack->creatureLevel())) / 100.0;
 
 	return base;
 }
 
-int64_t CGHeroInstance::getSpecificSpellBonus(const CSpell * spell, int64_t base) const
+int64_t CGHeroInstance::getSpecificSpellBonus(const spells::Spell * spell, int64_t base) const
 {
-	base *= (100.0 + valOfBonuses(Bonus::SPECIFIC_SPELL_DAMAGE, spell->id.toEnum())) / 100.0;
+	base *= (100.0 + valOfBonuses(Bonus::SPECIFIC_SPELL_DAMAGE, spell->getIndex())) / 100.0;
 	return base;
 }
 
-int CGHeroInstance::getEffectLevel(const spells::Mode mode, const CSpell * spell) const
+int CGHeroInstance::getEffectLevel(const spells::Mode mode, const spells::Spell * spell) const
 {
-	if(hasBonusOfType(Bonus::MAXED_SPELL, spell->id))
+	if(hasBonusOfType(Bonus::MAXED_SPELL, spell->getIndex()))
 		return 3;//todo: recheck specialty from where this bonus is. possible bug
 	else
 		return getSpellSchoolLevel(mode, spell);
 }
 
-int CGHeroInstance::getEffectPower(const spells::Mode mode, const CSpell * spell) const
+int CGHeroInstance::getEffectPower(const spells::Mode mode, const spells::Spell * spell) const
 {
 	return getPrimSkillLevel(PrimarySkill::SPELL_POWER);
 }
 
-int CGHeroInstance::getEnchantPower(const spells::Mode mode, const CSpell * spell) const
+int CGHeroInstance::getEnchantPower(const spells::Mode mode, const spells::Spell * spell) const
 {
 	return getPrimSkillLevel(PrimarySkill::SPELL_POWER) + valOfBonuses(Bonus::SPELL_DURATION);
 }
 
-int CGHeroInstance::getEffectValue(const spells::Mode mode, const CSpell * spell) const
+int CGHeroInstance::getEffectValue(const spells::Mode mode, const spells::Spell * spell) const
 {
 	return 0;
 }
@@ -904,26 +905,26 @@ void CGHeroInstance::getCasterName(MetaString & text) const
 	text.addReplacement(name);
 }
 
-void CGHeroInstance::getCastDescription(const CSpell * spell, MetaString & text) const
+void CGHeroInstance::getCastDescription(const spells::Spell * spell, MetaString & text) const
 {
 	text.addTxt(MetaString::GENERAL_TXT, 196);
 	getCasterName(text);
-	text.addReplacement(MetaString::SPELL_NAME, spell->id.toEnum());
+	text.addReplacement(MetaString::SPELL_NAME, spell->getIndex());
 }
 
-void CGHeroInstance::getCastDescription(const CSpell * spell, const std::vector<const battle::Unit *> & attacked, MetaString & text) const
+void CGHeroInstance::getCastDescription(const spells::Spell * spell, const std::vector<const battle::Unit *> & attacked, MetaString & text) const
 {
 	const bool singleTarget = attacked.size() == 1;
 	const int textIndex = singleTarget ? 195 : 196;
 
 	text.addTxt(MetaString::GENERAL_TXT, textIndex);
 	getCasterName(text);
-	text.addReplacement(MetaString::SPELL_NAME, spell->id.toEnum());
+	text.addReplacement(MetaString::SPELL_NAME, spell->getIndex());
 	if(singleTarget)
 		attacked.at(0)->addNameReplacement(text, true);
 }
 
-void CGHeroInstance::spendMana(const spells::Mode mode, const CSpell * spell, const spells::PacketSender * server, const int spellCost) const
+void CGHeroInstance::spendMana(const spells::Mode mode, const spells::Spell * spell, const spells::PacketSender * server, const int spellCost) const
 {
 	if(mode == spells::Mode::HERO && spellCost != 0)
 	{
@@ -945,7 +946,7 @@ bool CGHeroInstance::canCastThisSpell(const CSpell * spell) const
 
 	bool schoolBonus = false;
 
-	spell->forEachSchool([this, &schoolBonus](const SpellSchoolInfo & cnf, bool & stop)
+	spell->forEachSchool([this, &schoolBonus](const spells::SchoolInfo & cnf, bool & stop)
 	{
 		if(hasBonusOfType(cnf.knoledgeBonus))
 		{

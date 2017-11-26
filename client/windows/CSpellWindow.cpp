@@ -40,6 +40,8 @@
 #include "../../lib/spells/Problem.h"
 #include "../../lib/GameConstants.h"
 
+#include "../../lib/mapObjects/CGHeroInstance.h"
+
 CSpellWindow::InteractiveArea::InteractiveArea(const SDL_Rect & myRect, std::function<void()> funcL, int helpTextId, CSpellWindow * _owner)
 {
 	addUsedEvents(LCLICK | RCLICK | HOVER);
@@ -122,7 +124,7 @@ CSpellWindow::CSpellWindow(const CGHeroInstance * _myHero, CPlayerInterface * _m
 
 		++sitesPerOurTab[4];
 
-		spell->forEachSchool([&sitesPerOurTab](const SpellSchoolInfo & school, bool & stop)
+		spell->forEachSchool([&sitesPerOurTab](const spells::SchoolInfo & school, bool & stop)
 		{
 			++sitesPerOurTab[(ui8)school.id];
 		});

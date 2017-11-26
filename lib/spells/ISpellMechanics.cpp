@@ -32,6 +32,7 @@
 #include "effects/Damage.h"
 #include "effects/Timed.h"
 
+#include "CSpellHandler.h"
 
 #include "../CHeroHandler.h"//todo: remove
 
@@ -440,12 +441,11 @@ std::unique_ptr<ISpellMechanicsFactory> ISpellMechanicsFactory::get(const CSpell
 
 ///Mechanics
 Mechanics::Mechanics(const IBattleCast * event)
-	: owner(event->getSpell()),
-	cb(event->getBattle()),
+	: cb(event->getBattle()),
 	mode(event->getMode()),
 	caster(event->getCaster())
 {
-	casterStack = dynamic_cast<const CStack *>(caster);
+	casterUnit = dynamic_cast<const CStack *>(caster);
 
 	//FIXME: ensure caster and check for valid player and side
 	casterSide = 0;
@@ -456,7 +456,8 @@ Mechanics::Mechanics(const IBattleCast * event)
 Mechanics::~Mechanics() = default;
 
 BaseMechanics::BaseMechanics(const IBattleCast * event)
-	: Mechanics(event)
+	: Mechanics(event),
+	owner(event->getSpell())
 {
 	{
 		auto value = event->getRangeLevel();
@@ -531,7 +532,10 @@ bool BaseMechanics::adaptProblem(ESpellCastProblem::ESpellCastProblem source, Pr
 	case ESpellCastProblem::SPELL_LEVEL_LIMIT_EXCEEDED:
 		{
 			MetaString text;
+			//TODO: refactor
 			auto hero = dynamic_cast<const CGHeroInstance *>(caster);
+			if(!hero)
+				return adaptGenericProblem(target);
 
 			//Recanter's Cloak or similar effect. Try to retrieve bonus
 			const auto b = hero->getBonusLocalFirst(Selector::type(Bonus::BLOCK_MAGIC_ABOVE));
@@ -649,7 +653,7 @@ std::vector<Bonus::BonusType> BaseMechanics::getElementalImmunity() const
 {
 	std::vector<Bonus::BonusType> ret;
 
-	owner->forEachSchool([&](const SpellSchoolInfo & cnf, bool & stop)
+	owner->forEachSchool([&](const SchoolInfo & cnf, bool & stop)
 	{
 		ret.push_back(cnf.immunityBonus);
 	});

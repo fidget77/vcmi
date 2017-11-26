@@ -12,6 +12,8 @@
 
 #include "CDefaultSpellMechanics.h"
 
+#include "CSpellHandler.h"
+
 #include "../CStack.h"
 #include "../battle/BattleInfo.h"
 
@@ -220,7 +222,7 @@ void DefaultSpellMechanics::cast(const SpellCastEnvironment * env, const Target 
 	sc.tile = target.at(0).hexValue;
 
 	sc.castByHero = mode == Mode::HERO;
-	sc.casterStack = (casterStack ? casterStack->unitId() : -1);
+	sc.casterStack = (casterUnit ? casterUnit->unitId() : -1);
 	sc.manaGained = 0;
 
 	sc.activeCast = false;

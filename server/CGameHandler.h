@@ -312,5 +312,3 @@ class clientDisconnectedException : public std::exception
 {
 
 };
-
-void makeStackDoNothing();

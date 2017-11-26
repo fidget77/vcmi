@@ -77,7 +77,7 @@ public:
 
 	bool battleHasNativeStack(ui8 side) const;
 	const CGTownInstance * battleGetDefendedTown() const; //returns defended town if current battle is a siege, nullptr instead
-	const CStack * battleActiveStack() const;
+
 	si8 battleTacticDist() const; //returns tactic distance in current tactics phase; 0 if not in tactics phase
 	si8 battleGetTacticsSide() const; //returns which side is in tactics phase, undefined if none (?)
 	bool battleCanFlee(PlayerColor player) const;
@@ -92,7 +92,7 @@ public:
 	ui8 battleGetSiegeLevel() const; //returns 0 when there is no siege, 1 if fort, 2 is citadel, 3 is castle
 	bool battleHasHero(ui8 side) const;
 	uint32_t battleCastSpells(ui8 side) const; //how many spells has given side cast
-	const CGHeroInstance * battleGetFightingHero(ui8 side) const; //depracated for players callback, easy to get wrong
+	const CGHeroInstance * battleGetFightingHero(ui8 side) const; //deprecated for players callback, easy to get wrong
 	const CArmedInstance * battleGetArmyObject(ui8 side) const;
 	InfoAboutHero battleGetHeroInfo(ui8 side) const;
 
@@ -105,18 +105,14 @@ public:
 	///returns all stacks, alive or dead or undead or mechanical :)
 	TStacks battleGetAllStacks(bool includeTurrets = false) const;
 
-	///returns all alive stacks excluding turrets
-	TStacks battleAliveStacks() const;
-	///returns all alive stacks from particular side excluding turrets
-	TStacks battleAliveStacks(ui8 side) const;
 	const CStack * battleGetStackByID(int ID, bool onlyAlive = true) const; //returns stack info by given ID
 	bool battleIsObstacleVisibleForSide(const CObstacleInstance & coi, BattlePerspective::BattlePerspective side) const;
 
 	///returns player that controls given stack; mind control included
-	PlayerColor battleGetOwner(const battle::Unit * stack) const;
+	PlayerColor battleGetOwner(const battle::Unit * unit) const;
 
 	///returns hero that controls given stack; nullptr if none; mind control included
-	const CGHeroInstance * battleGetOwnerHero(const battle::Unit * stack) const;
+	const CGHeroInstance * battleGetOwnerHero(const battle::Unit * unit) const;
 
 	///check that stacks are controlled by same|other player(s) depending on positiveness
 	///mind control included

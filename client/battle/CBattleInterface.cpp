@@ -1152,7 +1152,8 @@ void CBattleInterface::giveCommand(EActionType action, BattleHex tile, si32 addi
 	auto ba = new BattleAction(); //is deleted in CPlayerInterface::activeStack()
 	ba->side = side.get();
 	ba->actionType = action;
-	ba->destinationTile = tile;
+	ba->aimToHex(tile);
+	ba->actionSubtype = additional;
 
 	sendCommand(ba, actor);
 }
@@ -1434,8 +1435,7 @@ void CBattleInterface::castThisSpell(SpellID spellID)
 {
 	auto ba = new BattleAction();
 	ba->actionType = EActionType::HERO_SPELL;
-	ba->additionalInfo = spellID; //spell number
-	ba->destinationTile = -1;
+	ba->actionSubtype = spellID; //spell number
 	ba->stackNumber = (attackingHeroInstance->tempOwner == curInt->playerID) ? -1 : -2;
 	ba->side = defendingHeroInstance ? (curInt->playerID == defendingHeroInstance->tempOwner) : false;
 	spellToCast = ba;
@@ -1450,7 +1450,7 @@ void CBattleInterface::castThisSpell(SpellID spellID)
 
 	if (spellSelMode == NO_LOCATION) //user does not have to select location
 	{
-		spellToCast->destinationTile = -1;
+		spellToCast->aimToHex(BattleHex::INVALID);
 		curInt->cb->battleMakeAction(spellToCast);
 		endCastingSpell();
 	}
@@ -1845,11 +1845,13 @@ void CBattleInterface::endAction(const BattleAction* action)
 	if(action->actionType == EActionType::HERO_SPELL)
 		setHeroAnimation(action->side, 0);
 
-	if (stack && action->actionType == EActionType::WALK &&
-		!creAnims[action->stackNumber]->isIdle()) //walk or walk & attack
-	{
-		pendingAnims.push_back(std::make_pair(new CMovementEndAnimation(this, stack, action->destinationTile), false));
-	}
+//???
+
+//	if (stack && action->actionType == EActionType::WALK &&
+//		!creAnims[action->stackNumber]->isIdle()) //walk or walk & attack
+//	{
+//		pendingAnims.push_back(std::make_pair(new CMovementEndAnimation(this, stack, action->destinationTile), false));
+//	}
 
 	//check if we should reverse stacks
 	//for some strange reason, it's not enough
@@ -1978,8 +1980,10 @@ void CBattleInterface::startAction(const BattleAction* action)
 		assert(action->actionType == EActionType::HERO_SPELL); //only cast spell is valid action without acting stack number
 	}
 
+	auto actionTarget = action->getTarget(curInt->cb.get());
+
 	if(action->actionType == EActionType::WALK
-		|| (action->actionType == EActionType::WALK_AND_ATTACK && action->destinationTile != stack->getPosition()))
+		|| (action->actionType == EActionType::WALK_AND_ATTACK && actionTarget.at(0).hexValue != stack->getPosition()))
 	{
 		assert(stack);
 		moveStarted = true;
@@ -2023,7 +2027,7 @@ void CBattleInterface::startAction(const BattleAction* action)
 	switch(action->actionType)
 	{
 		case EActionType::STACK_HEAL:
-			displayEffect(74, action->destinationTile);
+			displayEffect(74, actionTarget.at(0).hexValue);
 			CCS->soundh->playSound(soundBase::REGENER);
 			break;
 	}
@@ -2081,7 +2085,7 @@ std::string formatDmgRange(std::pair<ui32, ui32> dmgRange)
 
 bool CBattleInterface::canStackMoveHere(const CStack * activeStack, BattleHex myNumber)
 {
-	std::vector<BattleHex> acc = curInt->cb->battleGetAvailableHexes (activeStack, false);
+	std::vector<BattleHex> acc = curInt->cb->battleGetAvailableHexes(activeStack);
 	BattleHex shiftedDest = myNumber.cloneInDirection(activeStack->destShiftDir(), false);
 
 	if (vstd::contains(acc, myNumber))
@@ -2309,7 +2313,7 @@ void CBattleInterface::handleHex(BattleHex myNumber, int eventType)
 				{
 					if(activeStack->doubleWide())
 					{
-						std::vector<BattleHex> acc = curInt->cb->battleGetAvailableHexes(activeStack, false);
+						std::vector<BattleHex> acc = curInt->cb->battleGetAvailableHexes(activeStack);
 						BattleHex shiftedDest = myNumber.cloneInDirection(activeStack->destShiftDir(), false);
 						if(vstd::contains(acc, myNumber))
 							giveCommand(EActionType::WALK, myNumber);
@@ -2359,7 +2363,7 @@ void CBattleInterface::handleHex(BattleHex myNumber, int eventType)
 			}
 				break;
 			case AIMED_SPELL_CREATURE:
-				sp = CGI->spellh->objects[creatureCasting ? creatureSpellToCast : spellToCast->additionalInfo]; //necessary if creature has random Genie spell at same time
+				sp = CGI->spellh->objects[creatureCasting ? creatureSpellToCast : spellToCast->actionSubtype]; //necessary if creature has random Genie spell at same time
 				consoleMsg = boost::str(boost::format(CGI->generaltexth->allTexts[27]) % sp->name % shere->getName()); //Cast %s on %s
 				switch (sp->id)
 				{
@@ -2372,7 +2376,7 @@ void CBattleInterface::handleHex(BattleHex myNumber, int eventType)
 				isCastingPossible = true;
 				break;
 			case ANY_LOCATION:
-				sp = CGI->spellh->objects[creatureCasting ? creatureSpellToCast : spellToCast->additionalInfo]; //necessary if creature has random Genie spell at same time
+				sp = CGI->spellh->objects[creatureCasting ? creatureSpellToCast : spellToCast->actionSubtype]; //necessary if creature has random Genie spell at same time
 				consoleMsg = boost::str(boost::format(CGI->generaltexth->allTexts[26]) % sp->name); //Cast %s
 				isCastingPossible = true;
 				break;
@@ -2557,7 +2561,10 @@ bool CBattleInterface::isCastingPossibleHere(const CStack *sactive, const CStack
 			spellID = creatureSpellToCast; //TODO: merge with SpellTocast?
 	}
 	else //hero casting
-		spellID  = spellToCast->additionalInfo;
+	{
+		spellID = spellToCast->actionSubtype;
+	}
+
 
 	sp = nullptr;
 	if (spellID >= 0)
@@ -2630,7 +2637,7 @@ BattleHex CBattleInterface::fromWhichHexAttack(BattleHex myNumber)
 		{
 			if(activeStack->doubleWide() && activeStack->side == BattleSide::DEFENDER)
 			{
-				std::vector<BattleHex> acc = curInt->cb->battleGetAvailableHexes(activeStack, false);
+				std::vector<BattleHex> acc = curInt->cb->battleGetAvailableHexes(activeStack);
 				if (vstd::contains(acc, myNumber))
 					return myNumber - 1;
 				else
@@ -2682,7 +2689,7 @@ BattleHex CBattleInterface::fromWhichHexAttack(BattleHex myNumber)
 		{
 			if(activeStack->doubleWide() && activeStack->side == BattleSide::ATTACKER)
 			{
-				std::vector<BattleHex> acc = curInt->cb->battleGetAvailableHexes(activeStack, false);
+				std::vector<BattleHex> acc = curInt->cb->battleGetAvailableHexes(activeStack);
 				if(vstd::contains(acc, myNumber))
 					return myNumber + 1;
 				else
@@ -3141,7 +3148,7 @@ void CBattleInterface::showHighlightedHexes(SDL_Surface *to)
 		const CStack * const shere = curInt->cb->battleGetStackByPos(currentlyHoveredHex, false);
 		if(shere && shere != activeStack && shere->alive())
 		{
-			std::vector<BattleHex> v = curInt->cb->battleGetAvailableHexes(shere, true);
+			std::vector<BattleHex> v = curInt->cb->battleGetAvailableHexes(shere, true, nullptr);
 			for(BattleHex hex : v)
 			{
 				if(hex != currentlyHoveredHex)
@@ -3177,7 +3184,7 @@ void CBattleInterface::showHighlightedHexes(SDL_Surface *to)
 
                 if(spellToCast)//hero casts spell
 				{
-					spell = SpellID(spellToCast->additionalInfo).toSpell();
+					spell = SpellID(spellToCast->actionSubtype).toSpell();
 					caster = getActiveHero();
 				}
 				else if(creatureSpellToCast >= 0 && stackCanCastSpell && creatureCasting)//stack casts spell
@@ -3326,6 +3333,14 @@ void CBattleInterface::showBattlefieldObjects(SDL_Surface *to)
 
 void CBattleInterface::showAliveStacks(SDL_Surface *to, std::vector<const CStack *> stacks)
 {
+	BattleHex currentActionTarget;
+	if(curInt->curAction)
+	{
+        auto target = curInt->curAction->getTarget(curInt->cb.get());
+        if(!target.empty())
+			currentActionTarget = target.at(0).hexValue;
+	}
+
 	auto isAmountBoxVisible = [&](const CStack *stack) -> bool
 	{
 		if(stack->hasBonusOfType(Bonus::SIEGE_WEAPON) && stack->getCount() == 1) //do not show box for singular war machines, stacked war machines with box shown are supported as extension feature
@@ -3348,11 +3363,11 @@ void CBattleInterface::showAliveStacks(SDL_Surface *to, std::vector<const CStack
 				if(curInt->curAction->actionType == EActionType::WALK || curInt->curAction->actionType == EActionType::SHOOT) //hide when stack walks or shoots
 					return false;
 
-				else if(curInt->curAction->actionType == EActionType::WALK_AND_ATTACK && curInt->curAction->destinationTile != stack->getPosition()) //when attacking, hide until walk phase finished
+				else if(curInt->curAction->actionType == EActionType::WALK_AND_ATTACK && currentActionTarget != stack->getPosition()) //when attacking, hide until walk phase finished
 					return false;
 			}
 
-			if(curInt->curAction->actionType == EActionType::SHOOT && curInt->curAction->destinationTile == stack->getPosition()) //hide if we are ranged attack target
+			if(curInt->curAction->actionType == EActionType::SHOOT && currentActionTarget == stack->getPosition()) //hide if we are ranged attack target
 				return false;
 		}
 

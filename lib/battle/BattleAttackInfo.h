@@ -8,10 +8,12 @@
  *
  */
 #pragma once
-#include "BattleHex.h"
-#include "../CStack.h"
 
-class IBonusBearer;
+namespace battle
+{
+	class Unit;
+	class CUnitState;
+}
 
 struct DLL_LINKAGE BattleAttackInfo
 {

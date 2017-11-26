@@ -14,6 +14,7 @@
 
 #include "../ISpellMechanics.h"
 #include "../../battle/CBattleInfoCallback.h"
+#include "../../battle/Unit.h"
 #include "../../NetPacks.h"
 #include "../../serializer/JsonSerializeFormat.h"
 
@@ -58,17 +59,17 @@ bool Summon::applicable(Problem & problem, const Mechanics * m) const
 
 	//check if there are summoned elementals of other type
 
-	auto otherSummoned = m->cb->battleGetStacksIf([m, this](const CStack * st)
+	auto otherSummoned = m->cb->battleGetUnitsIf([m, this](const battle::Unit * unit)
 	{
-		return (st->owner == m->caster->getOwner())
-			&& (st->stackState.summoned)
-			&& (!st->isClone())
-			&& (st->getCreature()->idNumber != creature);
+		return (unit->unitOwner() == m->caster->getOwner())
+			&& (unit->isSummoned())
+			&& (!unit->isClone())
+			&& (unit->creatureId() != creature);
 	});
 
 	if(!otherSummoned.empty())
 	{
-		const CStack * elemental = otherSummoned.front();
+		auto elemental = otherSummoned.front();
 
 		MetaString text;
 		text.addTxt(MetaString::GENERAL_TXT, 538);
@@ -78,7 +79,7 @@ bool Summon::applicable(Problem & problem, const Mechanics * m) const
 		{
 			text.addReplacement(caster->name);
 
-			text.addReplacement(MetaString::CRE_PL_NAMES, elemental->getCreature()->idNumber.toEnum());
+			text.addReplacement(MetaString::CRE_PL_NAMES, elemental->creatureIndex());
 
 			if(caster->type->sex)
 				text.addReplacement(MetaString::GENERAL_TXT, 540);

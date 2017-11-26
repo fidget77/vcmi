@@ -68,16 +68,17 @@ class DLL_LINKAGE CBonusProxy
 {
 public:
 	CBonusProxy(const IBonusBearer * Target, CSelector Selector);
-	CBonusProxy(const CBonusProxy & other) = delete;
+	CBonusProxy(const CBonusProxy & other);
 	CBonusProxy(CBonusProxy && other);
 
 	CBonusProxy & operator=(CBonusProxy && other);
+	CBonusProxy & operator=(const CBonusProxy & other);
 
 	TBonusListPtr get() const;
 
 	const BonusList * operator->() const;
 private:
-	mutable int cachedLast;
+	mutable int64_t cachedLast;
 	const IBonusBearer * target;
 	CSelector selector;
 	mutable TBonusListPtr data;
@@ -617,6 +618,8 @@ public:
 
 	si32 manaLimit() const; //maximum mana value for this hero (basically 10*knowledge)
 	int getPrimSkillLevel(PrimarySkill::PrimarySkill id) const;
+
+	virtual int64_t getTreeVersion() const = 0;
 };
 
 class DLL_LINKAGE CBonusSystemNode : public virtual IBonusBearer, public boost::noncopyable
@@ -640,7 +643,7 @@ private:
 	static const bool cachingEnabled;
 	mutable BonusList cachedBonuses;
 	mutable int cachedLast;
-	static int treeChanged;
+	static std::atomic<int32_t> treeChanged;
 
 	// Setting a value to cachingStr before getting any bonuses caches the result for later requests.
 	// This string needs to be unique, that's why it has to be setted in the following manner:
@@ -708,6 +711,8 @@ public:
 	void setDescription(const std::string &description);
 
 	static void treeHasChanged();
+
+	int64_t getTreeVersion() const override;
 
 	template <typename Handler> void serialize(Handler &h, const int version)
 	{

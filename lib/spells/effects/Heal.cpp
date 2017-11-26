@@ -14,9 +14,9 @@
 #include "../ISpellMechanics.h"
 
 #include "../../NetPacks.h"
-#include "../../CStack.h"
 #include "../../battle/IBattleState.h"
 #include "../../battle/CBattleInfoCallback.h"
+#include "../../battle/CUnitState.h"
 #include "../../serializer/JsonSerializeFormat.h"
 
 

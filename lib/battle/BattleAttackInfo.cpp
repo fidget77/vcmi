@@ -9,7 +9,7 @@
  */
 #include "StdInc.h"
 #include "BattleAttackInfo.h"
-
+#include "CUnitState.h"
 
 BattleAttackInfo::BattleAttackInfo(const battle::Unit * Attacker, const battle::Unit * Defender, bool Shooting)
 	: attacker(Attacker->asquire()),

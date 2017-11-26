@@ -26,7 +26,6 @@ class CTown;
 class CCallback;
 class IGameCallback;
 class CCreatureSet;
-class CStack;
 class CQuest;
 class CGHeroInstance;
 class CGTownInstance;

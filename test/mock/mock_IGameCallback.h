@@ -13,6 +13,7 @@
 #include "../../lib/IGameCallback.h"
 
 //TODO: move/rename PacketSender to better place
+#include "../../lib/int3.h"
 #include "../../lib/spells/Magic.h"
 
 

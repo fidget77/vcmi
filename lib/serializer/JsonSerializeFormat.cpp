@@ -68,14 +68,12 @@ JsonArraySerializer::JsonArraySerializer(JsonSerializeFormat * owner_):
 
 JsonStructSerializer JsonArraySerializer::enterStruct(const size_t index)
 {
-	return JsonStructSerializer(owner, &(thisNode->Vector()[index]));
 	owner->pushArrayElement(index);
 	return JsonStructSerializer(owner);
 }
 
 void JsonArraySerializer::resize(const size_t newSize)
 {
-	thisNode->Vector().resize(newSize);
 	resize(newSize, JsonNode::JsonType::DATA_NULL);
 }
 

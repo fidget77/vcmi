@@ -15,6 +15,7 @@
 
 #include "../../NetPacksBase.h"
 #include "../../battle/CBattleInfoCallback.h"
+#include "../../battle/Unit.h"
 #include "../../serializer/JsonSerializeFormat.h"
 
 namespace spells

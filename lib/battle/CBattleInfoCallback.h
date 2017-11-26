@@ -11,6 +11,7 @@
 #include "CCallbackBase.h"
 #include "ReachabilityInfo.h"
 #include "BattleAttackInfo.h"
+#include "../spells/Magic.h"
 
 class CGHeroInstance;
 class CStack;
@@ -48,18 +49,25 @@ public:
 
 	const battle::Unit * battleGetUnitByPos(BattleHex pos, bool onlyAlive = true) const;
 
+	///returns all alive units excluding turrets
+	battle::Units battleAliveUnits() const;
+	///returns all alive units from particular side excluding turrets
+	battle::Units battleAliveUnits(ui8 side) const;
+
 	void battleGetTurnOrder(std::vector<battle::Units> & out, const size_t maxUnits, const int maxTurns, const int turn = 0, int8_t lastMoved = -1) const;
 
 	void battleGetStackCountOutsideHexes(bool *ac) const; // returns hexes which when in front of a stack cause us to move the amount box back
 
 	///returns reachable hexes (valid movement destinations), DOES contain stack current position
-	std::vector<BattleHex> battleGetAvailableHexes(const CStack * stack, bool addOccupiable, std::vector<BattleHex> * attackable = nullptr) const;
+	std::vector<BattleHex> battleGetAvailableHexes(const battle::Unit * unit, bool addOccupiable, std::vector<BattleHex> * attackable) const;
 
 	///returns reachable hexes (valid movement destinations), DOES contain stack current position (lite version)
-	std::vector<BattleHex> battleGetAvailableHexes(const battle::Unit * stack, BattleHex assumedPosition) const;
+	std::vector<BattleHex> battleGetAvailableHexes(const battle::Unit * unit) const;
+
+	std::vector<BattleHex> battleGetAvailableHexes(const ReachabilityInfo & cache, const battle::Unit * unit) const;
 
 	int battleGetSurrenderCost(PlayerColor Player) const; //returns cost of surrendering battle, -1 if surrendering is not possible
-	ReachabilityInfo::TDistances battleGetDistances(const battle::Unit * stack, BattleHex assumedPosition) const;
+	ReachabilityInfo::TDistances battleGetDistances(const battle::Unit * unit, BattleHex assumedPosition) const;
 	std::set<BattleHex> battleGetAttackedHexes(const CStack* attacker, BattleHex destinationTile, BattleHex attackerPos = BattleHex::INVALID) const;
 
 	bool battleCanAttack(const CStack * stack, const CStack * target, BattleHex dest) const; //determines if stack with given ID can attack target at the selected destination
@@ -71,10 +79,10 @@ public:
 
 	TDmgRange battleEstimateDamage(const BattleAttackInfo & bai, TDmgRange * retaliationDmg = nullptr) const; //estimates damage dealt by attacker to defender; it may be not precise especially when stack has randomly working bonuses; returns pair <min dmg, max dmg>
 	TDmgRange battleEstimateDamage(const CStack * attacker, const CStack * defender, TDmgRange * retaliationDmg = nullptr) const; //estimates damage dealt by attacker to defender; it may be not precise especially when stack has randomly working bonuses; returns pair <min dmg, max dmg>
-	si8 battleHasDistancePenalty(const CStack * stack, BattleHex destHex) const;
-	si8 battleHasDistancePenalty(const IBonusBearer * bonusBearer, BattleHex shooterPosition, BattleHex destHex) const;
-	si8 battleHasWallPenalty(const CStack * stack, BattleHex destHex) const; //checks if given stack has wall penalty
-	si8 battleHasWallPenalty(const IBonusBearer * bonusBearer, BattleHex shooterPosition, BattleHex destHex) const; //checks if given stack has wall penalty
+
+	bool battleHasDistancePenalty(const IBonusBearer * shooter, BattleHex shooterPosition, BattleHex destHex) const;
+	bool battleHasWallPenalty(const IBonusBearer * shooter, BattleHex shooterPosition, BattleHex destHex) const;
+	bool battleHasShootingPenalty(const battle::Unit * shooter, BattleHex destHex) const;
 
 	BattleHex wallPartToBattleHex(EWallPart::EWallPart part) const;
 	EWallPart::EWallPart battleHexToWallPart(BattleHex hex) const; //returns part of destructible wall / gate / keep under given hex or -1 if not found
@@ -89,7 +97,6 @@ public:
 	SpellID getRandomBeneficialSpell(CRandomGenerator & rand, const CStack * subject) const;
 	SpellID getRandomCastedSpell(CRandomGenerator & rand, const CStack * caster) const; //called at the beginning of turn for Faerie Dragon
 
-	si8 battleHasShootingPenalty(const CStack * stack, BattleHex destHex);
 	si8 battleCanTeleportTo(const battle::Unit * stack, BattleHex destHex, int telportLevel) const; //checks if teleportation of given stack to given position can take place
 
 	//convenience methods using the ones above

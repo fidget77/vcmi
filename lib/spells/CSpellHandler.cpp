@@ -21,13 +21,11 @@
 #include "../CModHandler.h"
 #include "../StringConstants.h"
 
-#include "../CStack.h"
 #include "../battle/BattleInfo.h"
 #include "../battle/CBattleInfoCallback.h"
-#include "../CGameState.h" //todo: remove
+#include "../battle/Unit.h"
 
-#include "../NetPacks.h" //todo: remove
-
+#include "../mapObjects/CGHeroInstance.h" //todo: remove
 #include "../serializer/CSerializer.h"
 
 #include "ISpellMechanics.h"
@@ -36,7 +34,7 @@ namespace SpellConfig
 {
 static const std::string LEVEL_NAMES[] = {"none", "basic", "advanced", "expert"};
 
-static const SpellSchoolInfo SCHOOL[4] =
+static const spells::SchoolInfo SCHOOL[4] =
 {
 	{
 		ESpellSchool::AIR,
@@ -224,12 +222,12 @@ spells::AimType CSpell::getTargetType() const
 	return targetType;
 }
 
-void CSpell::forEachSchool(const std::function<void(const SpellSchoolInfo &, bool &)>& cb) const
+void CSpell::forEachSchool(const std::function<void(const spells::SchoolInfo &, bool &)>& cb) const
 {
 	bool stop = false;
 	for(ESpellSchool iter : SpellConfig::SCHOOL_ORDER)
 	{
-		const SpellSchoolInfo & cnf = SpellConfig::SCHOOL[(ui8)iter];
+		const spells::SchoolInfo & cnf = SpellConfig::SCHOOL[(ui8)iter];
 		if(school.at(cnf.id))
 		{
 			cb(cnf, stop);
@@ -238,6 +236,11 @@ void CSpell::forEachSchool(const std::function<void(const SpellSchoolInfo &, boo
 				break;
 		}
 	}
+}
+
+int32_t CSpell::getIndex() const
+{
+	return id.toEnum();
 }
 
 bool CSpell::isCombatSpell() const
@@ -397,7 +400,7 @@ int64_t CSpell::adjustRawDamage(const spells::Caster * caster, const battle::Uni
 	{
 		auto bearer = affectedCreature;
 		//applying protections - when spell has more then one elements, only one protection should be applied (I think)
-		forEachSchool([&](const SpellSchoolInfo & cnf, bool & stop)
+		forEachSchool([&](const spells::SchoolInfo & cnf, bool & stop)
 		{
 			if(bearer->hasBonusOfType(Bonus::SPELL_DAMAGE_REDUCTION, (ui8)cnf.id))
 			{
@@ -722,7 +725,7 @@ CSpell * CSpellHandler::loadFromJson(const JsonNode & json, const std::string & 
 
 	const auto schoolNames = json["school"];
 
-	for(const SpellSchoolInfo & info : SpellConfig::SCHOOL)
+	for(const spells::SchoolInfo & info : SpellConfig::SCHOOL)
 	{
 		spell->school[info.id] = schoolNames[info.jsonName].Bool();
 	}
@@ -1038,13 +1041,13 @@ void CSpellHandler::update780()
 
 		const JsonNode & actualConfig = coreSpells[spell->identifier];
 
-		if(actualConfig.getType() != JsonNode::DATA_STRUCT)
+		if(actualConfig.getType() != JsonNode::JsonType::DATA_STRUCT)
 		{
 			logGlobal->error("Spell not found %s", spell->identifier);
 			continue;
 		}
 
-		if(actualConfig["targetCondition"].getType() == JsonNode::DATA_STRUCT && !actualConfig["targetCondition"].Struct().empty())
+		if(actualConfig["targetCondition"].getType() == JsonNode::JsonType::DATA_STRUCT && !actualConfig["targetCondition"].Struct().empty())
 		{
 			spell->targetCondition = actualConfig["targetCondition"];
 		}
@@ -1057,7 +1060,7 @@ void CSpellHandler::update780()
 
 			CSpell::LevelInfo & levelObject = spell->levels[levelIndex];
 
-			if(levelNode["battleEffects"].getType() == JsonNode::DATA_STRUCT && !levelNode["battleEffects"].Struct().empty())
+			if(levelNode["battleEffects"].getType() == JsonNode::JsonType::DATA_STRUCT && !levelNode["battleEffects"].Struct().empty())
 			{
 				levelObject.battleEffects = levelNode["battleEffects"];
 

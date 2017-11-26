@@ -10,12 +10,22 @@
 
 #pragma once
 
-#include "CSpellHandler.h"
+#include "Magic.h"
 #include "../battle/Destination.h"
+#include "../int3.h"
+#include "../GameConstants.h"
+#include "../HeroBonus.h"
 
 struct Query;
 class IBattleState;
-struct Bonus;
+class CRandomGenerator;
+class CMap;
+class CGameInfoCallback;
+class CBattleInfoCallback;
+class JsonNode;
+class CStack;
+class CGObjectInstance;
+class CGHeroInstance;
 
 namespace vstd
 {
@@ -225,11 +235,9 @@ public:
 	const CBattleInfoCallback * cb;
 	const Caster * caster;
 
-	const CStack * casterStack; //deprecated
+	const battle::Unit * casterUnit; //deprecated
 
 	ui8 casterSide;
-protected:
-	const CSpell * owner;
 };
 
 class DLL_LINKAGE BaseMechanics : public Mechanics
@@ -274,6 +282,8 @@ public:
 
 	std::vector<AimType> getTargetTypes() const override;
 
+protected:
+	const CSpell * owner;
 
 private:
 

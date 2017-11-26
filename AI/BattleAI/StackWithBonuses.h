@@ -9,12 +9,12 @@
  */
 #pragma once
 #include "../../lib/HeroBonus.h"
-#include "../../lib/CStack.h"
 #include "../../lib/battle/BattleProxy.h"
+#include "../../lib/battle/CUnitState.h"
 
 class HypotheticBattle;
 
-class StackWithBonuses : public IBonusBearer, public battle::IUnitEnvironment
+class StackWithBonuses : public virtual IBonusBearer, public battle::IUnitEnvironment
 {
 public:
 	battle::CUnitState state;
@@ -23,20 +23,25 @@ public:
 	std::vector<Bonus> bonusesToUpdate;
 	std::set<std::shared_ptr<Bonus>> bonusesToRemove;
 
-	StackWithBonuses(const battle::CUnitState * Stack);
+	StackWithBonuses(const HypotheticBattle * Owner, const battle::CUnitState * Stack);
 	virtual ~StackWithBonuses();
 
 	///IBonusBearer
 	const TBonusListPtr getAllBonuses(const CSelector & selector, const CSelector & limit,
 		const CBonusSystemNode * root = nullptr, const std::string & cachingStr = "") const override;
 
+	int64_t getTreeVersion() const override;
+
 	bool unitHasAmmoCart() const override;
 
 	void addUnitBonus(const std::vector<Bonus> & bonus);
 	void updateUnitBonus(const std::vector<Bonus> & bonus);
 	void removeUnitBonus(const std::vector<Bonus> & bonus);
+
+
 private:
 	const IBonusBearer * origBearer;
+	const HypotheticBattle * owner;
 };
 
 class HypotheticBattle : public BattleProxy
@@ -57,4 +62,9 @@ public:
 	void removeUnitBonus(uint32_t id, const std::vector<Bonus> & bonus) override;
 
 	uint32_t nextUnitId() const override;
+
+	int64_t getTreeVersion() const;
+
+private:
+	int32_t bonusTreeVersion;
 };

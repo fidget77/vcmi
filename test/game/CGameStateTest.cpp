@@ -18,11 +18,13 @@
 #include "../../lib/StartInfo.h"
 
 #include "../../lib/battle/BattleInfo.h"
+#include "../../lib/CStack.h"
 
 #include "../../lib/filesystem/ResourceID.h"
 
 #include "../../lib/mapping/CMap.h"
 
+#include "../../lib/spells/CSpellHandler.h"
 #include "../../lib/spells/ISpellMechanics.h"
 
 class CGameStateTest : public ::testing::Test, public SpellCastEnvironment, public MapListener

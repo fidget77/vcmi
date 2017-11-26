@@ -26,8 +26,7 @@ public:
 	ui32 stackNumber; //stack ID, -1 left hero, -2 right hero,
 	EActionType actionType; //use ActionType enum for values
 
-	BattleHex destinationTile; //DEPRECATED
-	si32 additionalInfo; //DEPRECATED, e.g. spell number if type is 1 || 10; tile to attack if type is 6
+	si32 actionSubtype;
 
 	BattleAction();
 
@@ -52,8 +51,7 @@ public:
 		h & side;
 		h & stackNumber;
 		h & actionType;
-		h & destinationTile;
-		h & additionalInfo;
+		h & actionSubtype;
 		h & target;
 	}
 private:

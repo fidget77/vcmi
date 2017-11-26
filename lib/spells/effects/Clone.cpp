@@ -12,9 +12,9 @@
 #include "Clone.h"
 #include "Registry.h"
 #include "../ISpellMechanics.h"
-#include "../../CStack.h"
 #include "../../NetPacks.h"
 #include "../../battle/CBattleInfoCallback.h"
+#include "../../battle/Unit.h"
 #include "../../serializer/JsonSerializeFormat.h"
 
 static const std::string EFFECT_NAME = "core:clone";
@@ -58,8 +58,6 @@ void Clone::apply(const PacketSender * server, RNG & rng, const Mechanics * m, c
 			server->complain("No place to put new clone!");
 			break;
 		}
-
-		//TODO: generate stack ID before apply
 
 		auto unitId = m->cb->battleNextUnitId();
 

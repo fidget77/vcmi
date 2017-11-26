@@ -15,9 +15,11 @@
 #include "StackWithBonuses.h"
 #include "EnemyInfo.h"
 #include "PossibleSpellcast.h"
+#include "../../lib/CStopWatch.h"
 #include "../../lib/CThreadHelper.h"
 #include "../../lib/spells/CSpellHandler.h"
 #include "../../lib/spells/ISpellMechanics.h"
+#include "../../lib/CStack.h"//todo: remove
 
 #define LOGL(text) print(text)
 #define LOGFL(text, formattingEl) print(boost::str(boost::format(text) % formattingEl))
@@ -146,9 +148,15 @@ BattleAction CBattleAI::activeStack( const CStack * stack )
 
 BattleAction CBattleAI::goTowards(const CStack * stack, BattleHex destination)
 {
-	assert(destination.isValid());
-	auto avHexes = cb->battleGetAvailableHexes(stack, false);
+	if(!destination.isValid())
+	{
+		logAi->error("CBattleAI::goTowards: invalid destination");
+		return BattleAction::makeDefend(stack);
+	}
+
 	auto reachability = cb->getReachability(stack);
+	auto avHexes = cb->battleGetAvailableHexes(reachability, stack);
+
 	if(vstd::contains(avHexes, destination))
 		return BattleAction::makeMove(stack, destination);
 	auto destNeighbours = destination.neighbouringTiles();
@@ -186,7 +194,12 @@ BattleAction CBattleAI::goTowards(const CStack * stack, BattleHex destination)
 		BattleHex currentDest = bestNeighbor;
 		while(1)
 		{
-			assert(currentDest.isValid());
+			if(!currentDest.isValid())
+			{
+				logAi->error("CBattleAI::goTowards: internal error");
+				return BattleAction::makeDefend(stack);
+			}
+
 			if(vstd::contains(avHexes, currentDest))
 				return BattleAction::makeMove(stack, currentDest);
 			currentDest = reachability.predecessors[currentDest];
@@ -196,9 +209,8 @@ BattleAction CBattleAI::goTowards(const CStack * stack, BattleHex destination)
 
 BattleAction CBattleAI::useCatapult(const CStack * stack)
 {
-	throw std::runtime_error("The method or operation is not implemented.");
+	throw std::runtime_error("CBattleAI::useCatapult is not implemented.");
 }
-
 
 enum class SpellTypes
 {
@@ -261,14 +273,23 @@ void CBattleAI::attemptCastingSpell()
 
 	using ValueMap = PossibleSpellcast::ValueMap;
 
-	auto evaluateQueue = [&](ValueMap & values, const std::vector<battle::Units> & queue, HypotheticBattle * state)
+	auto evaluateQueue = [&](ValueMap & values, const std::vector<battle::Units> & queue, HypotheticBattle * state, bool * enemyHadTurn)
 	{
 		for(auto & turn : queue)
 		{
 			for(auto unit : turn)
 			{
-				if(vstd::contains(values, unit->unitId()))
+				if(!vstd::contains(values, unit->unitId()))
+					values[unit->unitId()] = 0;
+
+				if(!unit->alive())
 					continue;
+
+                if(enemyHadTurn)
+				{
+					if(state->battleGetOwner(unit) != playerID)
+						*enemyHadTurn = true;
+				}
 
 				PotentialTargets pt(unit, state);
 
@@ -290,7 +311,7 @@ void CBattleAI::attemptCastingSpell()
 				//best action is from effective owner PoV, we need to convert to our PoV
 				if(state->battleGetOwner(unit) != playerID)
 					bav = -bav;
-				values[unit->unitId()] = bav;
+				values[unit->unitId()] += bav;
 			}
 		}
 	};
@@ -298,8 +319,15 @@ void CBattleAI::attemptCastingSpell()
 	RNGStub rngStub;
 
 	ValueMap valueOfStack;
+	ValueMap healthOfStack;
 
 	TStacks all = cb->battleGetAllStacks(true);
+
+	for(auto unit : all)
+	{
+		healthOfStack[unit->unitId()] = unit->getAvailableHealth();
+		valueOfStack[unit->unitId()] = 0;
+	}
 
 	auto amount = all.size();
 
@@ -308,8 +336,21 @@ void CBattleAI::attemptCastingSpell()
 	cb->battleGetTurnOrder(turnOrder, amount, 2); //no more than 1 turn after current, each unit at least once
 
 	{
+		bool enemyHadTurn = false;
+
 		HypotheticBattle state(cb);
-		evaluateQueue(valueOfStack, turnOrder, &state);
+		evaluateQueue(valueOfStack, turnOrder, &state, &enemyHadTurn);
+
+		if(!enemyHadTurn)
+		{
+			auto battleIsFinishedOpt = state.battleIsFinished();
+
+			if(battleIsFinishedOpt)
+			{
+				print("No need to cast a spell. Battle will finish soon.");
+				return;
+			}
+		}
 	}
 
 	auto evaluateSpellcast = [&] (PossibleSpellcast * ps)
@@ -321,25 +362,36 @@ void CBattleAI::attemptCastingSpell()
 		spells::BattleCast cast(&state, hero, spells::Mode::HERO, ps->spell);
 		cast.target = ps->dest;
 		cast.cast(&state, rngStub);
+		ValueMap newHealthOfStack;
+		ValueMap newValueOfStack;
+
+		for(auto unit : all)
+		{
+			newHealthOfStack[unit->unitId()] = unit->getAvailableHealth();
+			newValueOfStack[unit->unitId()] = 0;
+		}
 
 		std::vector<battle::Units> newTurnOrder;
 		state.battleGetTurnOrder(newTurnOrder, amount, 2);
 
-		ValueMap newValueOfStack;
+		evaluateQueue(newValueOfStack, newTurnOrder, &state, nullptr);
 
-		evaluateQueue(newValueOfStack, newTurnOrder, &state);
-
-		for(auto sta : all)
+		for(auto unit : all)
 		{
-			auto newValue = getValOr(newValueOfStack, sta->unitId(), 0);
-			auto oldValue = getValOr(valueOfStack, sta->unitId(), 0);
+			auto newValue = getValOr(newValueOfStack, unit->unitId(), 0);
+			auto oldValue = getValOr(valueOfStack, unit->unitId(), 0);
 
-			auto gain = newValue - oldValue;
+			auto healthDiff = newHealthOfStack[unit->unitId()] - healthOfStack[unit->unitId()];
+
+			if(unit->unitOwner() != playerID)
+				healthDiff = -healthDiff;
+
+			auto gain = newValue - oldValue + healthDiff;
 
 			if(gain != 0)
 			{
 //				LOGFL("%s would change %s by %d points (from %d to %d)",
-//					  ps->spell->name % sta->nodeName() % (gain) % (oldValue) % (newValue));
+//					  ps->spell->name % unit->nodeName() % (gain) % (oldValue) % (newValue));
 				totalGain += gain;
 			}
 		}
@@ -358,8 +410,20 @@ void CBattleAI::attemptCastingSpell()
 
 	}
 
-	CThreadHelper threadHelper(&tasks, std::max<uint32_t>(boost::thread::hardware_concurrency(), 1));
+	uint32_t threadCount = boost::thread::hardware_concurrency();
+
+	if(threadCount == 0)
+	{
+		logGlobal->warn("No information of CPU cores available");
+		threadCount = 1;
+	}
+
+	CStopWatch timer;
+
+	CThreadHelper threadHelper(&tasks, threadCount);
 	threadHelper.run();
+
+	LOGFL("Evaluation took %d ms", timer.getDiff());
 
 	auto pscValue = [] (const PossibleSpellcast &ps) -> int64_t
 	{
@@ -369,10 +433,10 @@ void CBattleAI::attemptCastingSpell()
 
 	if(castToPerform.value > 0)
 	{
-		LOGFL("Best spell is %s. Will cast.", castToPerform.spell->name);
+		LOGFL("Best spell is %s (value %d). Will cast.", castToPerform.spell->name % castToPerform.value);
 		BattleAction spellcast;
 		spellcast.actionType = EActionType::HERO_SPELL;
-		spellcast.additionalInfo = castToPerform.spell->id;
+		spellcast.actionSubtype = castToPerform.spell->id;
 		spellcast.setTarget(castToPerform.dest);
 		spellcast.side = side;
 		spellcast.stackNumber = (!side) ? -1 : -2;

@@ -1431,7 +1431,7 @@ DLL_LINKAGE void StartAction::applyGs(CGameState *gs)
 	}
 	else
 	{
-		gs->curB->sides[ba.side].usedSpellsHistory.push_back(SpellID(ba.additionalInfo).toSpell());
+		gs->curB->sides[ba.side].usedSpellsHistory.push_back(SpellID(ba.actionSubtype).toSpell());
 	}
 
 	switch(ba.actionType)

@@ -9,14 +9,15 @@
  */
 #include "StdInc.h"
 #include "PotentialTargets.h"
+#include "../../lib/CStack.h"//todo: remove
 
 PotentialTargets::PotentialTargets(const battle::Unit * attacker, const HypotheticBattle * state)
 {
 	auto attIter = state->stackStates.find(attacker->unitId());
 	const battle::Unit * attackerInfo = (attIter == state->stackStates.end()) ? attacker : (battle::Unit *)&attIter->second->state;
 
-	auto dists = state->battleGetDistances(attackerInfo, attackerInfo->getPosition());
-	auto avHexes = state->battleGetAvailableHexes(attackerInfo, attackerInfo->getPosition());
+	auto reachability = state->getReachability(attackerInfo);
+	auto avHexes = state->battleGetAvailableHexes(reachability, attackerInfo);
 
 	//FIXME: this should part of battleGetAvailableHexes
 	bool forceTarget = false;
@@ -50,7 +51,7 @@ PotentialTargets::PotentialTargets(const battle::Unit * attacker, const Hypothet
 			auto bai = BattleAttackInfo(attackerInfo, defender, shooting);
 
 			if(hex.isValid() && !shooting)
-				bai.chargedFields = dists[hex];
+				bai.chargedFields = reachability.distances[hex];
 
 			return AttackPossibility::evaluate(bai, hex);
 		};

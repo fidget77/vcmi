@@ -36,4 +36,10 @@ bool IUnitInfo::doubleWide() const
 	return creatureType()->doubleWide;
 }
 
+int32_t IUnitInfo::creatureCost() const
+{
+	return creatureType()->cost[Res::GOLD];
+}
+
+
 } // namespace battle

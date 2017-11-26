@@ -23,9 +23,10 @@ void actualizeEffect(TBonusListPtr target, const Bonus & ef)
 	}
 }
 
-StackWithBonuses::StackWithBonuses(const battle::CUnitState * Stack)
+StackWithBonuses::StackWithBonuses(const HypotheticBattle * Owner, const battle::CUnitState * Stack)
 	: state(Stack->getUnitInfo(), this, this),
-	origBearer(Stack)
+	origBearer(Stack),
+	owner(Owner)
 {
 	state = *Stack;
 }
@@ -70,6 +71,12 @@ const TBonusListPtr StackWithBonuses::getAllBonuses(const CSelector & selector, 
 	//TODO limiters?
 	return ret;
 }
+
+int64_t StackWithBonuses::getTreeVersion() const
+{
+	return owner->getTreeVersion();
+}
+
 
 bool StackWithBonuses::unitHasAmmoCart() const
 {
@@ -119,7 +126,8 @@ void StackWithBonuses::removeUnitBonus(const std::vector<Bonus> & bonus)
 }
 
 HypotheticBattle::HypotheticBattle(Subject realBattle)
-	: BattleProxy(realBattle)
+	: BattleProxy(realBattle),
+	bonusTreeVersion(1)
 {
 
 }
@@ -132,7 +140,7 @@ std::shared_ptr<StackWithBonuses> HypotheticBattle::getForUpdate(uint32_t id)
 	{
 		const CStack * s = subject->battleGetStackByID(id, false);
 
-		auto ret = std::make_shared<StackWithBonuses>(&s->stackState);
+		auto ret = std::make_shared<StackWithBonuses>(this, &s->stackState);
 		stackStates[id] = ret;
 		return ret;
 	}
@@ -189,16 +197,19 @@ void HypotheticBattle::updateUnit(const CStackStateInfo & changes)
 void HypotheticBattle::addUnitBonus(uint32_t id, const std::vector<Bonus> & bonus)
 {
 	getForUpdate(id)->addUnitBonus(bonus);
+	bonusTreeVersion++;
 }
 
 void HypotheticBattle::updateUnitBonus(uint32_t id, const std::vector<Bonus> & bonus)
 {
 	getForUpdate(id)->updateUnitBonus(bonus);
+	bonusTreeVersion++;
 }
 
 void HypotheticBattle::removeUnitBonus(uint32_t id, const std::vector<Bonus> & bonus)
 {
 	getForUpdate(id)->removeUnitBonus(bonus);
+	bonusTreeVersion++;
 }
 
 uint32_t HypotheticBattle::nextUnitId() const
@@ -206,4 +217,9 @@ uint32_t HypotheticBattle::nextUnitId() const
 	//TODO:
 	return subject->battleNextUnitId();
 
+}
+
+int64_t HypotheticBattle::getTreeVersion() const
+{
+	return getBattleNode()->getTreeVersion() + bonusTreeVersion;
 }

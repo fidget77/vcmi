@@ -121,6 +121,9 @@ TEST_F(UnitStateTest, initialRegular)
 	EXPECT_TRUE(subject.willMove(123456));
 	EXPECT_FALSE(subject.waited());
 	EXPECT_FALSE(subject.waited(123456));
+
+	EXPECT_EQ(subject.totalAttacks.getMeleeValue(), 1);
+	EXPECT_EQ(subject.totalAttacks.getRangedValue(), 1);
 }
 
 TEST_F(UnitStateTest, canShoot)

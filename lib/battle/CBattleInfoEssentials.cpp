@@ -131,22 +131,6 @@ uint32_t CBattleInfoEssentials::battleNextUnitId() const
 	return getBattle()->nextUnitId();
 }
 
-TStacks CBattleInfoEssentials::battleAliveStacks() const
-{
-	return battleGetStacksIf([](const CStack * s)
-	{
-		return s->isValidTarget(false);
-	});
-}
-
-TStacks CBattleInfoEssentials::battleAliveStacks(ui8 side) const
-{
-	return battleGetStacksIf([=](const CStack * s)
-	{
-		return s->isValidTarget(false) && s->side == side;
-	});
-}
-
 const CGTownInstance * CBattleInfoEssentials::battleGetDefendedTown() const
 {
 	RETURN_IF_NOT_BATTLE(nullptr);
@@ -166,12 +150,6 @@ BattlePerspective::BattlePerspective CBattleInfoEssentials::battleGetMySide() co
 
 	logGlobal->error("Cannot find player %s in battle!", player->getStr());
 	return BattlePerspective::INVALID;
-}
-
-const CStack * CBattleInfoEssentials::battleActiveStack() const
-{
-	RETURN_IF_NOT_BATTLE(nullptr);
-	return battleGetStackByID(getBattle()->getActiveStackID());
 }
 
 const CStack* CBattleInfoEssentials::battleGetStackByID(int ID, bool onlyAlive) const
@@ -387,22 +365,25 @@ EGateState CBattleInfoEssentials::battleGetGateState() const
 	return getBattle()->getGateState();
 }
 
-PlayerColor CBattleInfoEssentials::battleGetOwner(const battle::Unit * stack) const
+PlayerColor CBattleInfoEssentials::battleGetOwner(const battle::Unit * unit) const
 {
 	RETURN_IF_NOT_BATTLE(PlayerColor::CANNOT_DETERMINE);
 
-	PlayerColor initialOwner = getBattle()->getSidePlayer(stack->unitSide());
+	PlayerColor initialOwner = getBattle()->getSidePlayer(unit->unitSide());
 
-	if(stack->hasBonusOfType(Bonus::HYPNOTIZED))
+	static CSelector selector = Selector::type(Bonus::HYPNOTIZED);
+	static std::string cachingString = "type_103s-1";
+
+	if(unit->hasBonus(selector, cachingString))
 		return otherPlayer(initialOwner);
 	else
 		return initialOwner;
 }
 
-const CGHeroInstance * CBattleInfoEssentials::battleGetOwnerHero(const battle::Unit * stack) const
+const CGHeroInstance * CBattleInfoEssentials::battleGetOwnerHero(const battle::Unit * unit) const
 {
 	RETURN_IF_NOT_BATTLE(nullptr);
-	const auto side = playerToSide(battleGetOwner(stack));
+	const auto side = playerToSide(battleGetOwner(unit));
 	if(!side)
 		return nullptr;
 	return getBattle()->getSideHero(side.get());

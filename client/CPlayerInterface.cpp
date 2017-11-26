@@ -971,6 +971,14 @@ void CPlayerInterface::battleAttack(const BattleAttack * ba)
 
 	battleInt->waitForAnims();
 
+	auto actionTarget = curAction->getTarget(cb.get());
+
+	if(actionTarget.empty() || (actionTarget.size() < 2 && !ba->shot()))
+	{
+		logNetwork->error("Invalid current action: no destination.");
+		return;
+	}
+
 	if(ba->shot())
 	{
 		for(auto & elem : ba->bsa)
@@ -984,11 +992,16 @@ void CPlayerInterface::battleAttack(const BattleAttack * ba)
 	}
 	else
 	{
+		auto attackFrom = actionTarget.at(0).hexValue;
+		auto attackTarget = actionTarget.at(1).hexValue;
+
+		//TODO: use information from BattleAttack but not curAction
+
 		int shift = 0;
-		if(ba->counter() && BattleHex::mutualPosition(curAction->destinationTile, attacker->getPosition()) < 0)
+		if(ba->counter() && BattleHex::mutualPosition(attackTarget, attacker->getPosition()) < 0)
 		{
-			int distp = BattleHex::getDistance(curAction->destinationTile + 1, attacker->getPosition());
-			int distm = BattleHex::getDistance(curAction->destinationTile - 1, attacker->getPosition());
+			int distp = BattleHex::getDistance(attackTarget + 1, attacker->getPosition());
+			int distm = BattleHex::getDistance(attackTarget - 1, attacker->getPosition());
 
 			if(distp < distm)
 				shift = 1;
@@ -996,16 +1009,19 @@ void CPlayerInterface::battleAttack(const BattleAttack * ba)
 				shift = -1;
 		}
 		const CStack * attacked = cb->battleGetStackByID(ba->bsa.begin()->stackAttacked);
-		battleInt->stackAttacking(attacker, ba->counter() ? curAction->destinationTile + shift : curAction->additionalInfo, attacked, false);
+		battleInt->stackAttacking(attacker, ba->counter() ? BattleHex(attackTarget + shift) : attackTarget, attacked, false);
 	}
 
 	//battleInt->waitForAnims(); //FIXME: freeze
 
 	if(ba->spellLike())
 	{
+		//TODO: use information from BattleAttack but not curAction
+
+		auto destination = actionTarget.at(0).hexValue;
 		//display hit animation
 		SpellID spellID = ba->spellID;
-		battleInt->displaySpellHit(spellID, curAction->destinationTile);
+		battleInt->displaySpellHit(spellID, destination);
 	}
 }
 void CPlayerInterface::battleObstaclePlaced(const CObstacleInstance &obstacle)

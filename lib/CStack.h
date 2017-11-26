@@ -63,11 +63,6 @@ public:
 
 	static bool isMeleeAttackPossible(const battle::Unit * attacker, const battle::Unit * defender, BattleHex attackerPos = BattleHex::INVALID, BattleHex defenderPos = BattleHex::INVALID);
 
-	BattleHex occupiedHex() const; //returns number of occupied hex (not the position) if stack is double wide; otherwise -1
-	BattleHex occupiedHex(BattleHex assumedPos) const; //returns number of occupied hex (not the position) if stack is double wide and would stand on assumedPos; otherwise -1
-	std::vector<BattleHex> getHexes() const; //up to two occupied hexes, starting from front
-	std::vector<BattleHex> getHexes(BattleHex assumedPos) const; //up to two occupied hexes, starting from front
-
 	BattleHex::EDir destShiftDir() const;
 
 	void prepareAttacked(BattleStackAttacked & bsa, vstd::RNG & rand) const; //requires bsa.damageAmout filled
@@ -75,27 +70,27 @@ public:
 
 	///spells::Caster
 
-	ui8 getSpellSchoolLevel(const spells::Mode mode, const CSpell * spell, int * outSelectedSchool = nullptr) const override;
+	ui8 getSpellSchoolLevel(const spells::Mode mode, const spells::Spell * spell, int * outSelectedSchool = nullptr) const override;
 	///default spell school level for effect calculation
-	int getEffectLevel(const spells::Mode mode, const CSpell * spell) const override;
+	int getEffectLevel(const spells::Mode mode, const spells::Spell * spell) const override;
 
-	int64_t getSpellBonus(const CSpell * spell, int64_t base, const battle::Unit * affectedStack) const override;
-	int64_t getSpecificSpellBonus(const CSpell * spell, int64_t base) const override;
+	int64_t getSpellBonus(const spells::Spell * spell, int64_t base, const battle::Unit * affectedStack) const override;
+	int64_t getSpecificSpellBonus(const spells::Spell  * spell, int64_t base) const override;
 
 	///default spell-power for damage/heal calculation
-	int getEffectPower(const spells::Mode mode, const CSpell * spell) const override;
+	int getEffectPower(const spells::Mode mode, const spells::Spell  * spell) const override;
 
 	///default spell-power for timed effects duration
-	int getEnchantPower(const spells::Mode mode, const CSpell * spell) const override;
+	int getEnchantPower(const spells::Mode mode, const spells::Spell  * spell) const override;
 
 	///damage/heal override(ignores spell configuration, effect level and effect power)
-	int getEffectValue(const spells::Mode mode, const CSpell * spell) const override;
+	int getEffectValue(const spells::Mode mode, const spells::Spell  * spell) const override;
 
 	const PlayerColor getOwner() const override;
 	void getCasterName(MetaString & text) const override;
-	void getCastDescription(const CSpell * spell, MetaString & text) const override;
-	void getCastDescription(const CSpell * spell, const std::vector<const battle::Unit *> & attacked, MetaString & text) const override;
-	void spendMana(const spells::Mode mode, const CSpell * spell, const spells::PacketSender * server, const int spellCost) const override;
+	void getCastDescription(const spells::Spell  * spell, MetaString & text) const override;
+	void getCastDescription(const spells::Spell  * spell, const std::vector<const battle::Unit *> & attacked, MetaString & text) const override;
+	void spendMana(const spells::Mode mode, const spells::Spell  * spell, const spells::PacketSender * server, const int spellCost) const override;
 
 	///IUnitInfo
 
@@ -119,6 +114,8 @@ public:
 
 	bool isClone() const override;
 	bool hasClone() const override;
+
+	bool isSummoned() const override;
 
 	bool canCast() const override;
 	bool isCaster() const override;

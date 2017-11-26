@@ -11,6 +11,8 @@
 
 #include "BattleSpellMechanics.h"
 
+#include "CSpellHandler.h"
+
 #include "../NetPacks.h"
 #include "../CStack.h"
 #include "../battle/BattleInfo.h"

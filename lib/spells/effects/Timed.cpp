@@ -15,7 +15,7 @@
 
 #include "../../NetPacks.h"
 #include "../../battle/IBattleState.h"
-#include "../../CStack.h"
+#include "../../battle/Unit.h"
 #include "../../serializer/JsonSerializeFormat.h"
 
 static const std::string EFFECT_NAME = "core:timed";
@@ -72,8 +72,8 @@ void Timed::convertBonus(const Mechanics * m, int32_t & duration, std::vector<Bo
 		if((nb.sid == SpellID::SHIELD || nb.sid == SpellID::AIR_SHIELD) && (nb.type == Bonus::GENERAL_DAMAGE_REDUCTION))
 			nb.val = 100 - nb.val;
 		//we need to know who cast Bind
-		else if(nb.sid == SpellID::BIND && nb.type == Bonus::BIND_EFFECT && m->casterStack)
-			nb.additionalInfo = m->casterStack->ID;
+		else if(nb.sid == SpellID::BIND && nb.type == Bonus::BIND_EFFECT && m->casterUnit)
+			nb.additionalInfo = m->casterUnit->unitId();
 
 		converted.push_back(nb);
 	}

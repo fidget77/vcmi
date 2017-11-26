@@ -737,9 +737,11 @@ bool CShootingAnimation::init()
 	}
 
 	// opponent must face attacker ( = different directions) before he can be attacked
-	if (attackingStack && attackedStack &&
-	    owner->creDir[attackingStack->ID] == owner->creDir[attackedStack->ID])
-		return false;
+	//FIXME: this cause freeze
+
+//	if (attackingStack && attackedStack &&
+//	    owner->creDir[attackingStack->ID] == owner->creDir[attackedStack->ID])
+//		return false;
 
 	// Create the projectile animation
 

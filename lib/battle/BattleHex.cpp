@@ -129,6 +129,7 @@ BattleHex BattleHex::operator+(BattleHex::EDir dir) const
 std::vector<BattleHex> BattleHex::neighbouringTiles() const
 {
 	std::vector<BattleHex> ret;
+	ret.reserve(6);
 	for(EDir dir = EDir(0); dir <= EDir(5); dir = EDir(dir+1))
 		checkAndPush(cloneInDirection(dir, false), ret);
 	return ret;

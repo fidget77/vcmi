@@ -13,6 +13,7 @@
 #include "../battle/IBattleState.h"
 #include "../battle/CBattleInfoCallback.h"
 #include "Problem.h"
+#include "CSpellHandler.h"
 
 #include "../CStack.h"
 
@@ -107,9 +108,9 @@ void CustomSpellMechanics::beforeCast(vstd::RNG & rng, const Target & target, st
 
 	auto rangeGen = rng.getInt64Range(0, 99);
 
-	auto stackReflected = [&, this](const CStack * s) -> bool
+	auto filterReflected = [&, this](const CStack * s) -> bool
 	{
-		const bool tryMagicMirror = mode != Mode::MAGIC_MIRROR && owner->isNegative() && owner->level && owner->getLevelInfo(0).range == "0";
+		const bool tryMagicMirror = mode != Mode::MAGIC_MIRROR && isNegativeSpell() && owner->level && owner->getLevelInfo(0).range == "0";
 		if(tryMagicMirror)
 		{
 			const int mirrorChance = s->valOfBonuses(Bonus::MAGIC_MIRROR);
@@ -119,9 +120,9 @@ void CustomSpellMechanics::beforeCast(vstd::RNG & rng, const Target & target, st
 		return false;
 	};
 
-	auto stackResisted = [&, this](const CStack * s) -> bool
+	auto filterResisted = [&, this](const CStack * s) -> bool
 	{
-		if(owner->isNegative())
+		if(isNegativeSpell())
 		{
 			//magic resistance
 			const int prob = std::min((s)->magicResistance(), 100); //probability of resistance in %
@@ -138,9 +139,9 @@ void CustomSpellMechanics::beforeCast(vstd::RNG & rng, const Target & target, st
 		if(!s)
 			s = cb->battleGetStackByID(st->unitId(), false);
 
-		if(stackResisted(s))
+		if(filterResisted(s))
 			resisted.push_back(s);
-		else if(stackReflected(s))
+		else if(filterReflected(s))
 			reflected.push_back(s);
 		else
 			affectedUnits.push_back(s);

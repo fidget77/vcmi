@@ -10,7 +10,7 @@
 #include "StdInc.h"
 #include "EnemyInfo.h"
 
-#include "../../lib/CStack.h"
+#include "../../lib/battle/Unit.h"
 
 bool EnemyInfo::operator==(const EnemyInfo & ei) const
 {

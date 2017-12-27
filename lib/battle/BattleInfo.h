@@ -90,6 +90,9 @@ public:
 	//////////////////////////////////////////////////////////////////////////
 	// IBattleState
 
+	void nextRound(int32_t roundNr) override;
+	void nextTurn(uint32_t unitId) override;
+
 	void updateUnit(const CStackStateInfo & changes) override;
 
 	void addUnitBonus(uint32_t id, const std::vector<Bonus> & bonus) override;

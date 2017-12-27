@@ -732,6 +732,39 @@ const IBonusBearer * BattleInfo::asBearer() const
 	return this;
 }
 
+void BattleInfo::nextRound(int32_t roundNr)
+{
+	for(int i = 0; i < 2; ++i)
+	{
+		sides.at(i).castSpellsCount = 0;
+		vstd::amax(--sides.at(i).enchanterCounter, 0);
+	}
+	round = roundNr;
+
+	for(CStack * s : stacks)
+	{
+		// new turn effects
+		s->updateBonuses(Bonus::NTurns);
+
+		s->stackState.afterNewRound();
+	}
+
+	for(auto & obst : obstacles)
+		obst->battleTurnPassed();
+}
+
+void BattleInfo::nextTurn(uint32_t unitId)
+{
+	activeStack = unitId;
+
+	CStack * st = getStack(activeStack);
+
+	//remove bonuses that last until when stack gets new turn
+	st->popBonuses(Bonus::UntilGetsTurn);
+
+	st->stackState.afterGetsTurn();
+}
+
 void BattleInfo::updateUnit(const CStackStateInfo & changes)
 {
 	CStack * changedStack = getStack(changes.stackId, false);
@@ -769,7 +802,7 @@ void BattleInfo::updateUnit(const CStackStateInfo & changes)
 			//remove clone as well
 			CStack * clone = getStack(changedStack->stackState.cloneID);
 			if(clone)
-				clone->makeGhost();
+				clone->stackState.makeGhost();
 
 			changedStack->stackState.cloneID = -1;
 		}

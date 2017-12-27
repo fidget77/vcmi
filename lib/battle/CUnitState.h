@@ -185,7 +185,7 @@ public:
 	bool hadMorale;
 	bool ghost;
 	bool ghostPending;
-	bool movedThisTurn;
+	bool movedThisRound;
 	bool summoned;
 	bool waiting;
 
@@ -277,6 +277,12 @@ public:
 
 	void afterAttack(bool ranged, bool counter);
 
+	void afterNewRound();
+
+	void afterGetsTurn();
+
+	void makeGhost();
+
 private:
 	const IUnitInfo * unit;
 	const IBonusBearer * bonus;
@@ -285,6 +291,8 @@ private:
 	CTotalsProxy attack;
 	CTotalsProxy defence;
 	CBonusProxy inFrenzy;
+
+	CCheckProxy cloneLifetimeMarker;
 
 	void reset();
 };

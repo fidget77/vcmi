@@ -137,10 +137,7 @@ public:
 	int32_t getInitiative(int turn = 0) const override;
 
 
-	///Non const API for NetPacks
 
-	///stack will be ghost in next battle state update
-	void makeGhost();
 
 	template <typename Handler> void serialize(Handler & h, const int version)
 	{

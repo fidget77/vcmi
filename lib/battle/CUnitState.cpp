@@ -487,7 +487,7 @@ CUnitState::CUnitState(const IUnitInfo * unit_, const IBonusBearer * bonus_, con
 	hadMorale(false),
 	ghost(false),
 	ghostPending(false),
-	movedThisTurn(false),
+	movedThisRound(false),
 	summoned(false),
 	waiting(false),
 	casts(this),
@@ -500,6 +500,7 @@ CUnitState::CUnitState(const IUnitInfo * unit_, const IBonusBearer * bonus_, con
 	attack(this, Selector::typeSubtype(Bonus::PRIMARY_SKILL, PrimarySkill::ATTACK), 0),
 	defence(this, Selector::typeSubtype(Bonus::PRIMARY_SKILL, PrimarySkill::DEFENSE), 0),
 	inFrenzy(this, Selector::type(Bonus::IN_FRENZY)),
+	cloneLifetimeMarker(this, Selector::type(Bonus::NONE).And(Selector::source(Bonus::SPELL_EFFECT, SpellID::CLONE))),
 	cloneID(-1),
 	position()
 {
@@ -518,7 +519,7 @@ CUnitState::CUnitState(const CUnitState & other)
 	hadMorale(other.hadMorale),
 	ghost(other.ghost),
 	ghostPending(other.ghostPending),
-	movedThisTurn(other.movedThisTurn),
+	movedThisRound(other.movedThisRound),
 	summoned(other.summoned),
 	waiting(other.waiting),
 	casts(other.casts),
@@ -528,9 +529,10 @@ CUnitState::CUnitState(const CUnitState & other)
 	totalAttacks(other.totalAttacks),
 	minDamage(other.minDamage),
 	maxDamage(other.maxDamage),
-	inFrenzy(other.inFrenzy),
 	attack(other.attack),
 	defence(other.defence),
+	inFrenzy(other.inFrenzy),
+	cloneLifetimeMarker(other.cloneLifetimeMarker),
 	cloneID(other.cloneID),
 	position(other.position)
 {
@@ -549,7 +551,7 @@ CUnitState & CUnitState::operator=(const CUnitState & other)
 	hadMorale = other.hadMorale;
 	ghost = other.ghost;
 	ghostPending = other.ghostPending;
-	movedThisTurn = other.movedThisTurn;
+	movedThisRound = other.movedThisRound;
 	summoned = other.summoned;
 	waiting = other.waiting;
 	casts = other.casts;
@@ -562,6 +564,7 @@ CUnitState & CUnitState::operator=(const CUnitState & other)
 	attack = other.attack;
 	defence = other.defence;
 	inFrenzy = other.inFrenzy;
+	cloneLifetimeMarker = other.cloneLifetimeMarker;
 	cloneID = other.cloneID;
 	position = other.position;
 	return *this;
@@ -671,7 +674,7 @@ bool CUnitState::defended(int turn) const
 bool CUnitState::moved(int turn) const
 {
 	if(!turn)
-		return movedThisTurn;
+		return movedThisRound;
 	else
 		return false;
 }
@@ -792,7 +795,7 @@ void CUnitState::serializeJson(JsonSerializeFormat & handler)
 	handler.serializeBool("hadMorale", hadMorale);
 	handler.serializeBool("ghost", ghost);
 	handler.serializeBool("ghostPending", ghostPending);
-	handler.serializeBool("moved", movedThisTurn);
+	handler.serializeBool("moved", movedThisRound);
 	handler.serializeBool("summoned", summoned);
 	handler.serializeBool("waiting", waiting);
 
@@ -822,7 +825,7 @@ void CUnitState::reset()
 	hadMorale = false;
 	ghost = false;
 	ghostPending = false;
-	movedThisTurn = false;
+	movedThisRound = false;
 	summoned = false;
 	waiting = false;
 
@@ -909,5 +912,36 @@ void CUnitState::afterAttack(bool ranged, bool counter)
 	if(ranged)
 		shots.use();
 }
+
+void CUnitState::afterNewRound()
+{
+	defending = false;
+	waiting = false;
+	movedThisRound = false;
+	hadMorale = false;
+	fear = false;
+	drainedMana = false;
+	counterAttacks.reset();
+
+	if(alive() && isClone())
+	{
+		if(!cloneLifetimeMarker.getHasBonus())
+			makeGhost();
+	}
+}
+
+void CUnitState::afterGetsTurn()
+{
+	//if moving second time this round it must be high morale bonus
+	if(movedThisRound)
+		hadMorale = true;
+}
+
+void CUnitState::makeGhost()
+{
+	health.reset();
+	ghostPending = true;
+}
+
 
 } // namespace battle

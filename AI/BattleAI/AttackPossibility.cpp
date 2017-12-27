@@ -46,7 +46,6 @@ int64_t AttackPossibility::attackValue() const
 
 AttackPossibility AttackPossibility::evaluate(const BattleAttackInfo & AttackInfo, BattleHex hex)
 {
-	const int remainingCounterAttacks = AttackInfo.defender->counterAttacks.available();
 	const bool counterAttacksBlocked = AttackInfo.attacker->hasBonusOfType(Bonus::BLOCKS_RETALIATION);
 
 	const int totalAttacks = AttackInfo.shooting ? AttackInfo.attacker->totalAttacks.getRangedValue() : AttackInfo.attacker->totalAttacks.getMeleeValue();
@@ -71,11 +70,18 @@ AttackPossibility AttackPossibility::evaluate(const BattleAttackInfo & AttackInf
 
 		ap.damageDealt += (attackDmg.first + attackDmg.second) / 2;
 
-		if(remainingCounterAttacks > i && !counterAttacksBlocked)
+		curBai.attacker->afterAttack(AttackInfo.shooting, false);
+
+		//FIXME: use ranged retaliation
+		if(!AttackInfo.shooting && curBai.defender->ableToRetaliate() && !counterAttacksBlocked)
+		{
 			ap.damageReceived += (retaliation.first + retaliation.second) / 2;
+			curBai.defender->afterAttack(AttackInfo.shooting, true);
+		}
 
 		curBai.attacker->damage(ap.damageReceived);
 		curBai.defender->damage(ap.damageDealt);
+
 		if(!curBai.attacker->alive())
 			break;
 		if(!curBai.defender->alive())

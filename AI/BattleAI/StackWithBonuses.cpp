@@ -100,7 +100,7 @@ void StackWithBonuses::removeUnitBonus(const std::vector<Bonus> & bonus)
 {
 	for(const Bonus & one : bonus)
 	{
-		auto selector = [&one](const Bonus * b) -> bool
+		CSelector selector([&one](const Bonus * b) -> bool
 		{
 			//compare everything but turnsRemain, limiter and propagator
 			return one.duration == b->duration
@@ -113,17 +113,23 @@ void StackWithBonuses::removeUnitBonus(const std::vector<Bonus> & bonus)
 			&& one.additionalInfo == b->additionalInfo
 			&& one.effectRange == b->effectRange
 			&& one.description == b->description;
-		};
+		});
 
-		TBonusListPtr toRemove = origBearer->getBonuses(selector);
-
-		for(auto b : *toRemove)
-			bonusesToRemove.insert(b);
-
-		vstd::erase_if(bonusesToAdd, [&](const Bonus & b){return selector(&b);});
-		vstd::erase_if(bonusesToUpdate, [&](const Bonus & b){return selector(&b);});
+		removeUnitBonus(selector);
 	}
 }
+
+void StackWithBonuses::removeUnitBonus(const CSelector & selector)
+{
+	TBonusListPtr toRemove = origBearer->getBonuses(selector);
+
+	for(auto b : *toRemove)
+		bonusesToRemove.insert(b);
+
+	vstd::erase_if(bonusesToAdd, [&](const Bonus & b){return selector(&b);});
+	vstd::erase_if(bonusesToUpdate, [&](const Bonus & b){return selector(&b);});
+}
+
 
 HypotheticBattle::HypotheticBattle(Subject realBattle)
 	: BattleProxy(realBattle),
@@ -185,6 +191,27 @@ battle::Units HypotheticBattle::getUnitsIf(battle::UnitFilter predicate) const
 	}
 
 	return ret;
+}
+
+void HypotheticBattle::nextRound(int32_t roundNr)
+{
+	//TODO:HypotheticBattle::nextRound
+
+	for(auto unit : battleAliveUnits())
+	{
+		auto forUpdate = getForUpdate(unit->unitId());
+		//TODO: update Bonus::NTurns effects
+		forUpdate->state.afterNewRound();
+	}
+}
+
+void HypotheticBattle::nextTurn(uint32_t unitId)
+{
+	auto unit = getForUpdate(unitId);
+
+	unit->removeUnitBonus(Bonus::UntilGetsTurn);
+
+	unit->state.afterGetsTurn();
 }
 
 void HypotheticBattle::updateUnit(const CStackStateInfo & changes)

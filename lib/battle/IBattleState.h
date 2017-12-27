@@ -55,7 +55,10 @@ public:
 class DLL_LINKAGE IBattleState : public IBattleInfo
 {
 public:
-	//TODO: add non-const API and use in game state
+	//TODO: add non-const API
+
+	virtual void nextRound(int32_t roundNr) = 0;
+	virtual void nextTurn(uint32_t unitId) = 0;
 
 	virtual void updateUnit(const CStackStateInfo & changes) = 0;
 

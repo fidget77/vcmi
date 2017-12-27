@@ -275,9 +275,12 @@ void CBattleAI::attemptCastingSpell()
 
 	auto evaluateQueue = [&](ValueMap & values, const std::vector<battle::Units> & queue, HypotheticBattle * state, bool * enemyHadTurn)
 	{
-		for(auto & turn : queue)
+		bool firstRound = true;
+		for(auto & round : queue)
 		{
-			for(auto unit : turn)
+			if(!firstRound)
+				state->nextRound(0);//todo: set actual value?
+			for(auto unit : round)
 			{
 				if(!vstd::contains(values, unit->unitId()))
 					values[unit->unitId()] = 0;
@@ -290,6 +293,8 @@ void CBattleAI::attemptCastingSpell()
 					if(state->battleGetOwner(unit) != playerID)
 						*enemyHadTurn = true;
 				}
+
+				state->nextTurn(unit->unitId());
 
 				PotentialTargets pt(unit, state);
 
@@ -313,6 +318,8 @@ void CBattleAI::attemptCastingSpell()
 					bav = -bav;
 				values[unit->unitId()] += bav;
 			}
+
+			firstRound = false;
 		}
 	};
 

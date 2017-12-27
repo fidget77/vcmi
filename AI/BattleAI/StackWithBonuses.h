@@ -38,6 +38,7 @@ public:
 	void updateUnitBonus(const std::vector<Bonus> & bonus);
 	void removeUnitBonus(const std::vector<Bonus> & bonus);
 
+	void removeUnitBonus(const CSelector & selector);
 
 private:
 	const IBonusBearer * origBearer;
@@ -54,6 +55,9 @@ public:
 	std::shared_ptr<StackWithBonuses> getForUpdate(uint32_t id);
 
 	battle::Units getUnitsIf(battle::UnitFilter predicate) const override;
+
+	void nextRound(int32_t roundNr) override;
+	void nextTurn(uint32_t unitId) override;
 
 	void updateUnit(const CStackStateInfo & changes) override;
 

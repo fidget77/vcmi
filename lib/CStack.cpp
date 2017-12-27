@@ -305,12 +305,6 @@ bool CStack::canBeHealed() const
 		   && !hasBonusOfType(Bonus::SIEGE_WEAPON);
 }
 
-void CStack::makeGhost()
-{
-	stackState.health.reset();
-	stackState.ghostPending = true;
-}
-
 ui8 CStack::getSpellSchoolLevel(const spells::Mode mode, const spells::Spell * spell, int * outSelectedSchool) const
 {
 	int skill = valOfBonuses(Selector::typeSubtype(Bonus::SPELLCASTER, spell->getIndex()));

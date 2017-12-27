@@ -1232,50 +1232,12 @@ DLL_LINKAGE void BattleStart::applyGs(CGameState *gs)
 
 DLL_LINKAGE void BattleNextRound::applyGs(CGameState *gs)
 {
-	for (int i = 0; i < 2; ++i)
-	{
-		gs->curB->sides[i].castSpellsCount = 0;
-		vstd::amax(--gs->curB->sides[i].enchanterCounter, 0);
-	}
-
-	gs->curB->round = round;
-
-	for(CStack *s : gs->curB->stacks)
-	{
-		s->stackState.defending = false;
-		s->stackState.waiting = false;
-		s->stackState.movedThisTurn = false;
-		s->stackState.hadMorale = false;
-		s->stackState.fear = false;
-		s->stackState.drainedMana = false;
-		s->stackState.counterAttacks.reset();
-		// new turn effects
-		s->updateBonuses(Bonus::NTurns);
-
-		if(s->alive() && s->isClone())
-		{
-			//cloned stack has special lifetime marker
-			//check it after bonuses updated in battleTurnPassed()
-
-			if(!s->hasBonus(Selector::type(Bonus::NONE).And(Selector::source(Bonus::SPELL_EFFECT, SpellID::CLONE))))
-				s->makeGhost();
-		}
-	}
-
-	for(auto &obst : gs->curB->obstacles)
-		obst->battleTurnPassed();
+	gs->curB->nextRound(round);
 }
 
 DLL_LINKAGE void BattleSetActiveStack::applyGs(CGameState *gs)
 {
-	gs->curB->activeStack = stack;
-	CStack *st = gs->curB->getStack(stack);
-
-	//remove bonuses that last until when stack gets new turn
-	st->popBonuses(Bonus::UntilGetsTurn);
-
-	if(st->stackState.movedThisTurn) //if stack is moving second time this turn it must had a high morale bonus
-		st->stackState.hadMorale = true;
+	gs->curB->nextTurn(stack);
 }
 
 DLL_LINKAGE void BattleTriggerEffect::applyGs(CGameState *gs)
@@ -1450,7 +1412,7 @@ DLL_LINKAGE void StartAction::applyGs(CGameState *gs)
 	default: //any active stack action - attack, catapult, heal, spell...
 		st->stackState.waiting = false;
 		st->stackState.defendingAnim = false;
-		st->stackState.movedThisTurn = true;
+		st->stackState.movedThisRound = true;
 		break;
 	}
 }

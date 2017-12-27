@@ -15,10 +15,6 @@ namespace GameConstants
 {
 	DLL_LINKAGE extern const std::string VCMI_VERSION;
 
-	const int BFIELD_WIDTH = 17;
-	const int BFIELD_HEIGHT = 11;
-	const int BFIELD_SIZE = BFIELD_WIDTH * BFIELD_HEIGHT;
-
 	const int PUZZLE_MAP_PIECES = 48;
 
 	const int MAX_HEROES_PER_PLAYER = 8;

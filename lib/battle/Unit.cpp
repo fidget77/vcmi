@@ -82,12 +82,12 @@ std::vector<BattleHex> Unit::getSurroundingHexes(BattleHex assumedPosition) cons
 
 bool Unit::coversPos(BattleHex pos) const
 {
-	return vstd::contains(getHexes(), pos);
+	return getPosition() == pos || (doubleWide() && (occupiedHex() == pos));
 }
 
 std::vector<BattleHex> Unit::getHexes() const
 {
-	return getHexes(getPosition());
+	return getHexes(getPosition(), doubleWide(), unitSide());
 }
 
 std::vector<BattleHex> Unit::getHexes(BattleHex assumedPos) const
@@ -101,26 +101,26 @@ std::vector<BattleHex> Unit::getHexes(BattleHex assumedPos, bool twoHex, ui8 sid
 	hexes.push_back(assumedPos);
 
 	if(twoHex)
-	{
-		if(side == BattleSide::ATTACKER)
-			hexes.push_back(assumedPos - 1);
-		else
-			hexes.push_back(assumedPos + 1);
-	}
+		hexes.push_back(occupiedHex(assumedPos, twoHex, side));
 
 	return hexes;
 }
 
 BattleHex Unit::occupiedHex() const
 {
-	return occupiedHex(getPosition());
+	return occupiedHex(getPosition(), doubleWide(), unitSide());
 }
 
 BattleHex Unit::occupiedHex(BattleHex assumedPos) const
 {
-	if(doubleWide())
+	return occupiedHex(assumedPos, doubleWide(), unitSide());
+}
+
+BattleHex Unit::occupiedHex(BattleHex assumedPos, bool twoHex, ui8 side)
+{
+	if(twoHex)
 	{
-		if(unitSide() == BattleSide::ATTACKER)
+		if(side == BattleSide::ATTACKER)
 			return assumedPos - 1;
 		else
 			return assumedPos + 1;

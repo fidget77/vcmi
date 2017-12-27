@@ -97,7 +97,7 @@
 						"$ref" : "vcmi:bonus"
 					}
 				},
-				"specialEffects":{
+				"battleEffects":{
 					"type": "object",
 					"additionalProperties" : {
 						"type": "object"

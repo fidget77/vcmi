@@ -1055,8 +1055,7 @@
 					"inFrenzy" : {
 						"type" : "IN_FRENZY",
 						"val" : 100,
-						"duration" : "N_TURNS",
-						"turns" : 1
+						"duration" : "UNTIL_ATTACK"
 					}
 				}
 			},

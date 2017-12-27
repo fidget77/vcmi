@@ -294,7 +294,6 @@
 		},
 		"flags" : {
 			"damage": true,
-			"offensive": true,
 			"negative": true
 		}
 	},

@@ -23,10 +23,8 @@ struct DLL_LINKAGE BattleAttackInfo
 	bool shooting;
 	int chargedFields;
 
-	bool luckyHit;
-	bool unluckyHit;
-	bool deathBlow;
-	bool ballistaDoubleDamage;
+	double additiveBonus;
+	double multBonus;
 
 	BattleAttackInfo(const battle::Unit * Attacker, const battle::Unit * Defender, bool Shooting = false);
 	BattleAttackInfo reverse() const;

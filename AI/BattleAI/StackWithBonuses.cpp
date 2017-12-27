@@ -219,6 +219,11 @@ void HypotheticBattle::updateUnit(const CStackStateInfo & changes)
 	std::shared_ptr<StackWithBonuses> changed = getForUpdate(changes.stackId);
 
 	changed->state.fromInfo(changes);
+
+	if(changes.healthDelta < 0)
+	{
+		changed->removeUnitBonus(Bonus::UntilBeingAttacked);
+	}
 }
 
 void HypotheticBattle::addUnitBonus(uint32_t id, const std::vector<Bonus> & bonus)
@@ -244,6 +249,11 @@ uint32_t HypotheticBattle::nextUnitId() const
 	//TODO:
 	return subject->battleNextUnitId();
 
+}
+
+int64_t HypotheticBattle::getActualDamage(const TDmgRange & damage, int32_t attackerCount, vstd::RNG & rng) const
+{
+	return (damage.first + damage.second) / 2;
 }
 
 int64_t HypotheticBattle::getTreeVersion() const

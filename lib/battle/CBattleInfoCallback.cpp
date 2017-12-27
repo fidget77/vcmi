@@ -634,7 +634,8 @@ TDmgRange CBattleInfoCallback::calculateDmgRange(const BattleAttackInfo & info) 
 	const IBonusBearer * attackerBonuses = info.attacker.get();
 	const IBonusBearer * defenderBonuses = info.defender.get();
 
-	double additiveBonus = 1.0, multBonus = 1.0;
+	double additiveBonus = 1.0 + info.additiveBonus;
+	double multBonus = 1.0 * info.multBonus;
 	double minDmg = 0.0;
 	double maxDmg = 0.0;
 
@@ -758,28 +759,6 @@ TDmgRange CBattleInfoCallback::calculateDmgRange(const BattleAttackInfo & info) 
 	auto allHateEffects = attackerBonuses->getBonuses(selectorHate, cachingStrHate);
 
 	additiveBonus += allHateEffects->valOfBonuses(Selector::subtype(info.defender->creatureIndex())) / 100.0;
-
-	//luck bonus
-	if(info.luckyHit)
-	{
-		additiveBonus += 1.0;
-	}
-	//unlucky hit, used only if negative luck is enabled
-	if(info.unluckyHit)
-	{
-		additiveBonus -= 0.5; // FIXME: how bad (and luck in general) should work with following bonuses?
-	}
-
-	//ballista double dmg
-	if(info.ballistaDoubleDamage)
-	{
-		additiveBonus += 1.0;
-	}
-
-	if(info.deathBlow) //Dread Knight and many WoGified creatures
-	{
-		additiveBonus += 1.0;
-	}
 
 	static const std::string cachingStrMeleeReduction = "type_GENERAL_DAMAGE_REDUCTIONs_0";
 	static const auto selectorMeleeReduction = Selector::typeSubtype(Bonus::GENERAL_DAMAGE_REDUCTION, 0);

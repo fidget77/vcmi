@@ -17,11 +17,8 @@ BattleAttackInfo::BattleAttackInfo(const battle::Unit * Attacker, const battle::
 {
 	shooting = Shooting;
 	chargedFields = 0;
-
-	luckyHit = false;
-	unluckyHit = false;
-	deathBlow = false;
-	ballistaDoubleDamage = false;
+	additiveBonus = 0.0;
+	multBonus = 1.0;
 }
 
 BattleAttackInfo BattleAttackInfo::reverse() const
@@ -32,7 +29,9 @@ BattleAttackInfo BattleAttackInfo::reverse() const
 
 	ret.shooting = false;
 	ret.chargedFields = 0;
-	ret.luckyHit = ret.ballistaDoubleDamage = ret.deathBlow = false;
+
+	ret.additiveBonus = 0.0;
+	ret.multBonus = 1.0;
 
 	return ret;
 }

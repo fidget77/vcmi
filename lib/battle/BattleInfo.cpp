@@ -732,6 +732,27 @@ const IBonusBearer * BattleInfo::asBearer() const
 	return this;
 }
 
+int64_t BattleInfo::getActualDamage(const TDmgRange & damage, int32_t attackerCount, vstd::RNG & rng) const
+{
+
+	if(damage.first != damage.second)
+	{
+		int64_t sum = 0;
+
+		auto howManyToAv = std::min<int32_t>(10, attackerCount);
+		auto rangeGen = rng.getInt64Range(damage.first, damage.second);
+
+		for(int32_t g = 0; g < howManyToAv; ++g)
+			sum += rangeGen();
+
+		return sum / howManyToAv;
+	}
+	else
+	{
+		return damage.first;
+	}
+}
+
 void BattleInfo::nextRound(int32_t roundNr)
 {
 	for(int i = 0; i < 2; ++i)

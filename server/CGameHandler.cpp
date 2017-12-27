@@ -995,7 +995,7 @@ void CGameHandler::makeAttack(const CStack * attacker, const CStack * defender, 
 	}
 	// only primary target
 	if(defender->alive())
-		applyBattleEffects(bat, attackerState, fireShield, attacker, defender, distance, false);
+		applyBattleEffects(bat, attackerState, fireShield, defender, distance, false);
 
 	if(!ranged) //multiple-hex attack - only in meele
 	{
@@ -1005,7 +1005,7 @@ void CGameHandler::makeAttack(const CStack * attacker, const CStack * defender, 
 		{
 			if(stack != defender && stack->alive()) //do not hit same stack twice
 			{
-				applyBattleEffects(bat, attackerState, fireShield, attacker, stack, distance, true);
+				applyBattleEffects(bat, attackerState, fireShield, stack, distance, true);
 			}
 		}
 	}
@@ -1027,7 +1027,7 @@ void CGameHandler::makeAttack(const CStack * attacker, const CStack * defender, 
 		{
 			if(stack != defender && stack->alive()) //do not hit same stack twice
 			{
-				applyBattleEffects(bat, attackerState, fireShield, attacker, stack, distance, true);
+				applyBattleEffects(bat, attackerState, fireShield, stack, distance, true);
 			}
 		}
 
@@ -1096,41 +1096,34 @@ void CGameHandler::makeAttack(const CStack * attacker, const CStack * defender, 
 
 	handleAfterAttackCasting(ranged, attacker, defender);
 }
-void CGameHandler::applyBattleEffects(BattleAttack & bat, std::shared_ptr<battle::CUnitState> attackerState, FireShieldInfo & fireShield, const CStack * att, const CStack * def, int distance, bool secondary)
+void CGameHandler::applyBattleEffects(BattleAttack & bat, std::shared_ptr<battle::CUnitState> attackerState, FireShieldInfo & fireShield, const CStack * def, int distance, bool secondary)
 {
 	BattleStackAttacked bsa;
 	if(secondary)
 		bsa.flags |= BattleStackAttacked::SECONDARY; //all other targets do not suffer from spells & spell-like abilities
-	bsa.attackerID = att->ID;
-	bsa.stackAttacked = def->ID;
+	bsa.attackerID = attackerState->unitId();
+	bsa.stackAttacked = def->unitId();
 	{
 		BattleAttackInfo bai(attackerState.get(), def, bat.shot());
 		bai.chargedFields = distance;
-		bai.luckyHit = bat.lucky();
-		bai.unluckyHit = bat.unlucky();
-		bai.deathBlow = bat.deathBlow();
-		bai.ballistaDoubleDamage = bat.ballistaDoubleDmg();
 
-		TDmgRange range = gs->curB->calculateDmgRange(bai);
+		if(bat.deathBlow())
+			bai.additiveBonus += 1.0;
 
-		if(range.first != range.second)
-		{
-			int64_t sum = 0;
+		if(bat.ballistaDoubleDmg())
+			bai.additiveBonus += 1.0;
 
-			ui32 howManyToAv = std::min<ui32>(10, attackerState->getCount());
+		if(bat.lucky())
+			bai.additiveBonus += 1.0;
 
-			auto rangeGen = getRandomGenerator().getInt64Range(range.first, range.second);
+		//unlucky hit, used only if negative luck is enabled
+		if(bat.unlucky())
+			bai.additiveBonus -= 0.5; // FIXME: how bad (and luck in general) should work with following bonuses?
 
-			for(ui32 g = 0; g < howManyToAv; ++g)
-				sum += rangeGen();
-
-			bsa.damageAmount = sum / howManyToAv;
-		}
-		else
-			bsa.damageAmount = range.first;
+		auto range = gs->curB->calculateDmgRange(bai);
+		bsa.damageAmount = gs->curB->getActualDamage(range, attackerState->getCount(), getRandomGenerator());
+		CStack::prepareAttacked(bsa, getRandomGenerator(), bai.defender); //calculate casualties
 	}
-
-	def->prepareAttacked(bsa, getRandomGenerator()); //calculate casualties
 
 	auto addLifeDrain = [&](int64_t & toHeal, EHealLevel level, EHealPower power)
 	{
@@ -1141,12 +1134,12 @@ void CGameHandler::applyBattleEffects(BattleAttack & bat, std::shared_ptr<battle
 			CustomEffectInfo customEffect;
 			customEffect.sound = soundBase::DRAINLIF;
 			customEffect.effect = 52;
-			customEffect.stack = att->ID;
+			customEffect.stack = attackerState->unitId();
 			bat.customEffects.push_back(customEffect);
 
 			MetaString text;
-			att->addText(text, MetaString::GENERAL_TXT, 361);
-			att->addNameReplacement(text, false);
+			attackerState->addText(text, MetaString::GENERAL_TXT, 361);
+			attackerState->addNameReplacement(text, false);
 			text.addReplacement(toHeal);
 			def->addNameReplacement(text, true);
 			bat.battleLog.push_back(text);
@@ -1154,24 +1147,24 @@ void CGameHandler::applyBattleEffects(BattleAttack & bat, std::shared_ptr<battle
 	};
 
 	//life drain handling
-	if(att->hasBonusOfType(Bonus::LIFE_DRAIN) && def->isLiving())
+	if(attackerState->hasBonusOfType(Bonus::LIFE_DRAIN) && def->isLiving())
 	{
-		int64_t toHeal = bsa.damageAmount * att->valOfBonuses(Bonus::LIFE_DRAIN) / 100;
+		int64_t toHeal = bsa.damageAmount * attackerState->valOfBonuses(Bonus::LIFE_DRAIN) / 100;
 
 		if(toHeal > 0)
 			addLifeDrain(toHeal, EHealLevel::RESURRECT, EHealPower::PERMANENT);
 	}
 
 	//soul steal handling
-	if(att->hasBonusOfType(Bonus::SOUL_STEAL) && def->isLiving())
+	if(attackerState->hasBonusOfType(Bonus::SOUL_STEAL) && def->isLiving())
 	{
 		//we can have two bonuses - one with subtype 0 and another with subtype 1
 		//try to use permanent first, use only one of two
 		for(si32 subtype = 1; subtype >= 0; subtype--)
 		{
-			if(att->hasBonusOfType(Bonus::SOUL_STEAL, subtype))
+			if(attackerState->hasBonusOfType(Bonus::SOUL_STEAL, subtype))
 			{
-				int64_t toHeal = bsa.killedAmount * att->valOfBonuses(Bonus::SOUL_STEAL, subtype) * att->MaxHealth();
+				int64_t toHeal = bsa.killedAmount * attackerState->valOfBonuses(Bonus::SOUL_STEAL, subtype) * attackerState->MaxHealth();
 				addLifeDrain(toHeal, EHealLevel::OVERHEAL, ((subtype == 0) ? EHealPower::ONE_BATTLE : EHealPower::PERMANENT));
 				break;
 			}
@@ -1181,10 +1174,10 @@ void CGameHandler::applyBattleEffects(BattleAttack & bat, std::shared_ptr<battle
 
 	//fire shield handling
 	if(!bat.shot() && !def->isClone() &&
-		def->hasBonusOfType(Bonus::FIRE_SHIELD) && !att->hasBonusOfType(Bonus::FIRE_IMMUNITY))
+		def->hasBonusOfType(Bonus::FIRE_SHIELD) && !attackerState->hasBonusOfType(Bonus::FIRE_IMMUNITY))
 	{
 		//TODO: use damage with bonus but without penalties
-		auto fireShieldDamage = (std::min<int64_t>(def->stackState.health.available(), bsa.damageAmount) * def->valOfBonuses(Bonus::FIRE_SHIELD)) / 100;
+		auto fireShieldDamage = (std::min<int64_t>(def->getAvailableHealth(), bsa.damageAmount) * def->valOfBonuses(Bonus::FIRE_SHIELD)) / 100;
 		fireShield.push_back(std::make_pair(def, fireShieldDamage));
 	}
 }

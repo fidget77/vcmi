@@ -87,6 +87,10 @@ public:
 
 	const IBonusBearer * asBearer() const override;
 
+	uint32_t nextUnitId() const override;
+
+	int64_t getActualDamage(const TDmgRange & damage, int32_t attackerCount, vstd::RNG & rng) const override;
+
 	//////////////////////////////////////////////////////////////////////////
 	// IBattleState
 
@@ -99,7 +103,7 @@ public:
 	void updateUnitBonus(uint32_t id, const std::vector<Bonus> & bonus) override;
 	void removeUnitBonus(uint32_t id, const std::vector<Bonus> & bonus) override;
 
-	uint32_t nextUnitId() const override;
+
 
 	void addOrUpdateUnitBonus(CStack * sta, const Bonus & value, bool forceAdd);
 

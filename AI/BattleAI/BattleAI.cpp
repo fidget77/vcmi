@@ -288,7 +288,7 @@ void CBattleAI::attemptCastingSpell()
 				if(!unit->alive())
 					continue;
 
-                if(enemyHadTurn)
+				if(enemyHadTurn)
 				{
 					if(state->battleGetOwner(unit) != playerID)
 						*enemyHadTurn = true;
@@ -305,10 +305,18 @@ void CBattleAI::attemptCastingSpell()
 					auto swb = state->getForUpdate(unit->unitId());
 					swb->state = *ap.attack.attacker;
 					swb->state.position = ap.tile;
-
+					if(ap.damageDealt > 0)
+						swb->removeUnitBonus(Bonus::UntilAttack);
+					if(ap.damageReceived > 0)
+						swb->removeUnitBonus(Bonus::UntilBeingAttacked);
 
 					swb = state->getForUpdate(ap.attack.defender->unitId());
 					swb->state = *ap.attack.defender;
+
+					if(ap.damageDealt > 0)
+						swb->removeUnitBonus(Bonus::UntilBeingAttacked);
+					if(ap.damageReceived > 0)
+						swb->removeUnitBonus(Bonus::UntilAttack);
 				}
 
 				auto bav = pt.bestActionValue();

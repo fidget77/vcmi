@@ -14,6 +14,11 @@
 class CStackStateInfo;
 struct Bonus;
 
+namespace vstd
+{
+	class RNG;
+}
+
 class DLL_LINKAGE IBattleInfo
 {
 public:
@@ -49,6 +54,8 @@ public:
 	virtual const IBonusBearer * asBearer() const = 0;
 
 	virtual uint32_t nextUnitId() const = 0;
+
+	virtual int64_t getActualDamage(const TDmgRange & damage, int32_t attackerCount, vstd::RNG & rng) const = 0;
 };
 
 

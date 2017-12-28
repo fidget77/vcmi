@@ -226,7 +226,7 @@ bool UnitEffect::isSmartTarget(const Mechanics * m, const battle::Unit * unit, b
 	return ignoreOwner || m->ownerMatches(unit);
 }
 
-void UnitEffect::serializeJsonEffect(JsonSerializeFormat& handler)
+void UnitEffect::serializeJsonEffect(JsonSerializeFormat & handler)
 {
 	handler.serializeBool("ignoreImmunity", ignoreImmunity);
 	serializeJsonUnitEffect(handler);

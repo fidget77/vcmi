@@ -185,10 +185,5 @@ EffectTarget Sacrifice::transformTarget(const Mechanics * m, const Target & aimP
 }
 
 
-void Sacrifice::serializeJsonHealEffect(JsonSerializeFormat & handler)
-{
-
-}
-
 } // namespace effects
 } // namespace spells

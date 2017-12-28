@@ -112,12 +112,6 @@ void Heal::serializeJsonUnitEffect(JsonSerializeFormat & handler)
 	handler.serializeEnum("healLevel", healLevel, EHealLevel::HEAL, HEAL_LEVEL_MAP);
 	handler.serializeEnum("healPower", healPower, EHealPower::PERMANENT, HEAL_POWER_MAP);
 	handler.serializeInt("minFullUnits", minFullUnits);
-
-	serializeJsonHealEffect(handler);
-}
-void Heal::serializeJsonHealEffect(JsonSerializeFormat & handler)
-{
-	UNUSED(handler);
 }
 
 void Heal::prepareHealEffect(int64_t value, BattleStacksChanged & pack, RNG & rng, const Mechanics * m, const EffectTarget & target) const

@@ -38,7 +38,6 @@ public:
 
 protected:
 	bool isValidTarget(const Mechanics * m, const battle::Unit * unit) const override;
-	void serializeJsonHealEffect(JsonSerializeFormat & handler);
 
 private:
 

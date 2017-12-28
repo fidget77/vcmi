@@ -32,7 +32,6 @@ public:
 protected:
 	bool isValidTarget(const Mechanics * m, const battle::Unit * unit) const override;
 	void serializeJsonUnitEffect(JsonSerializeFormat & handler) override final;
-	virtual void serializeJsonHealEffect(JsonSerializeFormat & handler);
 
 	void apply(int64_t value, const PacketSender * server, RNG & rng, const Mechanics * m, const EffectTarget & target) const;
 

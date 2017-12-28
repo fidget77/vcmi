@@ -83,6 +83,78 @@ public:
 		this->map = map;
 	}
 
+	void startTestGame()
+	{
+		StartInfo si;
+		si.mapname = "anything";//does not matter, map service mocked
+		si.difficulty = 0;
+		si.mapfileChecksum = 0;
+		si.mode = StartInfo::NEW_GAME;
+		si.seedToBeUsed = 42;
+
+		std::unique_ptr<CMapHeader> header = mapService.loadMapHeader(ResourceID(si.mapname));
+
+		ASSERT_NE(header.get(), nullptr);
+
+		//FIXME: this has been copied from CPreGame, but should be part of StartInfo
+		for(int i = 0; i < header->players.size(); i++)
+		{
+			const PlayerInfo & pinfo = header->players[i];
+
+			//neither computer nor human can play - no player
+			if (!(pinfo.canHumanPlay || pinfo.canComputerPlay))
+				continue;
+
+			PlayerSettings & pset = si.playerInfos[PlayerColor(i)];
+			pset.color = PlayerColor(i);
+			pset.playerID = i;
+			pset.name = "Player";
+
+			pset.castle = pinfo.defaultCastle();
+			pset.hero = pinfo.defaultHero();
+
+			if(pset.hero != PlayerSettings::RANDOM && pinfo.hasCustomMainHero())
+			{
+				pset.hero = pinfo.mainCustomHeroId;
+				pset.heroName = pinfo.mainCustomHeroName;
+				pset.heroPortrait = pinfo.mainCustomHeroPortrait;
+			}
+
+			pset.handicap = PlayerSettings::NO_HANDICAP;
+		}
+
+		gameState = std::make_shared<CGameState>();
+		gameCallback->setGameState(gameState.get());
+		gameState->init(&mapService, &si, false);
+
+		ASSERT_NE(map, nullptr);
+		ASSERT_EQ(map->heroesOnMap.size(), 2);
+	}
+
+
+	void startTestBattle(const CGHeroInstance * attacker, const CGHeroInstance * defender)
+	{
+		const CGHeroInstance * heroes[2] = {attacker, defender};
+		const CArmedInstance * armedInstancies[2] = {attacker, defender};
+
+		int3 tile(4,4,0);
+
+		const auto t = gameCallback->getTile(tile);
+
+		ETerrainType terrain = t->terType;
+		BFieldType terType = BFieldType::GRASS_HILLS;
+
+		//send info about battles
+
+		BattleInfo * battle = BattleInfo::setupBattle(tile, terrain, terType, armedInstancies, heroes, false, nullptr);
+
+		BattleStart bs;
+		bs.info = battle;
+		ASSERT_EQ(gameState->curB, nullptr);
+		gameCallback->sendAndApply(&bs);
+		ASSERT_EQ(gameState->curB, battle);
+	}
+
 	std::shared_ptr<CGameState> gameState;
 
 	std::shared_ptr<GameCallbackMock> gameCallback;
@@ -95,50 +167,7 @@ public:
 //Issue #2765, Ghost Dragons can cast Age on Catapults
 TEST_F(CGameStateTest, issue2765)
 {
-	StartInfo si;
-	si.mapname = "anything";//does not matter, map service mocked
-	si.difficulty = 0;
-	si.mapfileChecksum = 0;
-	si.mode = StartInfo::NEW_GAME;
-	si.seedToBeUsed = 42;
-
-	std::unique_ptr<CMapHeader> header = mapService.loadMapHeader(ResourceID(si.mapname));
-
-	ASSERT_NE(header.get(), nullptr);
-
-	//FIXME: this has been copied from CPreGame, but should be part of StartInfo
-	for(int i = 0; i < header->players.size(); i++)
-	{
-		const PlayerInfo & pinfo = header->players[i];
-
-		//neither computer nor human can play - no player
-		if (!(pinfo.canHumanPlay || pinfo.canComputerPlay))
-			continue;
-
-		PlayerSettings & pset = si.playerInfos[PlayerColor(i)];
-		pset.color = PlayerColor(i);
-		pset.playerID = i;
-		pset.name = "Player";
-
-		pset.castle = pinfo.defaultCastle();
-		pset.hero = pinfo.defaultHero();
-
-		if(pset.hero != PlayerSettings::RANDOM && pinfo.hasCustomMainHero())
-		{
-			pset.hero = pinfo.mainCustomHeroId;
-			pset.heroName = pinfo.mainCustomHeroName;
-			pset.heroPortrait = pinfo.mainCustomHeroPortrait;
-		}
-
-		pset.handicap = PlayerSettings::NO_HANDICAP;
-	}
-
-	gameState = std::make_shared<CGameState>();
-	gameCallback->setGameState(gameState.get());
-	gameState->init(&mapService, &si, false);
-
-	ASSERT_NE(map, nullptr);
-	ASSERT_EQ(map->heroesOnMap.size(), 2);
+	startTestGame();
 
 	CGHeroInstance * attacker = map->heroesOnMap[0];
 	CGHeroInstance * defender = map->heroesOnMap[1];
@@ -159,33 +188,15 @@ TEST_F(CGameStateTest, issue2765)
 		gameCallback->sendAndApply(&pack);
 	}
 
+	startTestBattle(attacker, defender);
 
-	const CGHeroInstance * heroes[2] = {attacker, defender};
-    const CArmedInstance * armedInstancies[2] = {attacker, defender};
-
-	int3 tile(4,4,0);
-
-	const auto t = gameCallback->getTile(tile);
-
-	ETerrainType terrain = t->terType;
-	BFieldType terType = BFieldType::GRASS_HILLS;
-
-	//send info about battles
-
-	BattleInfo * battle = BattleInfo::setupBattle(tile, terrain, terType, armedInstancies, heroes, false, nullptr);
-
-	BattleStart bs;
-	bs.info = battle;
-	ASSERT_EQ(gameState->curB, nullptr);
-	gameCallback->sendAndApply(&bs);
-	ASSERT_EQ(gameState->curB, battle);
 	{
 		BattleStackAdded bsa;
-		bsa.newStackID = battle->battleNextUnitId();
+		bsa.newStackID = gameState->curB->battleNextUnitId();
 		bsa.creID = CreatureID(69);
 		bsa.side = BattleSide::ATTACKER;
 		bsa.summoned = false;
-		bsa.pos = battle->getAvaliableHex(bsa.creID, bsa.side);
+		bsa.pos = gameState->curB->getAvaliableHex(bsa.creID, bsa.side);
 		bsa.amount = 1;
 		gameCallback->sendAndApply(&bsa);
 	}
@@ -193,7 +204,7 @@ TEST_F(CGameStateTest, issue2765)
 	const CStack * att = nullptr;
 	const CStack * def = nullptr;
 
-	for(const CStack * s : battle->stacks)
+	for(const CStack * s : gameState->curB->stacks)
 	{
 		if(s->type->idNumber == CreatureID::BALLISTA)
 			def = s;
@@ -210,11 +221,11 @@ TEST_F(CGameStateTest, issue2765)
 		const CSpell * age = SpellID(SpellID::AGE).toSpell();
 		ASSERT_NE(age, nullptr);
 		//here tested ballista, but this applied to all war machines
-		spells::BattleCast cast(battle, att, spells::Mode::AFTER_ATTACK, age);
+		spells::BattleCast cast(gameState->curB, att, spells::Mode::AFTER_ATTACK, age);
 		cast.aimToUnit(def);
 		cast.setSpellLevel(3);
 
-		EXPECT_FALSE(age->canBeCastAt(battle, spells::Mode::AFTER_ATTACK, att, def->getPosition()));
+		EXPECT_FALSE(age->canBeCastAt(gameState->curB, spells::Mode::AFTER_ATTACK, att, def->getPosition()));
 
 		EXPECT_TRUE(cast.castIfPossible(this));//should be possible, but with no effect (change to aimed cast check?)
 
@@ -223,4 +234,68 @@ TEST_F(CGameStateTest, issue2765)
 
 }
 
+TEST_F(CGameStateTest, battleResurrection)
+{
+	startTestGame();
 
+	CGHeroInstance * attacker = map->heroesOnMap[0];
+	CGHeroInstance * defender = map->heroesOnMap[1];
+
+	ASSERT_NE(attacker->tempOwner, defender->tempOwner);
+
+	attacker->setSecSkillLevel(SecondarySkill::EARTH_MAGIC, 3, true);
+	attacker->spells.insert(SpellID::RESURRECTION);
+	attacker->setPrimarySkill(PrimarySkill::SPELL_POWER, 100, true);
+	attacker->setPrimarySkill(PrimarySkill::KNOWLEDGE, 20, true);
+
+	startTestBattle(attacker, defender);
+
+	uint32_t unitId = gameState->curB->battleNextUnitId();
+
+	{
+		BattleStackAdded bsa;
+		bsa.newStackID = unitId;
+		bsa.creID = CreatureID(13);
+		bsa.side = BattleSide::ATTACKER;
+		bsa.summoned = false;
+		bsa.pos = gameState->curB->getAvaliableHex(bsa.creID, bsa.side);
+		bsa.amount = 10;
+		gameCallback->sendAndApply(&bsa);
+	}
+
+	{
+		BattleStackAdded bsa;
+		bsa.newStackID = gameState->curB->battleNextUnitId();
+		bsa.creID = CreatureID(13);
+		bsa.side = BattleSide::DEFENDER;
+		bsa.summoned = false;
+		bsa.pos = gameState->curB->getAvaliableHex(bsa.creID, bsa.side);
+		bsa.amount = 10;
+		gameCallback->sendAndApply(&bsa);
+	}
+
+	CStack * unit = gameState->curB->getStack(unitId);
+
+	ASSERT_NE(unit, nullptr);
+
+	int64_t damage = unit->unitMaxHealth() + 1;
+
+	unit->stackState.damage(damage);
+
+	EXPECT_EQ(unit->getCount(), 9);
+
+	{
+		const CSpell * spell = SpellID(SpellID::RESURRECTION).toSpell();
+		ASSERT_NE(spell, nullptr);
+
+		spells::BattleCast cast(gameState->curB, attacker, spells::Mode::HERO, spell);
+		cast.aimToUnit(unit);
+
+		EXPECT_TRUE(spell->canBeCastAt(gameState->curB, spells::Mode::HERO, attacker, unit->getPosition()));
+
+		cast.cast(this);
+	}
+
+	EXPECT_EQ(unit->stackState.health.getCount(), 10);
+	EXPECT_EQ(unit->stackState.health.getResurrected(), 0);
+}

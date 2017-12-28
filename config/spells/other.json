@@ -228,6 +228,13 @@
 						"healPower":"permanent"
 					}
 				}
+			},
+			"expert":{
+				"battleEffects":{
+					"heal":{
+						"healPower":"permanent"
+					}
+				}
 			}
 		},
 		"flags" : {

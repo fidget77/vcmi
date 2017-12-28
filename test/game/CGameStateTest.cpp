@@ -247,6 +247,21 @@ TEST_F(CGameStateTest, battleResurrection)
 	attacker->spells.insert(SpellID::RESURRECTION);
 	attacker->setPrimarySkill(PrimarySkill::SPELL_POWER, 100, true);
 	attacker->setPrimarySkill(PrimarySkill::KNOWLEDGE, 20, true);
+	attacker->mana = attacker->manaLimit();
+
+	{
+		CArtifactInstance * a = new CArtifactInstance();
+		a->artType = const_cast<CArtifact *>(ArtifactID(ArtifactID::SPELLBOOK).toArtifact());
+
+		NewArtifact na;
+		na.art = a;
+		gameCallback->sendAndApply(&na);
+
+		PutArtifact pack;
+		pack.al = ArtifactLocation(attacker, ArtifactPosition::SPELLBOOK);
+		pack.art = a;
+		gameCallback->sendAndApply(&pack);
+	}
 
 	startTestBattle(attacker, defender);
 
@@ -290,6 +305,8 @@ TEST_F(CGameStateTest, battleResurrection)
 
 		spells::BattleCast cast(gameState->curB, attacker, spells::Mode::HERO, spell);
 		cast.aimToUnit(unit);
+
+		EXPECT_TRUE(spell->canBeCast(gameState->curB, spells::Mode::HERO, attacker));
 
 		EXPECT_TRUE(spell->canBeCastAt(gameState->curB, spells::Mode::HERO, attacker, unit->getPosition()));
 
